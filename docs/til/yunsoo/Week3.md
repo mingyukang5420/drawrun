@@ -95,3 +95,32 @@
 - Prometheus / Loki / Grafana 스택 개념 추가 정리
 
 ---
+
+### 📘 0423 · Thu
+
+#### 오늘 한 일 (What I did)
+- EC2 UFW 방화벽 포트 설정 (22, 80, 443, 9090)
+- Docker + docker-compose로 Jenkins, Nginx, Certbot 컨테이너 구성
+- Jenkins 초기 설정 및 GitLab Webhook 연동 (develop push → 자동 빌드 트리거)
+- Certbot SSL 인증서 발급 및 Nginx HTTPS 적용 (http → https 리다이렉트)
+- 팀 전체 ERD 및 API 명세서 리뷰
+
+#### 배운 것 (What I learned)
+- Docker Compose로 여러 컨테이너(Jenkins, Nginx, Certbot)를 한 번에 올리고 관리하는 흐름
+- Certbot + Nginx 조합으로 SSL 인증서 발급 및 HTTPS 리다이렉트 적용하는 방법
+- 단일 테이블에 여러 상태(status/enum)를 몰아넣으면 특정 상태 조회 시 전체 row를 스캔하게 되어 성능 문제로 이어질 수 있다는 것
+
+#### 문제 & 해결 (Problem & Solution)
+- **문제:** 코스 테이블을 단일 테이블로 관리할 경우, editor 임시저장 / 검증 완료 / 기록 저장 / 공유 상태를 enum 하나로 관리하게 되어 특정 상태 조회 시 전체 row 풀스캔 발생 우려
+- **현재 상태:** 테이블 분리 vs 단일 테이블 + 인덱스 전략 사이에서 설계 방향 논의 중
+
+#### 인사이트 (Insight)
+- 상태(enum)가 많아질수록 테이블 설계는 "어떻게 조회할 것인가"를 먼저 생각해야 함 — 쓰기 편한 구조와 읽기 빠른 구조는 다를 수 있음
+- CI/CD 파이프라인 한 사이클을 직접 구축해보니 각 컴포넌트(GitLab, Webhook, Jenkins, Nginx)가 어떤 역할로 연결되는지 흐름이 잡힘
+
+#### 다음 할 것 (What's Next)
+- 코스 테이블 설계 방향 확정 (분리 여부 및 인덱스 전략)
+- Jenkins 파이프라인 스크립트 작성 및 실제 배포 테스트
+- ERD 최종 확정 후 API 명세 기반 개발 태스크 분배
+
+---
