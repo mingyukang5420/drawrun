@@ -125,3 +125,31 @@
 
 ---
 
+### 📘 0424 · Fri
+
+#### 오늘 한 일 (What I did)
+- 어제 EC2에서 직접 작업한 내용 GitLab `infra/` 폴더에 소급 커밋 (브랜치 2개)
+- docker-compose.yml 정리 — Certbot 제거, Jenkins 외부 포트(9090) 제거, prefix 환경변수 추가
+- Nginx default.conf에 `/jenkins` 리버스 프록시 라우팅 추가
+- UFW에서 9090 포트 닫기
+- `https://k14a103.p.ssafy.io/jenkins` 접속 확인 완료
+- GitLab backend Webhook URL HTTPS로 변경 (MR은 팀장 권한 필요)
+
+#### 배운 것 (What I learned)
+- Jenkins 외부 포트를 docker-compose에 열어두면 직접 접근이 가능해져 보안 문제가 생길 수 있음 — Nginx 통해서만 접근하도록 포트 닫는 게 맞음
+- `JENKINS_OPTS=--prefix=/jenkins` 환경변수를 줘야 Jenkins 자체가 `/jenkins` 경로를 인식함 (안 주면 리소스 경로 꼬임)
+- docker-compose를 여러 단위로 나눠서 관리할 수도 있다는 것 — 인프라 규모 커지면 분리 고려 필요
+
+#### 문제 & 해결 (Problem & Solution)
+- **문제:** 9090 포트가 외부에 열려 있어 Nginx 우회 직접 접근 가능한 상태였음
+- **해결:** docker-compose에서 포트 바인딩 제거 + UFW 9090 닫기로 Nginx 경유만 허용
+
+#### 인사이트 (Insight)
+- 인프라는 "돌아가면 됐다"가 아니라 "어디서 어떻게 접근 가능한가"까지 챙겨야 함
+- 개념 없이 설정 먼저 건드리면 나중에 더 꼬임 — Docker 강의 먼저 듣고 구조 잡는 게 맞겠다 싶었음
+
+#### 다음 할 것 (What's Next)
+- Docker 인프런 강의 수강
+- Nginx 리버스 프록시 규칙 우선순위 공부
+- 백엔드/프론트 코드 나오면 Jenkins 파이프라인 작업 시작
+
