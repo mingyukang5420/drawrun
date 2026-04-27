@@ -40,3 +40,6 @@ out/
 .env
 .env.*
 !.env.example
+
+### 김종민 개인 파일 ###
+/worklog
