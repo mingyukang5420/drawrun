@@ -9,6 +9,9 @@ secrets/
 **/*.key
 **/*.p12
 **/*.jks
+**/*.keystore
+**/*.keystore.lock
+local.properties
 
 # ------------------------------
 # OS / IDE
@@ -22,3 +25,27 @@ desktop.ini
 .vscode/
 *.suo
 *.user
+
+# ------------------------------
+# Dart / Flutter
+# ------------------------------
+# Build outputs
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Pub cache & lock (keep pubspec.lock for apps, ignore for packages)
+.pub-cache/
+.pub/
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.gr.dart
+
+# Coverage
+coverage/
+
+# Symbol maps (iOS)
+*.dSYM/
