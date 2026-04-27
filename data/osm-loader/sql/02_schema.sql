@@ -27,9 +27,15 @@ CREATE TABLE IF NOT EXISTS osm_ways (
     created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 공간 인덱스 (ST_DWithin 등 공간 쿼리 필수)
+-- 공간 인덱스 (geometry — 평면 좌표계 쿼리용)
 CREATE INDEX IF NOT EXISTS idx_osm_ways_geom
     ON osm_ways USING GIST(geom);
+
+-- 공간 인덱스 (geography — 미터 단위 ST_DWithin/ST_Distance용 함수 인덱스)
+-- ST_DWithin(geom::geography, point::geography, meters) 형태가 인덱스를 타려면
+-- 캐스팅된 식 자체에 GIST가 걸려있어야 함.
+CREATE INDEX IF NOT EXISTS idx_osm_ways_geom_geog
+    ON osm_ways USING GIST((geom::geography));
 
 -- 도로 종류별 필터링용
 CREATE INDEX IF NOT EXISTS idx_osm_ways_highway
@@ -52,3 +58,6 @@ CREATE TABLE IF NOT EXISTS osm_crossings (
 
 CREATE INDEX IF NOT EXISTS idx_osm_crossings_geom
     ON osm_crossings USING GIST(geom);
+
+CREATE INDEX IF NOT EXISTS idx_osm_crossings_geom_geog
+    ON osm_crossings USING GIST((geom::geography));
