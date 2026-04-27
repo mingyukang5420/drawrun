@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: webhookBridge
+
+server:
+  port: 9103
+
+notification:
+  user-mapping: ${USER_MAPPING_JSON}
+  label-mapping: ${LABEL_MAPPING_JSON}
+  mattermost:
+    gitlab-webhook-url: ${NOTIFICATION_WEBHOOK_URL_GITLAB}
+    gitlab-channel: ${NOTIFICATION_CHANNEL_GITLAB}
