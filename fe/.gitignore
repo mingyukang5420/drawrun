@@ -51,3 +51,6 @@ app.*.map.json
 linux/
 windows/
 macos/
+
+# ios
+ios/
