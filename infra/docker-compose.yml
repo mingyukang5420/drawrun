@@ -20,9 +20,9 @@ services:
       - ./certbot/www:/var/www/certbot
     restart: always
 
-  webhookBridge:
+  webhookbridge:
     build: ./webhookBridge
-    container_name: webhookBridge
+    container_name: webhookbridge
     restart: always
     env_file:
       - .env
@@ -38,4 +38,3 @@ services:
 
 volumes:
   jenkins_home:
-
