@@ -20,6 +20,22 @@ services:
       - ./certbot/www:/var/www/certbot
     restart: always
 
+  webhookBridge:
+    build: ./webhookBridge
+    container_name: webhookBridge
+    restart: always
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 64M
+    environment:
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+      - TZ=Asia/Seoul
+
 volumes:
   jenkins_home:
 
