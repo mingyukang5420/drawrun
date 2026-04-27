@@ -1,4 +1,14 @@
 spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/running
+    username: root
+    password: ssafy1234!
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ssafy1234!
   jpa:
     hibernate:
       ddl-auto: create
@@ -6,6 +16,7 @@ spring:
       hibernate:
         format_sql: true
         show_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 logging:
   level:
