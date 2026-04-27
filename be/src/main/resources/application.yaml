@@ -1,0 +1,27 @@
+spring:
+  profiles:
+    active: local
+  application:
+    name: app
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  threads:
+    virtual:
+      enabled: true
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+springdoc:
+  api-docs:
+    path: /v1/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+server:
+  forward-headers-strategy: framework
