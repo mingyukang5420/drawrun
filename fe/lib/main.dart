@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 
-import 'app/main_tab_screen.dart';
+import 'package:running/app/main_tab_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
