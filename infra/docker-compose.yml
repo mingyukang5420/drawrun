@@ -55,7 +55,7 @@ services:
     container_name: redis
     restart: always
     ports:
-      -"6379:6379"
+      - "6379:6379"
     command: redis-server --port 6379 --requirepass ${REDIS_PASSWORD} --appendonly yes
     environment:
       TZ: Asia/Seoul
