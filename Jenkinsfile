@@ -29,6 +29,40 @@ pipeline {
                 }
             }
         }
+        
+        // Jenkins Credentials에서 .env 파일 꺼내 infra/ 폴더에 복사
+        stage('Prepare Env') {
+            steps {
+                withCredentials([
+                    file(credentialsId: 'BACKEND_ENV', variable: 'ENV_FILE')
+                ]) {
+                    sh 'cp $ENV_FILE infra/.env'
+                }
+            }
+        }
+
+        // Gradle로 Spring Boot jar 파일 빌드 (테스트 스킵)
+        stage('Build') {
+            steps {
+                dir('be') {
+                    sh './gradlew bootJar -x test --no-daemon'
+                }
+            }
+        }
+
+        // 백엔드 이미지 새로 빌드 후 컨테이너 재시작
+        stage('Docker Deploy') {
+            steps {
+                dir('infra') {
+                    sh '''
+                        docker compose stop backend
+                        docker compose rm -f backend
+                        sleep 5
+                        docker compose up -d --build backend
+                    '''
+                }
+            }
+        }
     }
 
     post {

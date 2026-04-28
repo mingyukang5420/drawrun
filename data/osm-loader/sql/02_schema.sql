@@ -2,8 +2,7 @@
 -- osm_ways: 보행 가능 도로 세그먼트
 -- ============================================================
 CREATE TABLE IF NOT EXISTS osm_ways (
-    id          BIGSERIAL       PRIMARY KEY,
-    osm_id      BIGINT          NOT NULL UNIQUE,     -- OSM way ID (전역 고유)
+    osm_id      BIGINT          PRIMARY KEY,          -- OSM way ID (전역 고유)
     highway     VARCHAR(50)     NOT NULL,             -- 도로 분류
     name        VARCHAR(255),                         -- 도로명
     geom        GEOMETRY(LINESTRING, 4326) NOT NULL,  -- 좌표계: WGS84
@@ -47,8 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_osm_ways_highway
 -- 경로 생성·검증 시 도보 가능한 way 간 연결 판단에 사용
 -- ============================================================
 CREATE TABLE IF NOT EXISTS osm_crossings (
-    id          BIGSERIAL       PRIMARY KEY,
-    osm_id      BIGINT          NOT NULL UNIQUE,
+    osm_id      BIGINT          PRIMARY KEY,          -- OSM node ID (전역 고유)
     crossing    VARCHAR(30),    -- marked / unmarked / zebra / traffic_signals
     has_signals BOOLEAN         DEFAULT FALSE,
     geom        GEOMETRY(POINT, 4326) NOT NULL,
