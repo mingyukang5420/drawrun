@@ -15,7 +15,7 @@ public abstract class EditorRequest {
     @Getter
     @Builder
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
-    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @NoArgsConstructor(access = AccessLevel.PUBLIC)
     public static class WayRequest {
 
         // Lat: 위도, Lng: 경도
