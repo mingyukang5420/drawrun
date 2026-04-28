@@ -15,10 +15,8 @@ import org.locationtech.jts.geom.Point;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OsmCrossing {
-
+    
     @Id
-    private Long id;
-
     @Column(name = "osm_id", nullable = false, unique = true)
     private Long osmId;
 

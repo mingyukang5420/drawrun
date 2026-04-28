@@ -18,10 +18,8 @@ import org.locationtech.jts.geom.LineString;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OsmWay {
-
+    
     @Id
-    private Long id;
-
     @Column(name = "osm_id", nullable = false, unique = true)
     private Long osmId;
 

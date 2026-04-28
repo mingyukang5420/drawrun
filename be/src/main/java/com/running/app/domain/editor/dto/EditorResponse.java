@@ -1,6 +1,5 @@
 package com.running.app.domain.editor.dto;
 
-import java.util.ArrayList;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -16,8 +15,7 @@ public abstract class EditorResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     public static class WayResponse {
 
-        @Builder.Default
-        private List<WayInnerResponse> ways = new ArrayList<>();
+        private List<WayInnerResponse> ways;
     }
 
     @Getter
@@ -26,8 +24,6 @@ public abstract class EditorResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     public static class WayInnerResponse {
 
-        // 도로 Id
-        private Long id;
         // osm 도로 id
         private Long osmId;
         private String highway;
@@ -44,7 +40,6 @@ public abstract class EditorResponse {
 
         private String type;
         // 좌표 배열을 담을 리스트
-        @Builder.Default
-        private List<Double[]> coordinates = new ArrayList<>();
+        private List<Double[]> coordinates;
     }
 }
