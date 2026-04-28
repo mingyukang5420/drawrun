@@ -31,6 +31,7 @@ public class RunningRecord extends BaseRDBEntity {
     private Long courseId;
 
     //같은 트랙에 대한 기록이 N개가 될 수 있으므로 ManyToOne 사용
+    //trackId가 필요하면 record.getTrack().getId()로 접근
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "track_id", nullable = false)
     private Track track;
