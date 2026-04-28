@@ -17,11 +17,22 @@ public class MatterMostClient {
     @Value("${notification.mattermost.gitlab-webhook-url}")
     private String mrWebhookUrl;
 
+    @Value("${notification.mattermost.jenkins-webhook-url}")
+    private String jenkinsWebhookUrl;
+
     public void mrSendMessage(MatterMostResponse payload) {
         try {
             restTemplate.postForEntity(mrWebhookUrl, payload, String.class);
         } catch (Exception e) {
             log.error("[Mattermost] MR 메시지 전송 실패 : " + e.getMessage());
+        }
+    }
+
+    public void jenkinsSendMessage(MatterMostResponse payload) {
+        try {
+            restTemplate.postForEntity(jenkinsWebhookUrl, payload, String.class);
+        } catch (Exception e) {
+            log.error("[Mattermost] Jenkins 메시지 전송 실패 : " + e.getMessage());
         }
     }
 }

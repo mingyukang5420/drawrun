@@ -2,8 +2,11 @@ package com.a103.webhookBridge.service;
 
 import com.a103.webhookBridge.client.MatterMostClient;
 import com.a103.webhookBridge.converter.GitlabConverter;
+import com.a103.webhookBridge.converter.JenkinsConverter;
 import com.a103.webhookBridge.dto.request.GitlabRequest;
+import com.a103.webhookBridge.dto.request.JenkinsRequest;
 import com.a103.webhookBridge.dto.response.MatterMostResponse;
+import com.a103.webhookBridge.dto.response.MatterMostResponse.Attachment;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,8 +24,12 @@ public class WebhookService {
     // 알림을 보낼 MM 채널 이름 ( gitlab용 )
     @Value("${notification.mattermost.gitlab-channel}")
     private String gitlabChannel;
+    // Jenkins
+    @Value("${notification.mattermost.jenkins-channel}")
+    private String jenkinsChannel;
 
     private final GitlabConverter gitlabConverter;
+    private final JenkinsConverter jenkinsConverter;
     private final MatterMostClient mattermostClient;
 
     /**
@@ -59,6 +66,28 @@ public class WebhookService {
         MatterMostResponse payload = new MatterMostResponse("", gitlabChannel,
                 List.of(attachment));
         mattermostClient.mrSendMessage(payload);
+    }
+
+    public void processJenkins(JenkinsRequest request) {
+        String markdown = jenkinsConverter.convert(request);
+
+        if (markdown == null) {
+            log.warn("[Bridge Server - Jenkins Service] BuildNum : {} ", request.buildNumber());
+            return;
+        }
+
+        String color = switch (request.status()) {
+            case "STARTED" -> "#acadad";
+            case "SUCCESS" -> "#00ff00";
+            case "UNSTABLE" -> "#ffff00";
+            case "FAILURE" -> "#ff0000";
+            default -> "#000000";
+        };
+
+        MatterMostResponse.Attachment attachment = new Attachment(color, markdown);
+        MatterMostResponse payload = new MatterMostResponse("", jenkinsChannel,
+                List.of(attachment));
+        mattermostClient.jenkinsSendMessage(payload);
     }
 }
 
