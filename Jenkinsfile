@@ -55,6 +55,9 @@ pipeline {
             steps {
                 dir('infra') {
                     sh '''
+                        docker compose stop backend
+                        docker compose rm -f backend
+                        sleep 5
                         docker compose up -d --build backend
                     '''
                 }
