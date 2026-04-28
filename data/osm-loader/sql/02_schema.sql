@@ -2,7 +2,7 @@
 -- osm_ways: 보행 가능 도로 세그먼트
 -- ============================================================
 CREATE TABLE IF NOT EXISTS osm_ways (
-    id          BIGSERIAL       PRIMARY KEY,
+    id          BIGINT       PRIMARY KEY,
     osm_id      BIGINT          NOT NULL UNIQUE,     -- OSM way ID (전역 고유)
     highway     VARCHAR(50)     NOT NULL,             -- 도로 분류
     name        VARCHAR(255),                         -- 도로명
