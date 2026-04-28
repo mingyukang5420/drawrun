@@ -50,13 +50,12 @@ pipeline {
             }
         }
 
-        // 기존 컨테이너 내리고 새 이미지로 재배포
+        // 백엔드 이미지 새로 빌드 후 컨테이너 재시작
         stage('Docker Deploy') {
             steps {
                 dir('infra') {
                     sh '''
-                        docker compose down || true
-                        docker compose up -d --build
+                        docker compose up -d --build backend
                     '''
                 }
             }
