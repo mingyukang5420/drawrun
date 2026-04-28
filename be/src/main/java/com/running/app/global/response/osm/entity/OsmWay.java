@@ -1,4 +1,4 @@
-package com.running.app.domain.entity;
+package com.running.app.global.response.osm.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

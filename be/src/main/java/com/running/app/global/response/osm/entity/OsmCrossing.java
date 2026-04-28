@@ -1,4 +1,4 @@
-package com.running.app.domain.entity;
+package com.running.app.global.response.osm.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -33,5 +33,5 @@ public class OsmCrossing {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-    
+
 }
