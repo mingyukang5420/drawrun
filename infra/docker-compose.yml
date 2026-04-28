@@ -36,5 +36,47 @@ services:
       - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
       - TZ=Asia/Seoul
 
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      TZ: Asia/Seoul
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: always
+    ports:
+      -"6379:6379"
+    command: redis-server --port 6379 --requirepass ${REDIS_PASSWORD} --appendonly yes
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: ../be
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Seoul
+    depends_on:
+      - postgres
+      - redis
+
 volumes:
   jenkins_home:
+  postgres_data:
+  redis_data:
