@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../features/course/screen/course_screen.dart';
-import '../features/running/screen/running_screen.dart';
-import '../features/record/screen/record_screen.dart';
+import 'package:running/features/course/screen/course_screen.dart';
+import 'package:running/features/running/screen/running_screen.dart';
+import 'package:running/features/record/screen/record_screen.dart';
 
 class MainTabScreen extends StatefulWidget {
   const MainTabScreen({super.key});

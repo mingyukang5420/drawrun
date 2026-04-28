@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../controller/course_controller.dart';
-import '../widgets/course_map_view.dart';
+import 'package:running/features/course/controller/course_controller.dart';
+import 'package:running/features/course/widgets/course_map_view.dart';
 
 class CourseEditorScreen extends StatelessWidget {
   const CourseEditorScreen({super.key});
