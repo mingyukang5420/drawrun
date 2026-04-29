@@ -50,7 +50,7 @@ public class TrackService {
                 .map(node -> new Coordinate(node.getLng(), node.getLat()))
                 .toArray(Coordinate[]::new);
 
-        LineString lineString = geometryFactory.createLineString();
+        LineString lineString = geometryFactory.createLineString(coordinates);
 
         //LineString -> MultiLineString
         return geometryFactory.createMultiLineString(new LineString[]{lineString});
