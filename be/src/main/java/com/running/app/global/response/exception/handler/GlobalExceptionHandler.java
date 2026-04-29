@@ -8,6 +8,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -59,6 +60,21 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.onFailure(
                         ErrorStatus.BAD_REQUEST,
                         errorMessages
+                ));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMissingServletRequestParameterException(
+            MissingServletRequestParameterException ex
+    ) {
+        String errorMessage = ex.getParameterName() + ": 필수 파라미터가 누락되었습니다.";
+        log.error("Missing parameter: {}", errorMessage, ex);
+
+        return ResponseEntity
+                .status(ErrorStatus.BAD_REQUEST.getHttpStatus())
+                .body(ApiResponse.onFailure(
+                        ErrorStatus.BAD_REQUEST,
+                        List.of(errorMessage)
                 ));
     }
 
