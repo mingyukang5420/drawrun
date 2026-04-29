@@ -6,6 +6,7 @@ import com.running.app.global.response.status.ErrorStatus;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -75,6 +76,21 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.onFailure(
                         ErrorStatus.BAD_REQUEST,
                         List.of(errorMessage)
+                ));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolationException(
+            DataIntegrityViolationException ex
+    ) {
+
+        log.error("Missing parameter: {}", ex.getMessage());
+
+        return ResponseEntity
+                .status(ErrorStatus.SIGNUP_CONFLICT.getHttpStatus())
+                .body(ApiResponse.onFailure(
+                        ErrorStatus.SIGNUP_CONFLICT,
+                        null
                 ));
     }
 

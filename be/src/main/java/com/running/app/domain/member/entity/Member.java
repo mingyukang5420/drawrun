@@ -27,7 +27,6 @@ public class Member extends BaseRDBEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(columnDefinition = "INT GENERATED ALWAYS AS IDENTITY") // ALWAYS -> PK 수동 주입을 엄격하게 막음
     private Integer memberId;
 
     @Column(nullable = false, length = 20, unique = true)
