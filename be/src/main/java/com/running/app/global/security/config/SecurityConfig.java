@@ -1,4 +1,4 @@
-package com.running.app.global.response.security;
+package com.running.app.global.security.config;
 
 import java.util.List;
 import org.springframework.context.annotation.Bean;
