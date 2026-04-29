@@ -1,13 +1,12 @@
 """CSV → DB 적재.
 
-Google Drive에서 osm_ways.csv, osm_crossings.csv를 다운로드하여
-DB에 적재한다.
-
+data/ 폴더의 로컬 CSV를 우선 사용하고, 없으면 Google Drive에서 다운로드한다.
 팀원 초기 세팅, 서버 배포, Docker volume 초기화 시 모두 이 스크립트를 실행한다.
-API 호출 없이 CSV에서 바로 적재하므로 빠르게 완료된다.
 
-Google Drive 공유 링크 설정:
-    .env에 아래 두 항목을 추가한다.
+로컬 CSV 사용 (fetch.py 실행 후):
+    python -m loader.load
+
+Google Drive 사용 (.env 설정 필요):
     GDRIVE_WAYS_URL=https://drive.google.com/uc?id={file_id}
     GDRIVE_CROSSINGS_URL=https://drive.google.com/uc?id={file_id}
 
@@ -44,6 +43,15 @@ def _load_gdrive_urls() -> tuple[str, str]:
     if not ways_url or not crossings_url:
         raise KeyError(".env에 GDRIVE_WAYS_URL, GDRIVE_CROSSINGS_URL을 설정해주세요.")
     return ways_url, crossings_url
+
+
+def _read_local_csv(path: str, label: str) -> list[dict]:
+    """로컬 CSV 파일 읽기."""
+    logger.info("[%s] 로컬 파일 사용: %s", label, path)
+    with open(path, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    logger.info("[%s] 읽기 완료: %d rows", label, len(rows))
+    return rows
 
 
 def _download_csv(url: str, label: str) -> list[dict]:
@@ -110,11 +118,17 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    ways_url, crossings_url = _load_gdrive_urls()
+    # 로컬 CSV 우선, 없으면 Google Drive
+    ways_local = os.path.join(DATA_DIR, "osm_ways.csv")
+    crossings_local = os.path.join(DATA_DIR, "osm_crossings.csv")
 
-    # CSV 다운로드
-    ways_rows = _download_csv(ways_url, "osm_ways")
-    crossings_rows = _download_csv(crossings_url, "osm_crossings")
+    if os.path.exists(ways_local) and os.path.exists(crossings_local):
+        ways_rows = _read_local_csv(ways_local, "osm_ways")
+        crossings_rows = _read_local_csv(crossings_local, "osm_crossings")
+    else:
+        ways_url, crossings_url = _load_gdrive_urls()
+        ways_rows = _download_csv(ways_url, "osm_ways")
+        crossings_rows = _download_csv(crossings_url, "osm_crossings")
 
     # 형식 변환
     ways = _parse_ways(ways_rows)
