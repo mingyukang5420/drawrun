@@ -2,10 +2,14 @@ services:
   jenkins:
     image: jenkins/jenkins:lts
     container_name: jenkins
+    user: root
     environment:
       - JENKINS_OPTS=--prefix=/jenkins
     volumes:
       - /home/ubuntu/jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins
     restart: always
 
   nginx:

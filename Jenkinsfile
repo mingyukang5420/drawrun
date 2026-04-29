@@ -36,7 +36,12 @@ pipeline {
                 withCredentials([
                     file(credentialsId: 'BACKEND_ENV', variable: 'ENV_FILE')
                 ]) {
-                    sh 'cp $ENV_FILE infra/.env'
+                    sh '''
+                        mkdir -p infra
+                        rm -f infra/.env
+                        cat "$ENV_FILE" > infra/.env
+                        chmod 644 infra/.env
+                    '''
                 }
             }
         }
