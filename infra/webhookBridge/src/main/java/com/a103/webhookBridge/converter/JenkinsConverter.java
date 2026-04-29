@@ -122,7 +122,9 @@ public class JenkinsConverter {
             return String.format("- **커밋**: `%s`\n", commitShort);
         }
 
-        String authorTag = userMap.getOrDefault(mr.username(), mr.username());
+        String displayName = resolveDisplayName(mr);
+        String authorTag = userMap.getOrDefault(displayName, displayName);
+
         return String.format(
                 "- **MR**: [!%s %s](%s)\n" +
                         "- **작성자**: @%s\n" +
@@ -166,10 +168,16 @@ public class JenkinsConverter {
     // 멘션 대상자를 MM @userID 형태로 매핑
     private String resolveMrAuthorMention(JenkinsRequest request) {
         var mr = request.mr();
-        if (mr == null || mr.username() == null || mr.username().isBlank()) {
+        if (mr == null) {
             return "";
         }
-        String mentionId = userMap.getOrDefault(mr.username(), mr.username());
+
+        String displayName = resolveDisplayName(mr);
+        if ("Unknown".equals(displayName)) {
+            return "";
+        }
+
+        String mentionId = userMap.getOrDefault(displayName, displayName);
         return "@" + mentionId;
     }
 
@@ -179,6 +187,17 @@ public class JenkinsConverter {
             return baseUrl.replace(internalUrl, publicUrl);
         }
         return baseUrl;
+    }
+
+    // GitlabConverter.getConvertedTag와 동일한 로직
+    private String resolveDisplayName(JenkinsRequest.MergeRequestInfo mr) {
+        if (mr.username() != null && !mr.username().isBlank()) {
+            return mr.username();
+        }
+        if (mr.author() != null && !mr.author().isBlank()) {
+            return mr.author();
+        }
+        return "Unknown";
     }
 
     private int nullToZero(Integer value) {
