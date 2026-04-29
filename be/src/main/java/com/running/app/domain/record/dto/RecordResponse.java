@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 public class RecordResponse {
 
     @Getter
@@ -25,5 +27,32 @@ public class RecordResponse {
         private Integer cadence;
         private Boolean isCompleted;
         private Boolean isSafe;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ListDTO {
+
+        private Long recordId;
+        private String title;
+        private String date;
+        private String track_image_url;
+        private Double distance;
+        private String avgPace;
+        private String runningTime;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ListResultDTO {
+
+        private List<ListDTO> content;
+        private Integer page;
+        private Integer size;
+        private Boolean hasNext;
     }
 }
