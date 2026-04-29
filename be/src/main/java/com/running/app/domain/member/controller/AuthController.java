@@ -12,8 +12,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Auth", description = "인증 관련")
 @RestController
 @Slf4j
+@Validated
 @RequiredArgsConstructor
 @RequestMapping("/v1/auth")
 public class AuthController {
@@ -67,7 +71,7 @@ public class AuthController {
     @GetMapping("/check/nickname")
     public ApiResponse<CheckDuplicationResponse> checkNickname(
             @Parameter(description = "중복 확인할 닉네임", example = "러닝왕")
-            @RequestParam String nickname) {
+            @RequestParam @NotBlank String nickname) {
         return ApiResponse.onSuccess(authService.checkNickname(nickname));
     }
 
@@ -81,7 +85,7 @@ public class AuthController {
     @GetMapping("/check/loginId")
     public ApiResponse<CheckDuplicationResponse> checkLoginId(
             @Parameter(description = "중복 확인할 아이디", example = "jongmin123")
-            @RequestParam String loginId) {
+            @RequestParam @NotBlank String loginId) {
         return ApiResponse.onSuccess(authService.checkLoginId(loginId));
     }
 
@@ -95,7 +99,7 @@ public class AuthController {
     @GetMapping("/check/email")
     public ApiResponse<CheckDuplicationResponse> checkEmail(
             @Parameter(description = "중복 확인할 이메일", example = "jongmin@example.com")
-            @RequestParam String email) {
+            @RequestParam @NotBlank @Email String email) {
         return ApiResponse.onSuccess(authService.checkEmail(email));
     }
 }
