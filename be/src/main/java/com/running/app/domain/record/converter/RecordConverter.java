@@ -20,8 +20,8 @@ public class RecordConverter {
                 .avgPace(request.getAvgPace())
                 .calories(request.getCalories())
                 .cadence(request.getCadence())
-                .isCompleted(true) // 완주판정 임시 true 처리
-                .isSafe(true) // 검증 임시 true 처리
+                .isCompleted(DeterminIsCompleted(request)) // 완주판정 임시 true 처리
+                .isSafe(DeterminIsSafe(track)) // 검증 임시 true 처리
                 .title(request.getTitle())
                 .startedAt(request.getStartedAt())
                 .endedAt(request.getEndedAt())
@@ -47,6 +47,16 @@ public class RecordConverter {
                 .isCompleted(runningRecord.getIsCompleted())
                 .isSafe(runningRecord.getIsSafe())
                 .build();
+    }
+
+    // 완주 여부 판단 로직 구현
+    private static Boolean DeterminIsCompleted(RecordRequest.CreateDTO request) {
+        return true;
+    }
+
+    // 안전 여부 판단 로직 구현
+    private static Boolean DeterminIsSafe(Track track) {
+        return true;
     }
 
 }
