@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -117,6 +118,13 @@ public class RecordController {
         return ApiResponse.onSuccess(response);
     }
 
+    @Operation(
+            summary = "러닝 기록 상세 조회",
+            description = """
+                    로그인 사용자의 특정 러닝 기록 상세정보 조회
+                    데이터 및 경로 좌표 nodes 배열로 변환해서 반환
+                    """
+    )
     @GetMapping("/record/{recordId}")
     public ApiResponse<RecordResponse.DetailDTO> getRecordDetail(
             @PathVariable(name = "recordId") Long recordId
@@ -129,5 +137,27 @@ public class RecordController {
         );
 
         return ApiResponse.onSuccess(response);
+    }
+
+    @Operation(
+            summary = "러닝 기록 제목 수정",
+            description = """
+                    로그인 사용자의 러닝 기록 제목 수정.
+                    """
+    )
+    @PatchMapping("/record/{recordId}")
+    public ApiResponse<Void> changeRecordTitle(
+            @PathVariable(name = "recordId") Long recordId,
+            @Valid @RequestBody RecordRequest.ChangeTitleDTO request
+    ) {
+        Long memberId = 1L;
+
+        recordService.changeRecordTitle(
+                memberId,
+                recordId,
+                request
+        );
+
+        return ApiResponse.OK;
     }
 }

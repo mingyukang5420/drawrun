@@ -83,5 +83,21 @@ public class RecordService {
         return RecordConverter.toDetailDTO(runningRecord);
     }
 
+    //runningRecord가 영속 상태이기에 값이 바뀌면 트랜잭션이 끝날 때 JPA가 자동으로 감지해서 업데이트
+    //save() 할 필요 없음 -> dirty checking
+    @Transactional
+    public void changeRecordTitle(
+            Long memberId,
+            Long recordId,
+            RecordRequest.ChangeTitleDTO request
+    ) {
+        RunningRecord runningRecord = runningRecordRepository.findByIdAndMemberId(
+                recordId,
+                memberId
+        ).orElseThrow(() -> new GeneralException(ErrorStatus.RECORD_NOT_FOUND));
+
+        runningRecord.changeTitle(request.getTitle());
+    }
+
 }
 
