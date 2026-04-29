@@ -1,6 +1,6 @@
 package com.running.app.domain.editor.controller;
 
-import com.running.app.domain.editor.converter.EditorConvertor;
+import com.running.app.domain.editor.converter.EditorConverter;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
 import com.running.app.global.response.ApiResponse;
 import com.running.app.global.response.osm.entity.OsmWay;
@@ -8,7 +8,6 @@ import com.running.app.global.response.osm.service.OsmService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,25 +32,25 @@ public class EditorController {
     )
     public ApiResponse<WayResponse> workableWay(
             @Parameter(description = "바운딩박스 최소 위도 (남쪽 경계). 예: 37.5449", required = true, example = "37.5449")
-            @RequestParam @NotNull Double minLat,
+            @RequestParam Double minLat,
 
             @Parameter(description = "바운딩박스 최소 경도 (서쪽 경계). 예: 126.9168", required = true, example = "126.9168")
-            @RequestParam @NotNull Double minLng,
+            @RequestParam Double minLng,
 
             @Parameter(description = "바운딩박스 최대 위도 (북쪽 경계). 예: 37.5631", required = true, example = "37.5631")
-            @RequestParam @NotNull Double maxLat,
+            @RequestParam Double maxLat,
 
             @Parameter(description = "바운딩박스 최대 경도 (동쪽 경계). 예: 126.9252", required = true, example = "126.9252")
-            @RequestParam @NotNull Double maxLng,
+            @RequestParam Double maxLng,
 
             @Parameter(description = "현재 지도 줌 레벨. 16 미만이면 빈 배열 반환. 네이버 지도 기준 16~21 권장", required = true, example = "16")
-            @RequestParam @NotNull Integer zoom
+            @RequestParam Integer zoom
     ) {
 
         List<OsmWay> walkableWays = osmService.getWalkableWays(minLat, minLng, maxLat, maxLng,
                 zoom);
-        
-        WayResponse wayResponse = EditorConvertor.toWayResponse(walkableWays);
+
+        WayResponse wayResponse = EditorConverter.toWayResponse(walkableWays);
 
         return ApiResponse.onSuccess(wayResponse);
     }

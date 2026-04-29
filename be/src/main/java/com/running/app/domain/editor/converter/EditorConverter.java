@@ -9,7 +9,7 @@ import java.util.List;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 
-public abstract class EditorConvertor {
+public abstract class EditorConverter {
 
     // 서비스 로직의 반환값으로 나온 osmWayList -> WayResponse 응답 규격에 맞추어 변환
     public static WayResponse toWayResponse(List<OsmWay> osmWayList) {
