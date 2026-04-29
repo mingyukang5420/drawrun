@@ -1,6 +1,7 @@
 package com.a103.webhookBridge.controller;
 
 import com.a103.webhookBridge.dto.request.GitlabRequest;
+import com.a103.webhookBridge.dto.request.JenkinsRequest;
 import com.a103.webhookBridge.dto.response.ApiResponse;
 import com.a103.webhookBridge.service.WebhookService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,14 @@ public class WebhookController {
             @RequestBody GitlabRequest request
     ) {
         webhookService.processGitlab(request);
+        return ApiResponse.OK;
+    }
+
+    @PostMapping("/jenkins")
+    public ApiResponse<Void> handleJenkins(
+            @RequestBody JenkinsRequest request
+    ) {
+        webhookService.processJenkins(request);
         return ApiResponse.OK;
     }
 }
