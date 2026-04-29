@@ -13,7 +13,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 ELEVATION_API = "https://api.open-elevation.com/api/v1/lookup"
-BATCH_SIZE = 500  # POST API 제한 없음, 실용적 상한값으로 설정
+BATCH_SIZE = 100  # 요청당 최대 포인트 수
 
 
 def _haversine(a: dict, b: dict) -> float:
