@@ -87,6 +87,12 @@ pipeline {
 
 // 중계서버 알림 전송 로직
 def notifyRelay(String status) {
+    sh '''
+            echo "===== GitLab env vars ====="
+            env | grep -i gitlab | sort
+            echo "==========================="
+        '''
+
     def endTime = (status == 'STARTED') ? null : sh(
             script: 'date "+%Y-%m-%d %H:%M:%S"',
             returnStdout: true
