@@ -5,6 +5,7 @@
 - highway=crossing 노드
 를 함께 가져온다.
 """
+
 import logging
 import time
 
@@ -16,9 +17,9 @@ OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter"
 
 USER_AGENT = "osm-loader/1.0 (running-app data ingestion)"
 
-QUERY = """
+QUERY_TEMPLATE = """
 [out:json][timeout:300];
-area["name"="마포구"]["boundary"="administrative"]->.searchArea;
+area["name"="{district}"]["boundary"="administrative"]->.searchArea;
 (
   way["highway"~"^(footway|pedestrian|path|steps|residential|living_street|unclassified|service|primary|secondary|tertiary|primary_link|secondary_link|tertiary_link|cycleway|track)$"]
      ["foot"!="no"]
@@ -31,10 +32,11 @@ out tags geom;
 """
 
 
-def fetch_overpass(timeout: int = 300, max_retries: int = 3) -> dict:
-    """Overpass API에 QUERY를 POST. 실패 시 지수 백오프로 재시도.
+def fetch_overpass(district: str, timeout: int = 300, max_retries: int = 3) -> dict:
+    """Overpass API에 쿼리를 POST. 실패 시 지수 백오프로 재시도.
 
     파라미터
+        district: 행정구역명 (예: "마포구", "강남구")
         timeout: 단일 요청 타임아웃(초). 마포구 규모는 보통 30~60초.
         max_retries: 총 시도 횟수. 마지막 시도까지 실패하면 RuntimeError raise.
 
@@ -43,13 +45,14 @@ def fetch_overpass(timeout: int = 300, max_retries: int = 3) -> dict:
     재시도 정책: 첫 시도 실패 → 1초 대기 → 두 번째 시도 → 2초 대기 → 세 번째 시도.
     마지막 시도 실패 시 sleep 없이 즉시 raise.
     """
+    query = QUERY_TEMPLATE.format(district=district)
     last_exc: Exception | None = None
     for attempt in range(1, max_retries + 1):
         try:
             logger.info("Overpass 요청 시도 %d/%d", attempt, max_retries)
             response = requests.post(
                 OVERPASS_ENDPOINT,
-                data={"data": QUERY},
+                data={"data": query},
                 headers={"User-Agent": USER_AGENT},
                 timeout=timeout,
             )
@@ -67,9 +70,7 @@ def fetch_overpass(timeout: int = 300, max_retries: int = 3) -> dict:
                 wait = 2 ** (attempt - 1)
                 logger.info("재시도 대기 %d초", wait)
                 time.sleep(wait)
-    raise RuntimeError(
-        f"Overpass 요청 {max_retries}회 모두 실패"
-    ) from last_exc
+    raise RuntimeError(f"Overpass 요청 {max_retries}회 모두 실패") from last_exc
 
 
 if __name__ == "__main__":
@@ -77,7 +78,7 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
-    data = fetch_overpass()
+    data = fetch_overpass("마포구")
     elements = data.get("elements", [])
     ways = [e for e in elements if e.get("type") == "way"]
     nodes = [e for e in elements if e.get("type") == "node"]
