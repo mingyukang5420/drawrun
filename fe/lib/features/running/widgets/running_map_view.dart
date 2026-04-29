@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:provider/provider.dart';
 
 import 'package:running/features/running/controller/running_controller.dart';
-import 'package:running/shared/location/location_service.dart';
 import 'package:running/shared/map/widgets/map_view.dart';
 
 // 러닝 도메인에서 사용하는 지도 위젯.
-// 지도 렌더링은 shared 의 MapView 에 위임하고,
-// 러닝 관련 이벤트 처리만 이 파일에서 담당한다.
+// 위치 핀 표시 및 카메라 이동은 MapView 에 위임하고,
+// 러닝 컨트롤러 등록과 경로 기록만 이 파일에서 담당한다.
 class RunningMapView extends StatelessWidget {
   const RunningMapView({super.key});
 
@@ -19,22 +17,12 @@ class RunningMapView extends StatelessWidget {
     final controller = context.read<RunningController>();
 
     return MapView(
-      onMapReady: (mapController) async {
+      // 현재 위치 핀 표시 및 카메라 이동을 MapView 에 요청한다
+      showCurrentLocation: true,
+      onMapReady: (mapController) {
         // 지도가 준비되면 controller 에 mapController 를 등록한다.
         // 이후 controller 가 지도에 경로를 그리거나 지울 수 있다.
         controller.setMapController(mapController);
-
-        // 현재 위치를 가져와 카메라를 이동한다.
-        // 위치를 가져올 수 없으면 MapView 의 기본 위치(서울 시청)를 그대로 사용한다.
-        final position = await LocationService.getCurrentPosition();
-        if (position != null) {
-          await mapController.updateCamera(
-            NCameraUpdate.scrollAndZoomTo(
-              target: NLatLng(position.latitude, position.longitude),
-              zoom: 15,
-            ),
-          );
-        }
       },
       // 러닝 중일 때만 addPoint 내부에서 좌표를 기록한다 (GPS 연동 전 탭으로 시뮬레이션)
       onMapTapped: (point, latLng) {
