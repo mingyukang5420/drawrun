@@ -116,4 +116,18 @@ public class RecordController {
 
         return ApiResponse.onSuccess(response);
     }
+
+    @GetMapping("/record/{recordId}")
+    public ApiResponse<RecordResponse.DetailDTO> getRecordDetail(
+            @PathVariable(name = "recordId") Long recordId
+    ) {
+        // 임시 아이디 1
+        Long memberId = 1L;
+
+        RecordResponse.DetailDTO response = recordService.getRecordDetail(
+                memberId, recordId
+        );
+
+        return ApiResponse.onSuccess(response);
+    }
 }
