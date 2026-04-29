@@ -38,7 +38,7 @@ public class RecordResponse {
         private Long recordId;
         private String title;
         private String date;
-        private String track_image_url;
+        private String trackImageUrl;
         private Double distance;
         private String avgPace;
         private String runningTime;
@@ -51,8 +51,8 @@ public class RecordResponse {
     public static class ListResultDTO {
 
         private List<ListDTO> content;
-        private Integer page;
-        private Integer size;
-        private Boolean hasNext;
+        private Integer page; //현재 페이지
+        private Integer size; //기본값 10으로 둘 예정
+        private Boolean hasNext; //Slice 조회용
     }
 }
