@@ -21,7 +21,6 @@ import psycopg2
 from loader.config import load_db_config
 from loader.elevation_client import (
     BATCH_SIZE,
-    ELEVATION_API,
     calc_elevation_stats,
     fetch_elevation_batch,
 )
