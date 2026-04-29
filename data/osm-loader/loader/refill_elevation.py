@@ -1,81 +1,36 @@
 """고도값 0.0 노드 재적재 스크립트.
 
 504 타임아웃으로 0.0 대체된 노드만 Open Elevation API 재요청 후 UPDATE.
+한강변 등 실제 0m 지점은 재요청해도 0.0이 유지되며 UPDATE 스킵된다.
 
 흐름:
     1. osm_ways에서 elev=0.0 노드를 가진 way 조회
-    2. 해당 노드 좌표만 추출 (중복 제거)
+    2. 0.0 노드 좌표만 추출 (중복 제거)
     3. Open Elevation API 재요청
-    4. elevation_nodes UPDATE + elevation_gain, avg_uphill_grade 재계산
+    4. 값이 바뀐 way만 elevation_nodes UPDATE + 파생 지표 재계산
 
 실행: python -m loader.refill_elevation
 """
 
 import json
 import logging
-import math
 import time
 
 import psycopg2
-import requests
 
 from loader.config import load_db_config
+from loader.elevation_client import (
+    BATCH_SIZE,
+    ELEVATION_API,
+    calc_elevation_stats,
+    fetch_elevation_batch,
+)
 
 logger = logging.getLogger(__name__)
 
-ELEVATION_API = "https://api.open-elevation.com/api/v1/lookup"
-BATCH_SIZE = 100
 
-
-# ── 유틸 ──────────────────────────────────────────────
-
-
-def _haversine(a: dict, b: dict) -> float:
-    R = 6_371_000
-    lat1, lng1 = math.radians(a["lat"]), math.radians(a["lng"])
-    lat2, lng2 = math.radians(b["lat"]), math.radians(b["lng"])
-    dlat, dlng = lat2 - lat1, lng2 - lng1
-    x = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
-    )
-    return R * 2 * math.asin(math.sqrt(x))
-
-
-def _fetch_elevation_batch(coords: list[dict]) -> list[float]:
-    locations = [{"latitude": c["lat"], "longitude": c["lng"]} for c in coords]
-    try:
-        resp = requests.post(
-            ELEVATION_API,
-            json={"locations": locations},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        return [r.get("elevation", 0.0) for r in resp.json().get("results", [])]
-    except Exception as exc:
-        logger.warning("고도 API 실패: %s → 0.0 유지", exc)
-        return [0.0] * len(coords)
-
-
-def _calc_elevation_stats(nodes: list[dict]) -> tuple[float, float]:
-    """elevation_gain, avg_uphill_grade 계산."""
-    gain = 0.0
-    uphill_grades = []
-    for i in range(len(nodes) - 1):
-        a, b = nodes[i], nodes[i + 1]
-        dist = _haversine(a, b)
-        if dist < 1:
-            continue
-        diff = b["elev"] - a["elev"]
-        grade = (diff / dist) * 100
-        if diff > 0:
-            gain += diff
-            uphill_grades.append(grade)
-    avg_grade = sum(uphill_grades) / len(uphill_grades) if uphill_grades else 0.0
-    return round(gain, 2), round(avg_grade, 4)
-
-
-# ── Step 1: 0.0 노드를 가진 way 조회 ──────────────────
+def get_connection(cfg: dict):
+    return psycopg2.connect(**cfg)
 
 
 def fetch_zero_ways(conn) -> list[dict]:
@@ -93,45 +48,35 @@ def fetch_zero_ways(conn) -> list[dict]:
         """)
         rows = cur.fetchall()
 
-    result = []
-    for osm_id, nodes in rows:
-        if isinstance(nodes, str):
-            nodes = json.loads(nodes)
-        result.append({"osm_id": osm_id, "nodes": nodes})
-
+    result = [
+        {
+            "osm_id": osm_id,
+            "nodes": nodes if isinstance(nodes, list) else json.loads(nodes),
+        }
+        for osm_id, nodes in rows
+    ]
     logger.info("0.0 노드 포함 way 수: %d", len(result))
     return result
 
 
-# ── Step 2: 0.0 노드 좌표 수집 (중복 제거) ────────────
-
-
-def collect_zero_coords(ways: list[dict]) -> dict[tuple, None]:
-    """0.0인 노드 좌표 집합 반환. key=(lat, lng)"""
-    coords = {}
+def refetch_elevations(ways: list[dict]) -> dict[tuple, float]:
+    """0.0인 노드 좌표만 추출 (중복 제거) 후 재요청. key=(lat, lng) -> elev"""
+    zero_coords: dict[tuple, None] = {}
     for way in ways:
         for n in way["nodes"]:
             if n["elev"] == 0.0:
                 key = (round(n["lat"], 7), round(n["lng"], 7))
-                coords[key] = None
-    logger.info("재요청 대상 노드 수: %d (중복 제거)", len(coords))
-    return coords
+                zero_coords[key] = None
 
-
-# ── Step 3: 고도 재요청 ────────────────────────────────
-
-
-def refetch_elevations(zero_coords: dict) -> dict[tuple, float]:
-    """0.0 노드 좌표만 재요청. key=(lat, lng) → elev"""
     coord_list = [{"lat": k[0], "lng": k[1]} for k in zero_coords]
-    elev_map: dict[tuple, float] = {}
+    logger.info("재요청 대상 노드 수: %d (중복 제거)", len(coord_list))
 
+    elev_map: dict[tuple, float] = {}
     for i in range(0, len(coord_list), BATCH_SIZE):
         batch = coord_list[i : i + BATCH_SIZE]
-        elevs = _fetch_elevation_batch(batch)
+        elevs = fetch_elevation_batch(batch)
         for coord, elev in zip(batch, elevs):
-            key = (round(coord["lat"], 7), round(coord["lng"], 7))
-            elev_map[key] = elev
+            elev_map[(round(coord["lat"], 7), round(coord["lng"], 7))] = elev
 
         success = sum(1 for e in elevs if e != 0.0)
         logger.info(
@@ -146,11 +91,11 @@ def refetch_elevations(zero_coords: dict) -> dict[tuple, float]:
     return elev_map
 
 
-# ── Step 4: elevation_nodes UPDATE ────────────────────
-
-
 def update_ways(conn, ways: list[dict], elev_map: dict[tuple, float]) -> int:
-    """0.0 노드를 재요청 결과로 교체 후 UPDATE. 업데이트된 행 수 반환."""
+    """0.0 노드를 재요청 결과로 교체 후 UPDATE. 업데이트된 행 수 반환.
+
+    여전히 0.0이면 changed=False로 스킵 (한강변 등 실제 0m 지점).
+    """
     updated = 0
     with conn.cursor() as cur:
         for way in ways:
@@ -167,9 +112,9 @@ def update_ways(conn, ways: list[dict], elev_map: dict[tuple, float]) -> int:
                     new_nodes.append(n)
 
             if not changed:
-                continue  # 여전히 0.0이면 스킵
+                continue
 
-            gain, avg_grade = _calc_elevation_stats(new_nodes)
+            gain, avg_grade = calc_elevation_stats(new_nodes)
             cur.execute(
                 """
                 UPDATE osm_ways
@@ -194,9 +139,6 @@ def update_ways(conn, ways: list[dict], elev_map: dict[tuple, float]) -> int:
     return updated
 
 
-# ── 실행 ──────────────────────────────────────────────
-
-
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
@@ -208,22 +150,14 @@ def main() -> None:
     conn = get_connection(cfg)
 
     try:
-        # 1. 0.0 노드 포함 way 조회
         ways = fetch_zero_ways(conn)
         if not ways:
             logger.info("0.0 노드 없음. 재적재 불필요.")
             return
 
-        # 2. 0.0 좌표 수집
-        zero_coords = collect_zero_coords(ways)
-
-        # 3. 고도 재요청
-        elev_map = refetch_elevations(zero_coords)
-
-        # 4. DB UPDATE
+        elev_map = refetch_elevations(ways)
         updated = update_ways(conn, ways, elev_map)
 
-        # 5. 결과 확인
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT COUNT(*) FROM osm_ways
@@ -236,15 +170,13 @@ def main() -> None:
             remaining = cur.fetchone()[0]
 
         logger.info(
-            "재적재 완료: 업데이트 %d개 way, 잔여 0.0 way: %d개", updated, remaining
+            "완료: 업데이트 %d개 way, 잔여 0.0 way: %d개 (한강변 등 실제 0m 포함)",
+            updated,
+            remaining,
         )
 
     finally:
         conn.close()
-
-
-def get_connection(cfg):
-    return psycopg2.connect(**cfg)
 
 
 if __name__ == "__main__":
