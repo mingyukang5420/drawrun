@@ -6,6 +6,8 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
+
 //우선은 기본 JpsRepository로 생성
 //다음 페이지가 있는지만 확인하고 로드
 public interface RunningRecordRepository extends JpaRepository<RunningRecord, Long> {
@@ -16,5 +18,12 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
     Slice<RunningRecord> findAllByMemberIdOrderByStartedAtDesc(
             Long memberId,
             Pageable pageable
+    );
+    
+    // 조회 결과가 없을 경우 던지기 위한 Optional 반환 타입 사용
+    @EntityGraph(attributePaths = {"track"})
+    Optional<RunningRecord> findByIdAndMemberId(
+            Long recordId,
+            Long memberId
     );
 }
