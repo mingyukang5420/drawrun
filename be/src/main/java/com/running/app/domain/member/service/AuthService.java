@@ -13,8 +13,7 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private final MemberRepository memberRepository;
-
-    // AuthService
+    
     public CheckDuplicationResponse checkNickname(String nickname) {
         return MemberConverter.toCheckDuplicationResponse(
                 memberRepository.existsByNickname(nickname));
