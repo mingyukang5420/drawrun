@@ -7,6 +7,8 @@ import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.domain.track.entity.Track;
 import com.running.app.domain.track.service.TrackService;
+import com.running.app.global.response.exception.GeneralException;
+import com.running.app.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -67,6 +69,18 @@ public class RecordService {
                 recordSlice.getSize(),
                 recordSlice.hasNext()
         );
+    }
+
+    public RecordResponse.DetailDTO getRecordDetail(
+            Long memberId,
+            Long recordId
+    ) {
+        RunningRecord runningRecord = runningRecordRepository.findByIdAndMemberId(
+                recordId,
+                memberId
+        ).orElseThrow(() -> new GeneralException(ErrorStatus.RECORD_NOT_FOUND));
+
+        return RecordConverter.toDetailDTO(runningRecord);
     }
 
 }
