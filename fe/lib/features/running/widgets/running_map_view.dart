@@ -1,0 +1,31 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:running/features/running/controller/running_controller.dart';
+import 'package:running/shared/map/widgets/map_view.dart';
+
+// 러닝 도메인에서 사용하는 지도 위젯.
+// 지도 렌더링은 shared 의 MapView 에 위임하고,
+// 러닝 관련 이벤트 처리만 이 파일에서 담당한다.
+class RunningMapView extends StatelessWidget {
+  const RunningMapView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // context.read 는 상태 변화에 반응하지 않는 1회성 읽기다.
+    // 콜백 안에서만 controller 를 사용하므로 여기서는 read 가 적합하다.
+    final controller = context.read<RunningController>();
+
+    return MapView(
+      onMapReady: (mapController) {
+        // 지도가 준비되면 controller 에 mapController 를 등록한다.
+        // 이후 controller 가 지도에 경로를 그리거나 지울 수 있다.
+        controller.setMapController(mapController);
+      },
+      // 러닝 중일 때만 addPoint 내부에서 좌표를 기록한다 (GPS 연동 전 탭으로 시뮬레이션)
+      onMapTapped: (point, latLng) {
+        controller.addPoint(latLng);
+      },
+    );
+  }
+}
