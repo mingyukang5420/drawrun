@@ -3,10 +3,15 @@ package com.running.app.domain.record.converter;
 import com.running.app.domain.record.dto.RecordRequest;
 import com.running.app.domain.record.dto.RecordResponse;
 import com.running.app.domain.record.entity.RunningRecord;
+import com.running.app.domain.track.dto.TrackRequest;
 import com.running.app.domain.track.entity.Track;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.MultiLineString;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.IntStream;
 
 public class RecordConverter {
 
@@ -82,6 +87,29 @@ public class RecordConverter {
                 .build();
     }
 
+    public static RecordResponse.DetailDTO toDetailDTO(
+            RunningRecord runningRecord
+    ) {
+        Track track = runningRecord.getTrack();
+
+        return RecordResponse.DetailDTO.builder()
+                .recordId(runningRecord.getId())
+                .trackId(track.getTrackId())
+                .courseId(runningRecord.getCourseId())
+                .title(runningRecord.getTitle())
+                .date(formatDate(runningRecord.getStartedAt()))
+                .trackImageUrl(track.getTrackImageUrl())
+                .distance(track.getDistance())
+                .avgPace(formatAvgPace(runningRecord.getAvgPace()))
+                .runningTime(formatRunningTime(runningRecord.getRunningTime()))
+                .calories(runningRecord.getCalories())
+                .cadence(runningRecord.getCadence())
+                .isCompleted(runningRecord.getIsCompleted())
+                .isSafe(runningRecord.getIsSafe())
+                .nodes(toNodeDTOList(track))
+                .build();
+    }
+
     // 완주 여부 판단 로직 구현
     private static Boolean DeterminIsCompleted(RecordRequest.CreateDTO request) {
         return true;
@@ -118,6 +146,27 @@ public class RecordConverter {
 
         return String.format("%02d:%02d", minutes, seconds);
     }
+
+    private static List<TrackRequest.NodeDTO> toNodeDTOList(Track track) {
+
+        MultiLineString geom = track.getGeom();
+
+        // MultiLineString 안의 N번째 Linestring을 꺼내고 각 LineString 안의 좌표배열 꺼냄
+        return IntStream.range(0, geom.getNumGeometries())
+                .mapToObj(geom::getGeometryN)
+                .flatMap(geometry -> Arrays.stream(geometry.getCoordinates()))
+                .map(RecordConverter::toNodeDTO)
+                .toList();
+    }
+
+    private static TrackRequest.NodeDTO toNodeDTO(Coordinate coordinate) {
+        return new TrackRequest.NodeDTO(
+                //JTS 좌표는 lng, lat 순이라 노드로 뺄때는 다시 뒤집어서 반환
+                coordinate.getY(),
+                coordinate.getX()
+        );
+    }
+
 }
 
 
