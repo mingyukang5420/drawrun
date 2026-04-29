@@ -33,7 +33,7 @@ ON CONFLICT (osm_id) DO UPDATE SET
     elevation_gain   = EXCLUDED.elevation_gain,
     avg_uphill_grade = EXCLUDED.avg_uphill_grade
 WHERE osm_ways.elevation_nodes IS NULL        -- 고도 없는 경우
-OR EXISTS (                                -- 0.0 노드가 있는 경우
+    OR EXISTS (                                -- 0.0 노드가 있는 경우
     SELECT 1 FROM jsonb_array_elements(osm_ways.elevation_nodes) n
     WHERE (n->>'elev')::float = 0.0
     )
