@@ -5,4 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MemberRepository extends JpaRepository<Member, Integer> {
 
+    boolean existsByEmail(String email);
+
+    boolean existsByNickname(String nickname);
+
+    boolean existsByLoginId(String loginId);
 }
