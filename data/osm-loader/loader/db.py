@@ -49,10 +49,10 @@ def _chunked(items: list, size: int) -> Iterator[list]:
 def insert_ways_batch(conn, ways: list[dict], batch_size: int = 500) -> int:
     """ways 리스트를 batch_size씩 끊어 INSERT. 처리(시도)한 행 수를 반환.
 
-    각 dict는 parser.parse_way 출력 형식이어야 한다:
+    각 dict는 parser.parse_way와 elevation_client.attach_elevation을 거친 출력 형식이어야 한다:
         osm_id, highway, name, geom_wkt, foot, access, oneway,
-        bridge, tunnel, indoor, layer, surface, lit, sidewalk,
-        elevation_nodes, elevation_gain, avg_uphill_grade
+        bridge, tunnel, indoor, layer, surface, lit, sidewalk,  ← parse_way
+        elevation_nodes, elevation_gain, avg_uphill_grade       ← attach_elevation
 
     ON CONFLICT (osm_id) DO UPDATE — 고도 데이터는 갱신, 기본 속성은 유지.
     실제 적재된 행 수는 ON CONFLICT로 스킵될 수 있어 시도 건수와 다를 수 있음 →
