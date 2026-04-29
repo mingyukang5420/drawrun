@@ -3,6 +3,8 @@ import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:provider/provider.dart';
 
 import 'package:running/features/course/controller/course_controller.dart';
+import 'package:running/shared/location/location_service.dart';
+import 'package:running/shared/map/widgets/map_view.dart';
 
 class CourseMapView extends StatelessWidget {
   const CourseMapView({super.key});
@@ -11,19 +13,25 @@ class CourseMapView extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.read<CourseController>();
 
-    return NaverMap(
-      onMapReady: (mapController) {
+    return MapView(
+      onMapReady: (mapController) async {
         controller.setMapController(mapController);
+
+        // 현재 위치를 가져와 카메라를 이동한다.
+        // 위치를 가져올 수 없으면 MapView 의 기본 위치(서울 시청)를 그대로 사용한다.
+        final position = await LocationService.getCurrentPosition();
+        if (position != null) {
+          await mapController.updateCamera(
+            NCameraUpdate.scrollAndZoomTo(
+              target: NLatLng(position.latitude, position.longitude),
+              zoom: 15,
+            ),
+          );
+        }
       },
       onMapTapped: (point, latLng) {
         controller.addPoint(latLng);
       },
-      options: const NaverMapViewOptions(
-        initialCameraPosition: NCameraPosition(
-          target: NLatLng(37.5665, 126.9780),
-          zoom: 14,
-        ),
-      ),
     );
   }
 }
