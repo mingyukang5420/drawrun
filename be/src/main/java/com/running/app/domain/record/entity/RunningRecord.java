@@ -42,7 +42,7 @@ public class RunningRecord extends BaseRDBEntity {
     @Column(name = "avg_pace", nullable = false)
     private Double avgPace;
 
-    @Column(name = "caloires", nullable = false)
+    @Column(name = "calories", nullable = false)
     private Integer calories;
 
     @Column(name = "cadence", nullable = false)
