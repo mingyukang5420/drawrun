@@ -15,6 +15,6 @@ public abstract class MemberResponse {
     public static class CheckDuplicationResponse {
 
         @Schema(description = "중복 여부 (true: 중복, false: 사용 가능)", example = "false")
-        private Boolean isDuplicated;
+        private boolean isDuplicated;
     }
 }
