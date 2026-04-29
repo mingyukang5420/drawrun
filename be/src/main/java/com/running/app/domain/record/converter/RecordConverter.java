@@ -6,6 +6,7 @@ import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.track.entity.Track;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class RecordConverter {
 
@@ -64,6 +65,20 @@ public class RecordConverter {
                 .distance(track.getDistance())
                 .avgPace(formatAvgPace(runningRecord.getAvgPace()))
                 .runningTime(formatRunningTime(runningRecord.getRunningTime()))
+                .build();
+    }
+
+    public static RecordResponse.ListResultDTO toListResultDTO(
+            List<RecordResponse.ListDTO> content,
+            Integer page,
+            Integer size,
+            Boolean hasNext
+    ) {
+        return RecordResponse.ListResultDTO.builder()
+                .content(content)
+                .page(page)
+                .size(size)
+                .hasNext(hasNext)
                 .build();
     }
 
