@@ -13,7 +13,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 ELEVATION_API = "https://api.open-elevation.com/api/v1/lookup"
-BATCH_SIZE = 100  # 요청당 최대 포인트 수
+BATCH_SIZE = 500  # POST API 제한 없음, 실용적 상한값으로 설정
 
 
 def _haversine(a: dict, b: dict) -> float:
@@ -85,7 +85,7 @@ def attach_elevation(ways: list[dict]) -> list[dict]:
             min(i + BATCH_SIZE, len(all_coords)),
             len(all_coords),
         )
-        time.sleep(0.3)
+        time.sleep(0.1)
 
     # 고도 맵 생성
     elev_map: dict[tuple, float] = {
