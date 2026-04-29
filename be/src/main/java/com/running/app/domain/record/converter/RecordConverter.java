@@ -5,6 +5,8 @@ import com.running.app.domain.record.dto.RecordResponse;
 import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.track.entity.Track;
 
+import java.time.LocalDateTime;
+
 public class RecordConverter {
 
     public static RunningRecord toRunningRecord(
@@ -49,6 +51,22 @@ public class RecordConverter {
                 .build();
     }
 
+    public static RecordResponse.ListDTO toListDTO(
+            RunningRecord runningRecord
+    ) {
+        Track track = runningRecord.getTrack();
+
+        return RecordResponse.ListDTO.builder()
+                .recordId(runningRecord.getId())
+                .title(runningRecord.getTitle())
+                .date(formatDate(runningRecord.getStartedAt()))
+                .trackImageUrl(track.getTrackImageUrl())
+                .distance(track.getDistance())
+                .avgPace(formatAvgPace(runningRecord.getAvgPace()))
+                .runningTime(formatRunningTime(runningRecord.getRunningTime()))
+                .build();
+    }
+
     // 완주 여부 판단 로직 구현
     private static Boolean DeterminIsCompleted(RecordRequest.CreateDTO request) {
         return true;
@@ -59,6 +77,32 @@ public class RecordConverter {
         return true;
     }
 
+    // [2026.04.22] 형식으로 변환
+    private static String formatDate(LocalDateTime startedAt) {
+        return String.format(
+                "%d. %d. %d. ",
+                startedAt.getYear(),
+                startedAt.getMonthValue(),
+                startedAt.getDayOfMonth()
+        );
+    }
+
+    // [7'08''] 형식으로 변환
+    private static String formatAvgPace(Double avgPace) {
+        int totalSeconds = (int) Math.round(avgPace * 60);
+        int minutes = totalSeconds / 60;
+        int seconds = totalSeconds % 60;
+
+        return String.format("%d'%02d''", minutes, seconds);
+    }
+
+    // [21:26] 형식으로 변환
+    private static String formatRunningTime(Integer runningTime) {
+        int minutes = runningTime / 60;
+        int seconds = runningTime % 60;
+
+        return String.format("%02d:%02d", minutes, seconds);
+    }
 }
 
 
