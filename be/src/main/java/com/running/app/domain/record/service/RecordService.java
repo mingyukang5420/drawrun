@@ -21,7 +21,7 @@ public class RecordService {
 
     //작성
     @Transactional
-    public RecordResponse.CreateResultDTO createRecord(
+    public void createRecord(
             Long memberId,
             RecordRequest.CreateDTO request
     ) {
@@ -37,9 +37,8 @@ public class RecordService {
                 request
         );
 
-        RunningRecord savedRunningRecord = runningRecordRepository.save(runningRecord);
+        runningRecordRepository.save(runningRecord);
 
-        return RecordConverter.toCreateResultDTO(savedRunningRecord);
     }
 
 }
