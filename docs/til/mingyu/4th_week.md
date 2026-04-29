@@ -6,8 +6,10 @@
 
 [0427-월요일](#-0427--mon)  <br>
 [0428-화요일](#-0428--tue)  <br>
+[0429-수요일](#-0429--wed)  <br>
 
 ---
+
 ## 📘 0427 · Mon
 
 #### 오늘 한 일 (What I did)
@@ -123,3 +125,71 @@
 #### 한줄 다짐
 
 - 내가 바꾼 것의 끝을 확인하고 나서 다음으로 넘어간다.
+
+---
+
+## 📘 0429 · Wed
+
+#### 오늘 한 일 (What I did)
+
+- 컨설턴트님 데일리 컨텐츠 수강 (AI 도입에 따른 개발자 포지션 변화, 채용 트렌드)
+- `osm_ways` 테이블 고도 컬럼 추가 및 스키마 확장
+- `Open Elevation API` 클라이언트 구현 및 배치 고도 조회 파이프라인 구축
+- `Overpass` 클라이언트 지역 파라미터화 리팩토링 (다중 지역 지원)
+- OSM 데이터 수집·적재 파이프라인을 `fetch.py` / `load.py` 2단계 구조로 분리
+- `Google Drive` 연동 및 로컬 CSV fallback 로직 추가
+- 고도 누락 레코드 보완 스크립트 작성 및 멱등성 확보
+- 파이프라인 관련 `README.md` 작성
+- 배포 환경 Swagger UI 404 문제 원인 분석 및 해결 (`config-url`, `url` 명시)
+- Swagger "Try it out" 404 원인 분석 및 `OpenApiConfig` 구현으로 해결
+- `Open Elevation` 공개 서버에 요청을 과도하게 보내 일일 요청 한도를 소진한 것으로 추정, 이후 API 응답 없음
+
+---
+
+#### 배운 것 (What I learned)
+
+- `springdoc`은 `api-docs.path` 설정값을 기준으로 `swagger-config` URL을 자동 생성한다. `config-url`과 `url`을 명시하지 않으면 Nginx의 prefix strip 구조와 충돌해 404가 발생할 수 있다.
+- Swagger "Try it out"의 요청 경로는 OpenAPI 스펙의 `servers[].url` 값을 기준으로 구성된다. **`servers.url`이 명시되지 않으면 springdoc이 요청 정보로부터 자동 생성하는데, context-path나 proxy 구조에 따라 경로가 틀어질 수 있다.**
+- 로컬 환경의 `context-path /api`와 프로덕션의 nginx `proxy_pass` `/api/` strip은 같은 결과를 만들어낸다. `servers.url = /api`로 고정하면 양쪽 환경 모두 호환된다.
+- `Open Elevation`은 공개 서버 기반으로 일일 요청 한도가 존재한다. **배치 사이즈와 호출 간격을 사전에 설계하지 않으면 한도를 빠르게 소진할 수 있다.**
+- 파이프라인을 수집(`fetch.py`)과 적재(`load.py`)로 분리하면 운영 환경에서 외부 API에 직접 접근하지 않아도 된다. CSV를 중간 매개체로 두는 구조가 환경 의존성을 낮춘다.
+
+---
+
+#### 문제 & 해결 (Problem & Solution)
+
+- **문제:**
+  - 배포 환경에서 Swagger UI 접속 시 `/v1/api-docs/swagger-config` 경로가 404를 반환하며 API 명세 로드 불가.
+  - Swagger "Try it out" 실행 시 404 에러 발생.
+  - `Open Elevation` 공개 서버 요청 한도 소진으로 고도 데이터 수집 중단.
+- **원인:**
+  - Nginx가 `/api/` prefix를 strip하고 백엔드로 전달하는 구조에서, springdoc이 자동 생성한 `swagger-config` 경로가 `/api/` location과 매칭되지 않았음.
+  - OpenAPI 스펙에 `servers.url`이 명시되지 않아 springdoc이 context-path를 누락한 경로를 자동 생성했음.
+  - 배치 사이즈와 호출 간격을 충분히 고려하지 않고 요청을 과도하게 전송했음.
+- **해결:**
+  - `application.yml`에 `config-url: /api/v1/api-docs/swagger-config`, `url: /api/v1/api-docs` 명시.
+  - `OpenApiConfig`에 `servers.url = /api`를 고정해 로컬·프로덕션 양쪽 호환 확인.
+  - `Open Elevation` 요청은 내일 재시도 예정. 배치 사이즈와 호출 간격 조정 필요.
+
+---
+
+#### 느낀 점 (Insight)
+
+- AI 도입에 따른 개발자 포지션 변화에 대해 두 진영이 있다는 걸 들으면서, 나는 자연스럽게 새로운 직무가 생길 것이라는 쪽에 서 있다는 걸 확인했다. **도구가 바뀌면 직무가 없어지는 게 아니라 다루는 레이어가 올라간다.**
+- `릴리스 AI`, `레브잇` 같은 기업들이 채용 방식을 바꾸고 있다는 사례를 들으면서, 지금 내가 AI를 어떻게 활용하고 있는지를 다시 생각해보게 됐다.
+- 공개 API를 사용할 때 한도를 먼저 확인하고 설계에 반영하는 것이 기본임을 다시 확인했다. **무료 공개 서버는 편하지만 안정성을 보장하지 않는다.**
+- 파이프라인을 설계할 때 환경 간 의존성을 어떻게 끊을지를 초반부터 고민하면 나중에 구조를 갈아엎는 비용이 줄어든다.
+
+---
+
+#### 내일 할 것 (Next)
+
+- `Open Elevation API` 호출 재시도 (배치 사이즈·호출 간격 조정)
+- 강남구 OSM 데이터 적재 스크립트 변경
+- 에디터 러닝 코스 검증 로직 설계 및 개발 착수
+
+---
+
+#### 한줄 다짐
+
+- 공짜 서버에는 한도가 있고, 한도는 미리 읽는 것이다.
