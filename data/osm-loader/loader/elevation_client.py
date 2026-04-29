@@ -2,6 +2,9 @@
 
 osm_ways 노드 좌표 배열을 받아 고도값을 부착하고
 elevation_gain, avg_uphill_grade를 계산해 반환한다.
+
+공통 유틸 (haversine, fetch_elevation_batch, calc_elevation_stats)은
+refill_elevation.py에서도 임포트해서 사용한다.
 """
 
 import logging
@@ -13,10 +16,13 @@ import requests
 logger = logging.getLogger(__name__)
 
 ELEVATION_API = "https://api.open-elevation.com/api/v1/lookup"
-BATCH_SIZE = 100  # 요청당 최대 포인트 수
+BATCH_SIZE = 100  # 공용 서버 기준 안정적인 상한값
 
 
-def _haversine(a: dict, b: dict) -> float:
+# ── 공통 유틸 (refill_elevation에서도 임포트) ──────────
+
+
+def haversine(a: dict, b: dict) -> float:
     """두 좌표 간 거리 (미터). a, b = {"lat": ..., "lng": ...}"""
     R = 6_371_000
     lat1, lng1 = math.radians(a["lat"]), math.radians(a["lng"])
@@ -29,7 +35,7 @@ def _haversine(a: dict, b: dict) -> float:
     return R * 2 * math.asin(math.sqrt(x))
 
 
-def _fetch_elevation_batch(coords: list[dict]) -> list[float]:
+def fetch_elevation_batch(coords: list[dict]) -> list[float]:
     """좌표 배열의 고도값 반환. 실패 시 0.0으로 대체."""
     locations = [{"latitude": c["lat"], "longitude": c["lng"]} for c in coords]
     try:
@@ -45,29 +51,67 @@ def _fetch_elevation_batch(coords: list[dict]) -> list[float]:
         return [0.0] * len(coords)
 
 
-def attach_elevation(ways: list[dict]) -> list[dict]:
-    """
-    파싱된 ways 리스트에 고도 정보를 부착한다.
+def calc_elevation_stats(nodes: list[dict]) -> tuple[float, float]:
+    """elevation_gain (m), avg_uphill_grade (%) 계산.
 
-    입력 (parser.parse_way 출력 형식):
+    nodes: [{lng, lat, elev}, ...]
+    """
+    gain = 0.0
+    uphill_grades: list[float] = []
+    for i in range(len(nodes) - 1):
+        a, b = nodes[i], nodes[i + 1]
+        dist = haversine(a, b)
+        if dist < 1:
+            continue
+        diff = b["elev"] - a["elev"]
+        grade = (diff / dist) * 100
+        if diff > 0:
+            gain += diff
+            uphill_grades.append(grade)
+    avg_grade = sum(uphill_grades) / len(uphill_grades) if uphill_grades else 0.0
+    return round(gain, 2), round(avg_grade, 4)
+
+
+# ── 내부 유틸 ──────────────────────────────────────────
+
+
+def _parse_linestring(wkt: str) -> list[dict]:
+    """'LINESTRING(lng lat, lng lat, ...)' -> [{lng, lat}, ...] 변환."""
+    inner = wkt.replace("LINESTRING(", "").rstrip(")")
+    return [
+        {"lng": float(p.split()[0]), "lat": float(p.split()[1])}
+        for p in inner.split(",")
+    ]
+
+
+# ── 메인 함수 ──────────────────────────────────────────
+
+
+def attach_elevation(ways: list[dict]) -> list[dict]:
+    """파싱된 ways 리스트에 고도 정보를 부착한다.
+
+    입력 (parser.parse_way + elevation_client.attach_elevation 출력 형식):
         geom_wkt: "LINESTRING(lng lat, lng lat, ...)"
 
     출력 (추가 필드):
-        elevation_nodes:   [{lng, lat, elev}, ...]
-        elevation_gain:    float (m)
-        avg_uphill_grade:  float (%)
+        elevation_nodes:   [{lng, lat, elev}, ...]  <- parse_way
+        elevation_gain:    float (m)                <- attach_elevation
+        avg_uphill_grade:  float (%)                <- attach_elevation
 
     처리 흐름:
-        1. 모든 way의 노드 좌표 수집 (중복 제거)
+        1. 모든 way의 노드 좌표 파싱 + 중복 제거하여 고도 조회 맵 구성
         2. Open Elevation API 배치 호출
-        3. 각 way에 고도값 부착 + 파생 지표 계산
+        3. 각 way에 고도값 부착 + elevation_gain, avg_uphill_grade 계산
     """
-    # 1. 전체 노드 좌표 수집 (중복 제거)
+    # 1. 전체 노드 파싱 + 중복 제거
     all_coords: list[dict] = []
     coord_index: dict[tuple, int] = {}
+    parsed_ways: list[list[dict]] = []  # way별 노드 캐시 (재파싱 방지)
 
     for way in ways:
-        for node in _parse_linestring(way["geom_wkt"]):
+        nodes = _parse_linestring(way["geom_wkt"])
+        parsed_ways.append(nodes)
+        for node in nodes:
             key = (round(node["lat"], 7), round(node["lng"], 7))
             if key not in coord_index:
                 coord_index[key] = len(all_coords)
@@ -79,24 +123,20 @@ def attach_elevation(ways: list[dict]) -> list[dict]:
     elevations: list[float] = []
     for i in range(0, len(all_coords), BATCH_SIZE):
         batch = all_coords[i : i + BATCH_SIZE]
-        elevations.extend(_fetch_elevation_batch(batch))
+        elevations.extend(fetch_elevation_batch(batch))
         logger.info(
-            "고도 처리: %d/%d",
-            min(i + BATCH_SIZE, len(all_coords)),
-            len(all_coords),
+            "고도 처리: %d/%d", min(i + BATCH_SIZE, len(all_coords)), len(all_coords)
         )
         time.sleep(0.1)
 
-    # 고도 맵 생성
     elev_map: dict[tuple, float] = {
         (round(c["lat"], 7), round(c["lng"], 7)): elevations[i]
         for i, c in enumerate(all_coords)
     }
 
-    # 3. 각 way에 고도값 부착 + 파생 지표 계산
+    # 3. 고도값 부착 + 파생 지표 계산
     enriched = []
-    for way in ways:
-        nodes = _parse_linestring(way["geom_wkt"])
+    for way, nodes in zip(ways, parsed_ways):
         elevation_nodes = [
             {
                 "lng": n["lng"],
@@ -105,41 +145,14 @@ def attach_elevation(ways: list[dict]) -> list[dict]:
             }
             for n in nodes
         ]
-
-        elevation_gain = 0.0
-        uphill_grades: list[float] = []
-
-        for i in range(len(elevation_nodes) - 1):
-            a, b = elevation_nodes[i], elevation_nodes[i + 1]
-            dist = _haversine(a, b)
-            if dist < 1:
-                continue
-            diff = b["elev"] - a["elev"]
-            grade = (diff / dist) * 100
-            if diff > 0:
-                elevation_gain += diff
-                uphill_grades.append(grade)
-
+        gain, avg_grade = calc_elevation_stats(elevation_nodes)
         enriched.append(
             {
                 **way,
                 "elevation_nodes": elevation_nodes,
-                "elevation_gain": round(elevation_gain, 2),
-                "avg_uphill_grade": round(
-                    sum(uphill_grades) / len(uphill_grades) if uphill_grades else 0.0,
-                    4,
-                ),
+                "elevation_gain": gain,
+                "avg_uphill_grade": avg_grade,
             }
         )
 
     return enriched
-
-
-def _parse_linestring(wkt: str) -> list[dict]:
-    """'LINESTRING(lng lat, lng lat, ...)' → [{lng, lat}, ...] 변환."""
-    inner = wkt.replace("LINESTRING(", "").rstrip(")")
-    result = []
-    for pair in inner.split(","):
-        lng_str, lat_str = pair.strip().split()
-        result.append({"lng": float(lng_str), "lat": float(lat_str)})
-    return result
