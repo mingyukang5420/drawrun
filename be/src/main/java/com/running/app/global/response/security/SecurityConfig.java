@@ -3,9 +3,9 @@ package com.running.app.global.response.config;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -22,11 +22,25 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
         http
-                .cors(Customizer.withDefaults())
+                // csrf 비활성화
                 .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll()
+                // formLogin 및 httpBasic 인증 비활성화
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
+                // 사용자 정보를 세션에 저장하는 기본 설정 비활성화
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // 요청 권한 설정(열어 둘 api 엔드포인트 설정)
+                .authorizeHttpRequests(auth ->
+                        auth.requestMatchers(
+                                        // 여기에서 인증 없이 요청을 허용 할 url 입력
+                                        "/api/v1/auth/check/*",
+                                        "/api/v1/auth/signup",
+                                        "/api/v1/auth/login"
+                                ).permitAll()
+                                .anyRequest().authenticated()
                 );
         return http.build();
     }
