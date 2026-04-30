@@ -64,4 +64,8 @@ public class RunningRecord extends BaseRDBEntity {
     @Column(name = "ended_at", nullable = false)
     private LocalDateTime endedAt;
 
+    // 제목 수정용
+    public void changeTitle(String title) {
+        this.title = title;
+    }
 }

@@ -28,8 +28,8 @@ public class RecordConverter {
                 .avgPace(request.getAvgPace())
                 .calories(request.getCalories())
                 .cadence(request.getCadence())
-                .isCompleted(DeterminIsCompleted(request)) // 완주판정 임시 true 처리
-                .isSafe(DeterminIsSafe(track)) // 검증 임시 true 처리
+                .isCompleted(determineIsCompleted(request)) // 완주판정 임시 true 처리
+                .isSafe(determineIsSafe(track)) // 검증 임시 true 처리
                 .title(request.getTitle())
                 .startedAt(request.getStartedAt())
                 .endedAt(request.getEndedAt())
@@ -110,20 +110,50 @@ public class RecordConverter {
                 .build();
     }
 
+    public static RecordResponse.StatsDTO toStatsDTO(
+            Double totalDistance,
+            Integer totalCount,
+            String avgPace,
+            String totalTime,
+            String periodLabel,
+            List<RecordResponse.ChartDTO> chart
+    ) {
+        return RecordResponse.StatsDTO.builder()
+                .totalDistance(totalDistance)
+                .totalCount(totalCount)
+                .avgPace(avgPace)
+                .totalTime(totalTime)
+                .periodLabel(periodLabel)
+                .chart(chart)
+                .build();
+    }
+
+    public static RecordResponse.ChartDTO toChartDTO(
+            String label,
+            Double distance
+    ) {
+        return RecordResponse.ChartDTO.builder()
+                .label(label)
+                .distance(distance)
+                .build();
+    }
+
+    //---------------------------------------------
+
     // 완주 여부 판단 로직 구현
-    private static Boolean DeterminIsCompleted(RecordRequest.CreateDTO request) {
+    private static Boolean determineIsCompleted(RecordRequest.CreateDTO request) {
         return true;
     }
 
     // 안전 여부 판단 로직 구현
-    private static Boolean DeterminIsSafe(Track track) {
+    private static Boolean determineIsSafe(Track track) {
         return true;
     }
 
     // [2026.04.22] 형식으로 변환
     private static String formatDate(LocalDateTime startedAt) {
         return String.format(
-                "%d. %d. %d. ",
+                "%d. %d. %d.",
                 startedAt.getYear(),
                 startedAt.getMonthValue(),
                 startedAt.getDayOfMonth()
