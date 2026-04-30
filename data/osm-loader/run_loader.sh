@@ -17,38 +17,90 @@ fi
 : "${POSTGRES_USER:?Set POSTGRES_USER in .env or environment}"
 : "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env or environment}"
 
-# Resolve Docker network.
-# Case 1: POSTGRES_HOST is a container name  -> use that container's network directly.
-# Case 2: POSTGRES_HOST is localhost/127.0.0.1 on Docker Desktop (Windows/Mac)
-#         -> find localPostgis container and borrow its network, override host to container name.
-# Case 3: POSTGRES_HOST is localhost on Linux EC2 with native PostgreSQL
-#         -> --network host.
+# ---------------------------------------------------------------------------
+# Step 1: Resolve PostgreSQL container and Docker network
+#
+# Case A: POSTGRES_HOST is a container name          -> use it directly
+# Case B: POSTGRES_HOST is localhost / 127.0.0.1
+#         and a postgis/postgis container is running  -> borrow its network
+# Case C: no Docker container found                  -> --network host (EC2 native)
+# ---------------------------------------------------------------------------
+PG_CONTAINER=""
 EFFECTIVE_HOST="$POSTGRES_HOST"
-NETWORK=$(docker inspect "$POSTGRES_HOST" \
-  --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null || true)
 
-if [ -z "$NETWORK" ] && [ "$POSTGRES_HOST" = "localhost" -o "$POSTGRES_HOST" = "127.0.0.1" ]; then
-  # Try to find a running PostGIS/Postgres container as the actual target
-  FALLBACK_CONTAINER=$(docker ps --filter "publish=$POSTGRES_PORT" \
-    --filter "ancestor=postgis/postgis" \
+if docker inspect "$POSTGRES_HOST" > /dev/null 2>&1; then
+  PG_CONTAINER="$POSTGRES_HOST"
+  NETWORK=$(docker inspect "$POSTGRES_HOST" \
+    --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
+else
+  FOUND=$(docker ps \
+    --filter "publish=$POSTGRES_PORT" \
     --format "{{.Names}}" 2>/dev/null | head -1 || true)
 
-  if [ -n "$FALLBACK_CONTAINER" ]; then
-    NETWORK=$(docker inspect "$FALLBACK_CONTAINER" \
-      --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null || true)
-    EFFECTIVE_HOST="$FALLBACK_CONTAINER"
-    echo "Resolved localhost -> container '$FALLBACK_CONTAINER' on network '$NETWORK'"
+  if [ -n "$FOUND" ]; then
+    PG_CONTAINER="$FOUND"
+    EFFECTIVE_HOST="$FOUND"
+    NETWORK=$(docker inspect "$FOUND" \
+      --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
+    echo "Resolved '$POSTGRES_HOST' -> container '$PG_CONTAINER' (network: $NETWORK)"
+  else
+    NETWORK=""
   fi
 fi
 
 if [ -n "$NETWORK" ]; then
   NETWORK_ARGS=(--network "$NETWORK")
 else
-  # EC2 with native PostgreSQL: --network host lets the container reach localhost
   echo "No Docker container found for '$POSTGRES_HOST'; using host network."
   NETWORK_ARGS=(--network host)
 fi
 
+# ---------------------------------------------------------------------------
+# Step 2: Wait for PostgreSQL to be ready
+# ---------------------------------------------------------------------------
+echo "Waiting for PostgreSQL..."
+if [ -n "$PG_CONTAINER" ]; then
+  until docker exec "$PG_CONTAINER" \
+      pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -q 2>/dev/null; do
+    sleep 1
+  done
+else
+  until PGPASSWORD="$POSTGRES_PASSWORD" psql \
+      -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" \
+      -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+      -c "" > /dev/null 2>&1; do
+    sleep 1
+  done
+fi
+echo "PostgreSQL ready."
+
+# ---------------------------------------------------------------------------
+# Step 3: Apply schema (all statements are idempotent)
+# ---------------------------------------------------------------------------
+echo "Applying schema..."
+if [ -n "$PG_CONTAINER" ]; then
+  docker exec -i "$PG_CONTAINER" \
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+    < "$SCRIPT_DIR/sql/01_extensions.sql"
+  docker exec -i "$PG_CONTAINER" \
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+    < "$SCRIPT_DIR/sql/02_schema.sql"
+else
+  PGPASSWORD="$POSTGRES_PASSWORD" psql \
+    -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" \
+    -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+    < "$SCRIPT_DIR/sql/01_extensions.sql"
+  PGPASSWORD="$POSTGRES_PASSWORD" psql \
+    -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" \
+    -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+    < "$SCRIPT_DIR/sql/02_schema.sql"
+fi
+echo "Schema applied."
+
+# ---------------------------------------------------------------------------
+# Step 4: Load data
+# ---------------------------------------------------------------------------
+echo "Loading data..."
 MSYS_NO_PATHCONV=1 docker run --rm \
   "${NETWORK_ARGS[@]}" \
   -v "$SCRIPT_DIR:/app" \
