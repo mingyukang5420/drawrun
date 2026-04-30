@@ -24,10 +24,6 @@ class RunningMapView extends StatelessWidget {
         // 이후 controller 가 지도에 경로를 그리거나 지울 수 있다.
         controller.setMapController(mapController);
       },
-      // 러닝 중일 때만 addPoint 내부에서 좌표를 기록한다 (GPS 연동 전 탭으로 시뮬레이션)
-      onMapTapped: (point, latLng) {
-        controller.addPoint(latLng);
-      },
     );
   }
 }

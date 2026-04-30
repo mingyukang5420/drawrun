@@ -1,5 +1,8 @@
 import 'dart:math';
+import 'dart:async';
 
+import 'package:geolocator/geolocator.dart';
+import 'package:running/shared/location/location_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 
@@ -21,18 +24,36 @@ class RunningController extends ChangeNotifier {
   // 지도를 직접 제어하는 객체. onMapReady 콜백에서 등록된다.
   NaverMapController? mapController;
 
+  // GPS 스트림 구독
+  // 시작 전/정지 후엔 null - null 여부로 구독 활성 상태 판별
+  StreamSubscription<Position>? _locationSub;
+
   // 지도가 준비된 뒤 RunningMapView 에서 호출한다
   void setMapController(NaverMapController controller) {
     mapController = controller;
   }
 
   void startRunning() {
+    // 이미 GPS 스트림이 구독되어 있는지 판단
+    // 중복좌표 예방
+    if(_locationSub != null) return;
     isRunning = true;
+
+    // GPS 스트림 구독 시작
+    // distanceFilter가 5 이므로 5m 이상 이동했을 경우에 좌표 저장
+    _locationSub = LocationService.getPositionStream().listen((pos) {
+      addPoint(NLatLng(pos.latitude, pos.longitude));
+    });
     notifyListeners();
   }
 
-  void stopRunning() {
+  Future<void> stopRunning() async {
     isRunning = false;
+
+    // GPS 스트림 구독 취소
+    // cancel()은 Future을 반환하므로 await으로 정리가 끝난 뒤 null로 되돌림
+    await _locationSub?.cancel();
+    _locationSub = null;
     notifyListeners();
   }
 
@@ -51,15 +72,30 @@ class RunningController extends ChangeNotifier {
   }
 
   // 경로와 상태를 모두 초기화한다
-  void clear() {
+  Future<void> clear() async {
+    // GPS 스트림 구독 먼저 취소
+    // 해당 로직이 없으면 초기화 버튼을 누르자마자 새 좌표가 들어옴
+    await _locationSub?.cancel();
+    _locationSub = null;
+
+    // 지도에서 폴리라인 오버레이 제거
     if (mapController != null && routeLine != null) {
       mapController!.deleteOverlay(routeLine!.info);
       routeLine = null;
     }
+
+    // 메모리 상태도 함께 초기화
     points.clear();
     distanceKm = 0.0;
     isRunning = false;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _locationSub?.cancel();
+    _locationSub = null;
+    super.dispose();
   }
 
   // points 목록을 바탕으로 지도에 경로 선을 다시 그린다
@@ -76,6 +112,7 @@ class RunningController extends ChangeNotifier {
       id: 'running_route',
       coords: points,
       width: 6,
+      color: Colors.blueAccent,
     );
 
     mapController!.addOverlay(routeLine!);
