@@ -54,3 +54,6 @@ macos/
 
 # ios
 ios/
+
+# Claude
+.claude
