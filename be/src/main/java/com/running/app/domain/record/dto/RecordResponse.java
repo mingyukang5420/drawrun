@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-public class RecordResponse {
+public abstract class RecordResponse {
 
     @Getter
     @Builder
