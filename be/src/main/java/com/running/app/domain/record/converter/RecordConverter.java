@@ -153,7 +153,7 @@ public class RecordConverter {
     // [2026.04.22] 형식으로 변환
     private static String formatDate(LocalDateTime startedAt) {
         return String.format(
-                "%d. %d. %d. ",
+                "%d. %d. %d.",
                 startedAt.getYear(),
                 startedAt.getMonthValue(),
                 startedAt.getDayOfMonth()
