@@ -29,12 +29,4 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
             Long memberId
     );
 
-    // 사용자의 기록 중에서 'startedAt'이 특정 기간 사이에 있는 기록만 조회
-    // startAt 이상 endAt 미만
-    @EntityGraph(attributePaths = {"track"})
-    List<RunningRecord> findAllByMemberIdAndStartedAtGreaterTahnEqualAndStartedAtLessThan(
-            Long memberId,
-            LocalDateTime startAt,
-            LocalDateTime endAt
-    );
 }

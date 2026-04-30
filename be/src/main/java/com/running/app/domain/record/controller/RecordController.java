@@ -119,6 +119,34 @@ public class RecordController {
     }
 
     @Operation(
+            summary = "러닝 활동 통계 조회",
+            description = """
+                    사용자의 러닝 활동 통계 조회
+                    period 값에 따라 조회 범위와 차트 단위 변경
+                    
+                    period 옵션:
+                    - week : 이번 주 통계, 요일별 차트
+                    - month : 이번 달 통계, 일자별 차트
+                    - year : 올해 통계, 월별 차트
+                    - all : 전체 통계, 연도별 차트
+                    - 기본값 : all  
+                    """
+    )
+    @GetMapping("/record/stats")
+    public ApiResponse<RecordResponse.StatsDTO> getRecordStats(
+            @RequestParam(name = "period", defaultValue = "all") String period
+    ) {
+        Long memberId = 1L;
+
+        RecordResponse.StatsDTO response = recordService.getRecordStats(
+                memberId,
+                period
+        );
+
+        return ApiResponse.onSuccess(response);
+    }
+
+    @Operation(
             summary = "러닝 기록 상세 조회",
             description = """
                     로그인 사용자의 특정 러닝 기록 상세정보 조회
@@ -160,4 +188,6 @@ public class RecordController {
 
         return ApiResponse.OK;
     }
+
+
 }
