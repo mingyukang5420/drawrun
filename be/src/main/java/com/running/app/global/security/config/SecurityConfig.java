@@ -46,7 +46,10 @@ public class SecurityConfig {
                                         // 여기에서 인증 없이 요청을 허용 할 url 입력
                                         "/v1/auth/check/*",
                                         "/v1/auth/signup",
-                                        "/v1/auth/login"
+                                        "/v1/auth/login",
+                                        "/v1/api-docs/**",
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html"
                                 ).permitAll()
                                 .anyRequest().authenticated()
                 )
