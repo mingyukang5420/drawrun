@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:running/features/running/controller/running_controller.dart';
-import 'package:running/features/running/widgets/running_map_view.dart';
+import 'package:running/features/running/presentation/running_viewmodel.dart';
+import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 import 'package:running/shared/map/widgets/map_app_bar.dart';
 import 'package:running/shared/map/widgets/map_bottom_panel.dart';
 import 'package:running/shared/map/widgets/map_fab.dart';
