@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:running/features/course/presentation/screen/course_screen.dart';
-// import 'package:running/features/running/presentation/screen/running_screen.dart';
-// import 'package:running/features/record/presentation/screen/record_screen.dart';
+import 'package:running/features/running/screen/running_screen.dart';
+import 'package:running/features/record/screen/record_screen.dart';
 
 class MainTabScreen extends StatefulWidget {
   const MainTabScreen({super.key});
@@ -16,8 +16,8 @@ class _MainTabScreenState extends State<MainTabScreen> {
 
   final List<Widget> pages = const [
     CourseScreen(),
-    // RunningScreen(),
-    // RecordScreen(),
+    RunningScreen(),
+    RecordScreen(),
   ];
 
   @override
