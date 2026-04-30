@@ -110,6 +110,36 @@ public class RecordConverter {
                 .build();
     }
 
+    public static RecordResponse.StatsDTO toStatsDTO(
+            Double totalDistance,
+            Integer totalCount,
+            String avgPace,
+            String totalTime,
+            String periodLabel,
+            List<RecordResponse.ChartDTO> chart
+    ) {
+        return RecordResponse.StatsDTO.builder()
+                .totalDistance(totalDistance)
+                .totalCount(totalCount)
+                .avgPace(avgPace)
+                .totalTime(totalTime)
+                .periodLabel(periodLabel)
+                .chart(chart)
+                .build();
+    }
+
+    public static RecordResponse.ChartDTO toChartDTO(
+            String label,
+            Double distance
+    ) {
+        return RecordResponse.ChartDTO.builder()
+                .label(label)
+                .distance(distance)
+                .build();
+    }
+
+    //---------------------------------------------
+
     // 완주 여부 판단 로직 구현
     private static Boolean DeterminIsCompleted(RecordRequest.CreateDTO request) {
         return true;

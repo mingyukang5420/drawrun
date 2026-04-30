@@ -6,6 +6,8 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 //우선은 기본 JpsRepository로 생성
@@ -25,5 +27,14 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
     Optional<RunningRecord> findByIdAndMemberId(
             Long recordId,
             Long memberId
+    );
+
+    // 사용자의 기록 중에서 'startedAt'이 특정 기간 사이에 있는 기록만 조회
+    // startAt 이상 endAt 미만
+    @EntityGraph(attributePaths = {"track"})
+    List<RunningRecord> findAllByMemberIdAndStartedAtGreaterTahnEqualAndStartedAtLessThan(
+            Long memberId,
+            LocalDateTime startAt,
+            LocalDateTime endAt
     );
 }
