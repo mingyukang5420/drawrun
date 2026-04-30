@@ -67,7 +67,7 @@ CREATE INDEX IF NOT EXISTS idx_osm_crossings_geom_geog
 
 
 CREATE TABLE IF NOT EXISTS osm_ways_split (
-    id              BIGSERIAL       PRIMARY KEY,
+    id              BIGINT          GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     source_osm_id   BIGINT          NOT NULL REFERENCES osm_ways(osm_id),
     geom            GEOMETRY(LINESTRING, 4326) NOT NULL
 );
