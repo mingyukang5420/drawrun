@@ -110,6 +110,28 @@ def _count(conn, table: str) -> int:
     with conn.cursor() as cur:
         cur.execute(f"SELECT COUNT(*) FROM {table}")
         return cur.fetchone()[0]
+    
+
+def split_ways(conn) -> None:
+    """osm_ways를 교차점 기준으로 쪼개어 osm_ways_split에 적재."""
+    with conn.cursor() as cur:
+        logger.info("osm_ways_split 초기화...")
+        cur.execute("""
+            INSERT INTO osm_ways_split (source_osm_id, geom)
+            SELECT
+                A.osm_id,
+                (ST_Dump(
+                    ST_Split(
+                        A.geom,
+                        ST_CollectionExtract(ST_Union(ST_Intersection(A.geom, B.geom)), 1)
+                    )
+                )).geom
+            FROM osm_ways A
+            JOIN osm_ways B ON ST_Intersects(A.geom, B.geom) AND A.osm_id != B.osm_id
+            GROUP BY A.osm_id, A.geom
+        """)
+        conn.commit()
+    logger.info("osm_ways_split 적재 완료: %d rows", _count(conn, "osm_ways_split"))
 
 
 def main() -> None:
@@ -151,6 +173,10 @@ def main() -> None:
             _count(conn, "osm_ways"),
             _count(conn, "osm_crossings"),
         )
+
+        # 적재된 길을 교차점을 기준으로 잘라서 적재하는 함수 호출
+        split_ways(conn)
+
     finally:
         conn.close()
 
