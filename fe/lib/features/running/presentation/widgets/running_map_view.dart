@@ -14,7 +14,7 @@ class RunningMapView extends StatelessWidget {
   Widget build(BuildContext context) {
     // context.read 는 상태 변화에 반응하지 않는 1회성 읽기다.
     // 콜백 안에서만 presentation 를 사용하므로 여기서는 read 가 적합하다.
-    final controller = context.read<RunningController>();
+    final controller = context.read<RunningViewModel>();
 
     return MapView(
       // 현재 위치 핀 표시 및 카메라 이동을 MapView 에 요청한다

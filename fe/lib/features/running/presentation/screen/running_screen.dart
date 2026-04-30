@@ -8,7 +8,7 @@ import 'package:running/shared/map/widgets/map_bottom_panel.dart';
 import 'package:running/shared/map/widgets/map_fab.dart';
 
 // 러닝 탭의 메인 화면
-// ChangeNotifierProvider 로 RunningController 를 생성하고,
+// ChangeNotifierProvider 로 RunningViewModel 를 생성하고,
 // 하위 위젯 전체에서 Provider.of / Consumer / context.read 로 접근할 수 있게 한다.
 class RunningScreen extends StatelessWidget {
   const RunningScreen({super.key});
@@ -17,23 +17,23 @@ class RunningScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       // create 는 화면이 처음 만들어질 때 딱 한 번 호출된다
-      create: (_) => RunningController(),
+      create: (_) => RunningViewModel(),
       child: Scaffold(
         appBar: const MapAppBar(title: '러닝'),
 
-        // 지도 영역: RunningController 와 연결된 NaverMap 을 표시한다
+        // 지도 영역: RunningViewModel 와 연결된 NaverMap 을 표시한다
         body: const RunningMapView(),
 
         // 경로 초기화 버튼 (우하단 원형 버튼)
-        // Consumer 는 RunningController 가 notifyListeners() 를 호출할 때마다 이 부분만 다시 그린다
-        floatingActionButton: Consumer<RunningController>(
+        // Consumer 는 RunningViewModel 가 notifyListeners() 를 호출할 때마다 이 부분만 다시 그린다
+        floatingActionButton: Consumer<RunningViewModel>(
           builder: (context, controller, _) {
             return MapFab(onPressed: controller.clear);
           },
         ),
 
         // 하단 패널: 거리 표시 + 시작/정지 버튼
-        bottomNavigationBar: Consumer<RunningController>(
+        bottomNavigationBar: Consumer<RunningViewModel>(
           builder: (context, controller, _) {
             return MapBottomPanel(
               distance: controller.distanceLabel,
