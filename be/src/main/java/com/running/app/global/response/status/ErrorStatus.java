@@ -12,7 +12,13 @@ public enum ErrorStatus {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "401", "로그인 인증이 필요합니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "403", "금지된 요청입니다."),
     SIGNUP_CONFLICT(HttpStatus.CONFLICT, "409", "중복이 발생하였습니다."),
-    RECORD_NOT_FOUND(HttpStatus.NOT_FOUND,"404" ,"러닝 기록을 찾을 수 없습니다." );
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "사용자를 찾을 수 없습니다."),
+    RECORD_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "러닝 기록을 찾을 수 없습니다.");
+    INVALID_RECORD_STATS_PERIOD(
+            HttpStatus.BAD_REQUEST,
+            "400",
+            "잘못된 통계 기간 필터입니다. 허용 값 : week, month, year, all"
+    );
 
     private final HttpStatus httpStatus;
     private final String code;

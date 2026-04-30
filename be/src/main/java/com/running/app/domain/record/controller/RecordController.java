@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -117,6 +118,41 @@ public class RecordController {
         return ApiResponse.onSuccess(response);
     }
 
+    @Operation(
+            summary = "러닝 활동 통계 조회",
+            description = """
+                    사용자의 러닝 활동 통계 조회
+                    period 값에 따라 조회 범위와 차트 단위 변경
+                    
+                    period 옵션:
+                    - week : 이번 주 통계, 요일별 차트
+                    - month : 이번 달 통계, 일자별 차트
+                    - year : 올해 통계, 월별 차트
+                    - all : 전체 통계, 연도별 차트
+                    - 기본값 : all  
+                    """
+    )
+    @GetMapping("/record/stats")
+    public ApiResponse<RecordResponse.StatsDTO> getRecordStats(
+            @RequestParam(name = "period", defaultValue = "all") String period
+    ) {
+        Long memberId = 1L;
+
+        RecordResponse.StatsDTO response = recordService.getRecordStats(
+                memberId,
+                period
+        );
+
+        return ApiResponse.onSuccess(response);
+    }
+
+    @Operation(
+            summary = "러닝 기록 상세 조회",
+            description = """
+                    로그인 사용자의 특정 러닝 기록 상세정보 조회
+                    데이터 및 경로 좌표 nodes 배열로 변환해서 반환
+                    """
+    )
     @GetMapping("/record/{recordId}")
     public ApiResponse<RecordResponse.DetailDTO> getRecordDetail(
             @PathVariable(name = "recordId") Long recordId
@@ -130,4 +166,28 @@ public class RecordController {
 
         return ApiResponse.onSuccess(response);
     }
+
+    @Operation(
+            summary = "러닝 기록 제목 수정",
+            description = """
+                    로그인 사용자의 러닝 기록 제목 수정.
+                    """
+    )
+    @PatchMapping("/record/{recordId}")
+    public ApiResponse<Void> changeRecordTitle(
+            @PathVariable(name = "recordId") Long recordId,
+            @Valid @RequestBody RecordRequest.ChangeTitleDTO request
+    ) {
+        Long memberId = 1L;
+
+        recordService.changeRecordTitle(
+                memberId,
+                recordId,
+                request
+        );
+
+        return ApiResponse.OK;
+    }
+
+
 }

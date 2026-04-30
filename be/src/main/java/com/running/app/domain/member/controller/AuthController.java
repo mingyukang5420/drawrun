@@ -1,7 +1,9 @@
 package com.running.app.domain.member.controller;
 
+import com.running.app.domain.member.dto.MemberRequest.LoginRequest;
 import com.running.app.domain.member.dto.MemberRequest.SignupRequest;
 import com.running.app.domain.member.dto.MemberResponse.CheckDuplicationResponse;
+import com.running.app.domain.member.dto.MemberResponse.LoginResponse;
 import com.running.app.domain.member.service.AuthService;
 import com.running.app.domain.member.service.MemberService;
 import com.running.app.global.response.ApiResponse;
@@ -11,11 +13,15 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -68,6 +74,7 @@ public class AuthController {
                     description = "중복 체크 성공 (isDuplicated: true=중복, false=사용 가능)"
             )
     })
+
     @GetMapping("/check/nickname")
     public ApiResponse<CheckDuplicationResponse> checkNickname(
             @Parameter(description = "중복 확인할 닉네임", example = "러닝왕")
@@ -82,12 +89,14 @@ public class AuthController {
                     description = "중복 체크 성공 (isDuplicated: true=중복, false=사용 가능)"
             )
     })
+
     @GetMapping("/check/loginId")
     public ApiResponse<CheckDuplicationResponse> checkLoginId(
             @Parameter(description = "중복 확인할 아이디", example = "jongmin123")
             @RequestParam @NotBlank String loginId) {
         return ApiResponse.onSuccess(authService.checkLoginId(loginId));
     }
+
 
     @Operation(summary = "이메일 중복 체크")
     @ApiResponses({
@@ -101,5 +110,41 @@ public class AuthController {
             @Parameter(description = "중복 확인할 이메일", example = "jongmin@example.com")
             @RequestParam @NotBlank @Email String email) {
         return ApiResponse.onSuccess(authService.checkEmail(email));
+    }
+
+    @Operation(summary = "로그인")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "로그인 성공"
+            )
+    })
+    @PostMapping("/login")
+    public ApiResponse<LoginResponse> login(
+            @RequestBody @Valid LoginRequest request,
+            HttpServletResponse response
+    ) {
+
+        // 로그인 및 토큰 발급 진행
+        LoginResponse loginResponse = authService.login(request);
+
+        // Refresh Token -> HTTP only Cookie 세팅
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", loginResponse.getRefreshToken())
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(Duration.ofDays(30))
+                .sameSite("Strict")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        return ApiResponse.onSuccess(loginResponse);
+    }
+
+    // accessToken 테스트 api
+    @GetMapping("/test")
+    public ApiResponse<String> testApi() {
+
+        return ApiResponse.onSuccess("테스트 성공");
     }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:running/features/course/screen/course_screen.dart';
 import 'package:running/features/running/presentation/screen/running_screen.dart';
+import 'package:running/features/course/presentation/screen/course_screen.dart';
 import 'package:running/features/record/screen/record_screen.dart';
 
 class MainTabScreen extends StatefulWidget {

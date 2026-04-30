@@ -6,6 +6,8 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 //우선은 기본 JpsRepository로 생성
@@ -26,4 +28,5 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
             Long recordId,
             Long memberId
     );
+
 }
