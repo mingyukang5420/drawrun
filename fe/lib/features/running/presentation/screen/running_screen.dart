@@ -40,7 +40,7 @@ class RunningScreen extends StatelessWidget {
               // 러닝 중이면 "정지", 아니면 "시작" 을 표시한다
               buttonLabel: controller.isRunning ? '정지' : '시작',
               onPressed: controller.isRunning
-                  ? controller.stopRunning
+                  ? controller.finish
                   : controller.startRunning,
             );
           },

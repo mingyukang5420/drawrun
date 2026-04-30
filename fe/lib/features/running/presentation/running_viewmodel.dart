@@ -51,9 +51,6 @@ class RunningViewModel extends ChangeNotifier {
   bool isSaving = false;
   ApiException? saveError;
 
-  // 추상 타입으로 받아서 테스트/모킹 가능. 화면에서 RunningRepositoryImpl(...) 주입.
-  final RunningRepository _repository;
-
   // 지도 위에 그려진 경로 선 오버레이 (null 이면 아직 그려지지 않은 상태)
   NPolylineOverlay? routeLine;
 
@@ -63,9 +60,6 @@ class RunningViewModel extends ChangeNotifier {
   // GPS 스트림 구독
   // 시작 전/정지 후엔 null - null 여부로 구독 활성 상태 판별
   StreamSubscription<LatLng>? _locationSub;
-
-  RunningViewModel({required RunningRepository repository})
-      : _repository = repository;
 
   // 지도가 준비된 뒤 RunningMapView 에서 호출한다
   void setMapController(NaverMapController controller) {
@@ -272,21 +266,5 @@ class RunningViewModel extends ChangeNotifier {
       altitudeM: altitudeM,
       bpm: bpm,
     );
-  }
-
-  // 결과 화면이 initState 에서 호출. 실패 시 saveError 에 담아두고 rethrow → UI 가 재시도 가능.
-  Future<void> saveCurrentSession() async {
-    isSaving = true;
-    saveError = null;
-    notifyListeners();
-    try {
-      await _repository.save(buildSession());
-    } on ApiException catch (e) {
-      saveError = e;
-      rethrow;
-    } finally {
-      isSaving = false;
-      notifyListeners();
-    }
   }
 }

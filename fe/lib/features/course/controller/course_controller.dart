@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 class CourseController extends ChangeNotifier {
-
-  final courseControllerProvider =
-  ChangeNotifierProvider((ref) => CourseController());
 
   final List<NLatLng> points = [];
 
