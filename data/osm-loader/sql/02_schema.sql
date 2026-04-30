@@ -23,6 +23,11 @@ CREATE TABLE IF NOT EXISTS osm_ways (
     lit         BOOLEAN,        -- 야간 안전 경로용
     sidewalk    VARCHAR(20),    -- both / left / right / none
 
+    -- 고도 관련 컬럼 (loader/main.py 실행 시 적재)
+    elevation_nodes     JSONB,      -- [{lng, lat, elev}, ...] 노드별 고도값
+    elevation_gain      FLOAT8,     -- 고도 상승량 (m), 오르막 구간 합산
+    avg_uphill_grade    FLOAT8,     -- 오르막 평균 경사도 (%), 오르막 구간만
+
     created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

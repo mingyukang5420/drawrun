@@ -14,7 +14,7 @@ def load_db_config() -> dict:
     누락 시 KeyError로 실패 — 외부 입력 경계이므로 명시적 실패가 안전.
     """
     project_root = Path(__file__).resolve().parent.parent
-    load_dotenv(project_root / ".env")
+    load_dotenv(project_root / ".env", encoding="utf-8")
 
     return {
         "host": os.environ["POSTGRES_HOST"],
