@@ -44,9 +44,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth ->
                         auth.requestMatchers(
                                         // 여기에서 인증 없이 요청을 허용 할 url 입력
-                                        "/api/v1/auth/check/*",
-                                        "/api/v1/auth/signup",
-                                        "/api/v1/auth/login"
+                                        "/v1/auth/check/*",
+                                        "/v1/auth/signup",
+                                        "/v1/auth/login"
                                 ).permitAll()
                                 .anyRequest().authenticated()
                 )
