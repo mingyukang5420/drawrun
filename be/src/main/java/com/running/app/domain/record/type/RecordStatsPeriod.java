@@ -3,8 +3,6 @@ package com.running.app.domain.record.type;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
 
-import java.util.Arrays;
-
 public enum RecordStatsPeriod {
 
     WEEK("week"),
@@ -31,7 +29,7 @@ public enum RecordStatsPeriod {
             }
         }
 
-        throw new GeneralException(ErrorStatus.BAD_REQUEST);
+        throw new GeneralException(ErrorStatus.INVALID_RECORD_STATS_PERIOD, value);
     }
 
 }
