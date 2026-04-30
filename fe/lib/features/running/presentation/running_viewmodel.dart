@@ -5,10 +5,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:running/shared/location/location_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:running/shared/map/lat_lng_naver_ext.dart';
+
+import '../../../shared/model/lat_lng.dart';
 
 // 러닝 도메인의 상태와 로직을 관리하는 컨트롤러
 // ChangeNotifier 를 상속하면 notifyListeners() 호출 시 Consumer 위젯이 자동으로 다시 그려진다.
-class RunningController extends ChangeNotifier {
+class RunningViewModel extends ChangeNotifier {
   // 현재 러닝 중인지 여부
   bool isRunning = false;
 
@@ -16,7 +19,7 @@ class RunningController extends ChangeNotifier {
   double distanceKm = 0.0;
 
   // 지도에 찍힌 좌표 목록 (경로를 구성하는 점들)
-  final List<NLatLng> points = [];
+  final List<LatLng> points = [];
 
   // 지도 위에 그려진 경로 선 오버레이 (null 이면 아직 그려지지 않은 상태)
   NPolylineOverlay? routeLine;
@@ -26,7 +29,7 @@ class RunningController extends ChangeNotifier {
 
   // GPS 스트림 구독
   // 시작 전/정지 후엔 null - null 여부로 구독 활성 상태 판별
-  StreamSubscription<Position>? _locationSub;
+  StreamSubscription<LatLng>? _locationSub;
 
   // 지도가 준비된 뒤 RunningMapView 에서 호출한다
   void setMapController(NaverMapController controller) {
@@ -41,9 +44,7 @@ class RunningController extends ChangeNotifier {
 
     // GPS 스트림 구독 시작
     // distanceFilter가 5 이므로 5m 이상 이동했을 경우에 좌표 저장
-    _locationSub = LocationService.getPositionStream().listen((pos) {
-      addPoint(NLatLng(pos.latitude, pos.longitude));
-    });
+    _locationSub = LocationService.getLatLngStream().listen(addPoint);
     notifyListeners();
   }
 
@@ -58,7 +59,7 @@ class RunningController extends ChangeNotifier {
   }
 
   // 새 좌표를 경로에 추가한다. 러닝 중이 아니면 무시한다
-  void addPoint(NLatLng point) {
+  void addPoint(LatLng point) {
     if (!isRunning) return;
 
     // 이전 점이 있으면 두 점 사이의 거리를 누적한다
@@ -110,7 +111,7 @@ class RunningController extends ChangeNotifier {
 
     routeLine = NPolylineOverlay(
       id: 'running_route',
-      coords: points,
+      coords: points.map((p) => p.toNLatLng()).toList(),
       width: 6,
       color: Colors.blueAccent,
     );
@@ -120,7 +121,7 @@ class RunningController extends ChangeNotifier {
 
   // 두 GPS 좌표 사이의 거리를 km 단위로 반환한다 (Haversine 공식)
   // 지구 곡률을 고려한 구면 거리 계산 방식으로, GPS 거리 측정에 표준적으로 사용된다.
-  double _haversineKm(NLatLng a, NLatLng b) {
+  double _haversineKm(LatLng a, LatLng b) {
     const r = 6371.0; // 지구 반지름 (km)
     final dLat = _toRad(b.latitude - a.latitude);
     final dLon = _toRad(b.longitude - a.longitude);
