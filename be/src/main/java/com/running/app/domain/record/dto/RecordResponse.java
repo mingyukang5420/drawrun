@@ -78,4 +78,30 @@ public class RecordResponse {
         private Boolean isSafe;
         private List<TrackRequest.NodeDTO> nodes;
     }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StatsDTO {
+
+        private Double totalDistance;
+        private Integer totalCount;
+        private String avgPace;
+        private String totalTime;
+        private String periodLabel;
+        private List<ChartDTO> chart;
+
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ChartDTO {
+
+        //차트는 우선 달린 거리 데이터만(nikerun)
+        private String label;
+        private Double distance;
+    }
 }
