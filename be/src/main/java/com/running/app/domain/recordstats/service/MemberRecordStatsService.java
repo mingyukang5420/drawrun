@@ -74,20 +74,12 @@ public class MemberRecordStatsService {
             Double distance,
             Integer runningTime
     ) {
-        MemberRecordStats stats = memberRecordStatsRepository
-                .findByMemberIdAndPeriodTypeAndPeriodKey(
-                        memberId,
-                        periodType,
-                        periodKey
-                )
-                .orElseGet(() -> MemberRecordStatsConverter.toMemberRecordStats(
-                        memberId,
-                        periodType,
-                        periodKey
-                ));
-
-        stats.increase(distance, runningTime);
-
-        memberRecordStatsRepository.save(stats);
+        memberRecordStatsRepository.upsertStats(
+                memberId,
+                periodType.name(),
+                periodKey,
+                distance,
+                runningTime
+        );
     }
 }
