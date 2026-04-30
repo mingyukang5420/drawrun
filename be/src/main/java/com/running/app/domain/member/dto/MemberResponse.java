@@ -1,5 +1,6 @@
 package com.running.app.domain.member.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -16,5 +17,18 @@ public abstract class MemberResponse {
 
         @Schema(description = "중복 여부 (true: 중복, false: 사용 가능)", example = "false")
         private boolean isDuplicated;
+    }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor
+    @Schema(description = "로그인 응답")
+    public static class LoginResponse {
+
+        @Schema(description = "로그인 응답 accessToken")
+        private String accessToken;
+
+        @JsonIgnore // refreshToken은 응답에서 구조적으로 제외함
+        private String refreshToken;
     }
 }

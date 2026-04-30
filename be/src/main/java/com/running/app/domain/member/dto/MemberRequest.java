@@ -52,4 +52,17 @@ public abstract class MemberRequest {
         @NotNull
         private Gender gender;
     }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class LoginRequest {
+
+        @Schema(description = "로그인 아이디", example = "ssafy1234")
+        @NotBlank
+        private String loginId;
+
+        @Schema(description = "비밀번호", example = "ssafy1234")
+        @NotBlank
+        private String password;
+    }
 }
