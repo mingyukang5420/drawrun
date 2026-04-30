@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:running/features/course/screen/course_screen.dart';
+import 'package:running/features/course/presentation/screen/course_screen.dart';
 import 'package:running/features/running/screen/running_screen.dart';
 import 'package:running/features/record/screen/record_screen.dart';
 
