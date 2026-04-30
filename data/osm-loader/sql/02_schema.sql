@@ -64,3 +64,17 @@ CREATE INDEX IF NOT EXISTS idx_osm_crossings_geom
 
 CREATE INDEX IF NOT EXISTS idx_osm_crossings_geom_geog
     ON osm_crossings USING GIST((geom::geography));
+
+
+CREATE TABLE IF NOT EXISTS osm_ways_split (
+    id              BIGINT          GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    source_osm_id   BIGINT          NOT NULL REFERENCES osm_ways(osm_id),
+    geom            GEOMETRY(LINESTRING, 4326) NOT NULL
+);
+
+-- postgre는 내부적으로 fk에 자동으로 인덱스를 만들어주지 않음(mysql은 걸어줌)
+CREATE INDEX IF NOT EXISTS idx_osm_ways_split_source
+    ON osm_ways_split(source_osm_id);
+
+CREATE INDEX IF NOT EXISTS idx_osm_ways_split_geom
+    ON osm_ways_split USING GIST(geom);
