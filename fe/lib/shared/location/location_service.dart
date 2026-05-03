@@ -1,4 +1,5 @@
 import 'package:geolocator/geolocator.dart';
+import 'package:running/shared/model/lat_lng.dart';
 
 // 위치 관련 로직을 한 곳에서 관리하는 서비스.
 // 각 도메인(러닝, 코스 등)에서 직접 geolocator 를 다루지 않고 이 클래스를 사용한다.
@@ -16,7 +17,7 @@ class LocationService {
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
+        distanceFilter: 0,
       ),
     );
   }
@@ -39,5 +40,15 @@ class LocationService {
     if (permission == LocationPermission.deniedForever) return false;
 
     return true;
+  }
+
+  // Position 을 LatLng 로 매핑한 스트림을 반환한다
+  static Stream<LatLng> getLatLngStream() => getPositionStream()
+      .map((p) => LatLng(latitude: p.latitude, longitude: p.longitude));
+
+  static Future<LatLng?> getCurrentLatLng() async {
+    final p = await getCurrentPosition();
+    if (p == null) return null;
+    return LatLng(latitude: p.latitude, longitude: p.longitude);
   }
 }
