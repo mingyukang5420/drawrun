@@ -13,7 +13,7 @@ public enum ErrorStatus {
     FORBIDDEN(HttpStatus.FORBIDDEN, "403", "금지된 요청입니다."),
     SIGNUP_CONFLICT(HttpStatus.CONFLICT, "409", "중복이 발생하였습니다."),
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "사용자를 찾을 수 없습니다."),
-    RECORD_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "러닝 기록을 찾을 수 없습니다.");
+    RECORD_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "러닝 기록을 찾을 수 없습니다."),
     INVALID_RECORD_STATS_PERIOD(
             HttpStatus.BAD_REQUEST,
             "400",
