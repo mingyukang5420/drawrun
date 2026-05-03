@@ -17,7 +17,7 @@ class CourseEditorScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       // 의존성 체인: DioClient → Datasource → RepositoryImpl → ViewModel
       create: (_) {
-        final datasource = CourseRemoteDatasource(DioClient.create());
+        final datasource = CourseRemoteDataSource(DioClient.create());
         return CourseViewModel(CourseRepositoryImpl(datasource));
       },
       child: Scaffold(

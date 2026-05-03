@@ -7,10 +7,10 @@ import 'package:running/shared/network/api_exception.dart';
 // 코스 관련 HTTP 요청 전담 클래스
 // JSON 파싱과 DioException → ApiException 변환을 여기서 처리
 // Repository 는 이 클래스를 통해서만 서버와 통신
-class CourseRemoteDatasource {
+class CourseRemoteDataSource {
   final Dio _dio;
 
-  CourseRemoteDatasource(this._dio);
+  CourseRemoteDataSource(this._dio);
 
   // GET /courses — 전체 코스 목록 조회
   Future<List<Course>> fetchCourses() async {

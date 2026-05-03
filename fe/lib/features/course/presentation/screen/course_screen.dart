@@ -17,7 +17,7 @@ class CourseScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       // 화면 진입 시 ViewModel 생성 + 즉시 목록 로드
       create: (_) {
-        final datasource = CourseRemoteDatasource(DioClient.create());
+        final datasource = CourseRemoteDataSource(DioClient.create());
         return CourseViewModel(CourseRepositoryImpl(datasource))..loadCourses();
       },
       child: Scaffold(

@@ -4,9 +4,9 @@ import 'package:running/features/course/domain/course_repository.dart';
 import 'package:running/features/course/domain/way.dart';
 
 // CourseRepository 인터페이스의 구현체
-// 실제 데이터 흐름: ViewModel → CourseRepository(interface) → CourseRepositoryImpl → CourseRemoteDatasource
+// 실제 데이터 흐름: ViewModel → CourseRepository(interface) → CourseRepositoryImpl → CourseRemoteDataSource
 class CourseRepositoryImpl implements CourseRepository {
-  final CourseRemoteDatasource _datasource;
+  final CourseRemoteDataSource _datasource;
 
   CourseRepositoryImpl(this._datasource);
 
