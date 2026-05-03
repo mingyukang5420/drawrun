@@ -1,50 +1,39 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:running/features/running/presentation/running_viewmodel.dart';
+import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 import 'package:running/shared/map/widgets/map_app_bar.dart';
 import 'package:running/shared/map/widgets/map_bottom_panel.dart';
 import 'package:running/shared/map/widgets/map_fab.dart';
 
 // 러닝 탭의 메인 화면
-// ChangeNotifierProvider 로 RunningViewModel 를 생성하고,
-// 하위 위젯 전체에서 Provider.of / Consumer / context.read 로 접근할 수 있게 한다.
-class RunningScreen extends StatelessWidget {
+// ConsumerWidget: WidgetRef 를 통해 Riverpod Provider 를 구독하는 위젯 기반 클래스
+class RunningScreen extends ConsumerWidget {
   const RunningScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      // create 는 화면이 처음 만들어질 때 딱 한 번 호출된다
-      create: (_) => RunningViewModel(),
-      child: Scaffold(
-        appBar: const MapAppBar(title: '러닝'),
+  Widget build(BuildContext context, WidgetRef ref) {
+    // ref.watch: RunningState 가 변경될 때마다 build 를 다시 실행한다
+    final state = ref.watch(runningViewModelProvider);
 
-        // 지도 영역: RunningViewModel 와 연결된 NaverMap 을 표시한다
-        body: const RunningMapView(),
+    // ref.read: 콜백에서 Notifier 메서드를 호출할 때 사용 (구독 불필요)
+    final notifier = ref.read(runningViewModelProvider.notifier);
 
-        // 경로 초기화 버튼 (우하단 원형 버튼)
-        // Consumer 는 RunningViewModel 가 notifyListeners() 를 호출할 때마다 이 부분만 다시 그린다
-        floatingActionButton: Consumer<RunningViewModel>(
-          builder: (context, controller, _) {
-            return MapFab(onPressed: controller.clear);
-          },
-        ),
+    return Scaffold(
+      appBar: const MapAppBar(title: '러닝'),
 
-        // 하단 패널: 거리 표시 + 시작/정지 버튼
-        bottomNavigationBar: Consumer<RunningViewModel>(
-          builder: (context, controller, _) {
-            return MapBottomPanel(
-              distance: controller.distanceLabel,
-              // 러닝 중이면 "정지", 아니면 "시작" 을 표시한다
-              buttonLabel: controller.isRunning ? '정지' : '시작',
-              onPressed: controller.isRunning
-                  ? controller.finish
-                  : controller.startRunning,
-            );
-          },
-        ),
+      // 지도 영역
+      body: const RunningMapView(),
+
+      // 경로 초기화 버튼 (우하단)
+      floatingActionButton: MapFab(onPressed: notifier.clear),
+
+      // 하단 패널: 거리 표시 + 시작/정지 버튼
+      bottomNavigationBar: MapBottomPanel(
+        distance: state.distanceLabel,
+        buttonLabel: state.isRunning ? '정지' : '시작',
+        onPressed: state.isRunning ? notifier.finish : notifier.startRunning,
       ),
     );
   }
