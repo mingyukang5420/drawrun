@@ -54,7 +54,8 @@ class _MapViewState extends State<MapView> {
     );
 
     // 네이버 지도 내장 위치 핀(파란 점)을 가져와서 표시한다
-    final locationOverlay = await mapController.getLocationOverlay();
+    // getLocationOverlay 는 Future 가 아니므로 await 불필요
+    final locationOverlay = mapController.getLocationOverlay();
     locationOverlay.setIsVisible(true);
     locationOverlay.setPosition(
       NLatLng(position.latitude, position.longitude),
