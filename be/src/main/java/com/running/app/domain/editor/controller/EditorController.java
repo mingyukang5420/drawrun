@@ -10,6 +10,9 @@ import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -73,8 +76,42 @@ public class EditorController {
                     1. 좌표가 도보 가능한 길(osm_ways_split) buffer 내에 있는지 검증 (실패 시 400 INVALID_ROUTE)
                     2. Track 생성 (거리는 PostGIS ST_Length 로 자동 계산)
                     3. Course 생성 (검증런 전이므로 status=READY, completionScore=0)
-                    """
+                    """,
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "에디터 저장 요청 바디 — 제목과 사용자가 그린 좌표 시퀀스(order 기준 정렬)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "에디터 저장 요청 예시",
+                                    value = """
+                                            {
+                                              "title": "한강 러닝 코스",
+                                              "coordinates": [
+                                                { "lat": 37.5500, "lng": 126.9200, "order": 1 },
+                                                { "lat": 37.5510, "lng": 126.9210, "order": 2 },
+                                                { "lat": 37.5520, "lng": 126.9220, "order": 3 }
+                                              ]
+                                            }
+                                            """
+                            )
+                    )
+            )
     )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "저장 성공 — status=READY, isValidRoute=true 응답"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "검증 실패 — 뛸 수 없는 길 포함(INVALID_ROUTE) 또는 입력 형식 오류(title 길이/좌표 개수/order 누락 등)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 — 토큰 없음/만료/위변조"
+            )
+    })
     public ApiResponse<SaveResponse> save(
             @AuthenticationPrincipal String loginId,
             @Valid @RequestBody EditorRequest.SaveRequest request
