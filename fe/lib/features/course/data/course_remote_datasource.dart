@@ -12,10 +12,10 @@ class CourseRemoteDataSource {
 
   CourseRemoteDataSource(this._dio);
 
-  // GET /courses — 전체 코스 목록 조회
+  // GET /course — 전체 코스 목록 조회
   Future<List<Course>> fetchCourses() async {
     try {
-      final response = await _dio.get('/courses');
+      final response = await _dio.get('/course');
       return (response.data as List<dynamic>)
           .map((e) => Course.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -24,20 +24,20 @@ class CourseRemoteDataSource {
     }
   }
 
-  // POST /courses — 새 코스 저장
+  // POST /course — 새 코스 저장
   Future<Course> createCourse(Course course) async {
     try {
-      final response = await _dio.post('/courses', data: course.toJson());
+      final response = await _dio.post('/course', data: course.toJson());
       return Course.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
   }
 
-  // DELETE /courses/{id} — 코스 삭제
+  // DELETE /course/{id} — 코스 삭제
   Future<void> deleteCourse(int id) async {
     try {
-      await _dio.delete('/courses/$id');
+      await _dio.delete('/course/$id');
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
@@ -73,3 +73,4 @@ class CourseRemoteDataSource {
     }
   }
 }
+  
