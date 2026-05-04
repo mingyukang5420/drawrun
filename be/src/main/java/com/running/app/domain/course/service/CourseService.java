@@ -39,6 +39,10 @@ public class CourseService {
             Integer page,
             Integer size,
             String difficulty,
+            Double minDistance,
+            Double maxDistance,
+            List<String> regions,
+            Boolean isCompleted,
             String sort
     ) {
         CourseDifficulty courseDifficulty = CourseDifficulty.from(difficulty);
@@ -49,13 +53,19 @@ public class CourseService {
         );
 
         Slice<Course> courseSlice = getCourseSlice(
+                memberId,
                 courseDifficulty,
+                minDistance,
+                maxDistance,
+                regions,
+                isCompleted,
                 pageable
         );
 
         List<Course> courses = courseSlice.getContent();
 
         Map<Long, List<String>> regionMap = getRegionMap(courses);
+
         Set<Long> completedCourseIds = getCompletedCourseIds(
                 memberId,
                 courses
@@ -76,17 +86,32 @@ public class CourseService {
     }
 
     private Slice<Course> getCourseSlice(
+            Long memberId,
             CourseDifficulty difficulty,
+            Double minDistance,
+            Double maxDistance,
+            List<String> regions,
+            Boolean isCompleted,
             Pageable pageable
     ) {
-        if (difficulty == null) {
-            return courseRepository.findAllByDeletedAtIsNullAndRegisteredAtIsNotNull(
+        if (regions == null || regions.isEmpty()) {
+            return courseRepository.findCourseSlice(
+                    memberId,
+                    difficulty,
+                    minDistance,
+                    maxDistance,
+                    isCompleted,
                     pageable
             );
         }
 
-        return courseRepository.findAllByDeletedAtIsNullAndRegisteredAtIsNotNullAndDifficulty(
+        return courseRepository.findCourseSliceByRegions(
+                memberId,
                 difficulty,
+                minDistance,
+                maxDistance,
+                regions,
+                isCompleted,
                 pageable
         );
     }
@@ -96,10 +121,7 @@ public class CourseService {
             return Sort.by(Sort.Direction.DESC, "registeredAt");
         }
 
-        if (sort.equalsIgnoreCase("completionScore")
-                || sort.equalsIgnoreCase("completionRate")) {
-            // 현재 completionRate 요청은 completionScore 기준으로 정렬.
-            // completionScore는 records 기반 완주 점수 계산 결과를 courses.completion_score에 저장한 값.
+        if (sort.equalsIgnoreCase("completionScore")) {
             return Sort.by(Sort.Direction.DESC, "completionScore");
         }
 
