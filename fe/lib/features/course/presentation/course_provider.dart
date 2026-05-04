@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:running/features/course/data/course_remote_datasource.dart';
 import 'package:running/features/course/data/course_repository_impl.dart';
 import 'package:running/features/course/domain/course_repository.dart';
+import 'package:running/features/course/presentation/course_editor_viewmodel.dart';
 import 'package:running/features/course/presentation/course_viewmodel.dart';
 import 'package:running/shared/network/dio_client.dart';
 import 'package:running/shared/network/dio_provider.dart';
@@ -35,10 +36,18 @@ final courseViewModelProvider =
   () => _buildCourseNotifier(autoLoad: true),
 );
 
-// 코스 편집 화면용 Provider
-// 목록 Provider 와 인스턴스를 분리해 편집 상태(points 등)가 독립 관리됨
-// autoDispose: 편집 화면을 닫을 때마다 초기화 → 다음 진입 시 빈 상태
+// 구 편집 화면용 Provider (기존 CourseMapView 와의 호환성 유지용)
 final courseEditorViewModelProvider =
     NotifierProvider.autoDispose<CourseNotifier, CourseState>(
   () => _buildCourseNotifier(),
+);
+
+// 신 코스 편집 화면 전용 Provider
+// CourseEditorNotifier 의 독립 인스턴스로 새 편집 화면 상태를 관리
+// autoDispose: 편집 화면을 닫을 때 undo/redo 스택 포함 전체 초기화
+final courseEditorProvider =
+    NotifierProvider.autoDispose<CourseEditorNotifier, CourseEditorState>(
+  () => CourseEditorNotifier(
+    CourseRepositoryImpl(CourseRemoteDataSource(DioClient.create())),
+  ),
 );
