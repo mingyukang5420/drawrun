@@ -21,6 +21,10 @@ class CourseEditorScreen extends ConsumerWidget {
     // 저장 성공이면 화면을 닫고, 실패면 스낵바를 표시한다
     ref.listen<CourseEditorState>(courseEditorProvider, (prev, next) {
       if (prev?.isSaving == true && !next.isSaving) {
+        // 비동기 저장이 완료되는 시점에 위젯이 이미 트리에서 제거됐을 수 있기때문에
+        // context 가 유효하지 않은 상태에서 Navigator/ScaffoldMessenger 를
+        // 호출하면 런타임 예외가 발생하므로 mounted 여부를 먼저 확인
+        if (!context.mounted) return;
         if (next.saveError == null) {
           // 저장 성공 → 편집 화면을 닫는다
           Navigator.of(context).pop();
