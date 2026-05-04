@@ -251,4 +251,34 @@ public class CourseService {
         // 오차를 막기 위해 한번 더 0~100 으로 제한
         return Math.max(0, Math.min(100, score));
     }
+
+    public CourseResponse.CourseDetailDTO getCourse(
+            Long memberId,
+            Long courseId
+    ) {
+        Course course = courseRepository.findByIdWithTrack(courseId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+        List<String> regions = getRegions(courseId);
+
+        Boolean isCompleted = runningRecordRepository
+                .existsByMemberIdAndCourseIdAndIsCompletedTrue(
+                        memberId,
+                        courseId
+                );
+
+        return CourseConverter.toDetailDTO(
+                course,
+                regions,
+                isCompleted
+        );
+    }
+
+    private List<String> getRegions(Long courseId) {
+
+        return courseDistrictRepository.findAllByCourse_Id(courseId)
+                .stream()
+                .map(courseDistrict -> courseDistrict.getDistrict().getGu())
+                .toList();
+    }
 }

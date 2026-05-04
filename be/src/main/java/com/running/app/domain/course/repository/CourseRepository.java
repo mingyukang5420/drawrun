@@ -3,6 +3,8 @@ package com.running.app.domain.course.repository;
 import com.running.app.domain.course.entity.Course;
 import com.running.app.domain.course.type.CourseDifficulty;
 import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -103,4 +105,16 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
             Boolean isCompleted,
             Pageable pageable
     );
+
+    // 코스 상세 조회 메서드
+    // 연결된 track도 같이 가져온다.
+    @Query("""
+            select c
+            from Course c
+            join fetch c.track
+            where c.id = :courseId
+                and c.deletedAt is null
+                and c.registeredAt is not null
+            """)
+    Optional<Course> findByIdWithTrack(Long courseId);
 }
