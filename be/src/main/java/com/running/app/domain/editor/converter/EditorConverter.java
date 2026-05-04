@@ -3,7 +3,7 @@ package com.running.app.domain.editor.converter;
 import com.running.app.domain.editor.dto.EditorResponse.Geom;
 import com.running.app.domain.editor.dto.EditorResponse.WayInnerResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
-import com.running.app.global.response.osm.entity.OsmWay;
+import com.running.app.global.osm.entity.OsmWay;
 import java.util.ArrayList;
 import java.util.List;
 import org.locationtech.jts.geom.Coordinate;

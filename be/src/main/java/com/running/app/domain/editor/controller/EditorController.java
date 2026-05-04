@@ -2,9 +2,9 @@ package com.running.app.domain.editor.controller;
 
 import com.running.app.domain.editor.converter.EditorConverter;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
+import com.running.app.global.osm.entity.OsmWay;
+import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.ApiResponse;
-import com.running.app.global.response.osm.entity.OsmWay;
-import com.running.app.global.response.osm.service.OsmService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

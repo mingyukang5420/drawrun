@@ -1,7 +1,7 @@
-package com.running.app.global.response.osm.service;
+package com.running.app.global.osm.service;
 
-import com.running.app.global.response.osm.entity.OsmWay;
-import com.running.app.global.response.osm.repository.OsmWayRepository;
+import com.running.app.global.osm.entity.OsmWay;
+import com.running.app.global.osm.repository.OsmWayRepository;
 import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

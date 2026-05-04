@@ -1,6 +1,6 @@
-package com.running.app.global.response.osm.repository;
+package com.running.app.global.osm.repository;
 
-import com.running.app.global.response.osm.entity.OsmWay;
+import com.running.app.global.osm.entity.OsmWay;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
