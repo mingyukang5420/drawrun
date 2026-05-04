@@ -22,6 +22,10 @@ public class TrackService {
 
     private static final int SRID = 4326;
 
+    // 에디터 저장 시 트랙 이미지 미생성 — 추후 썸네일 생성 로직 추가 시 일괄 업데이트 sentinel.
+    // tracks.track_image_url 이 NOT NULL 제약을 가지고 있어 임시 문자열로 채움.
+    private static final String PENDING_TRACK_IMAGE_URL = "썸네일 url 저장 로직 추가 예정";
+
     private final TrackRepository trackRepository;
 
     // 자유러닝용 — 클라이언트가 GPS 누적 거리(distance)와 트랙 이미지 URL을 보내줌
@@ -42,14 +46,15 @@ public class TrackService {
         return trackRepository.save(track);
     }
 
-    // 에디터 저장용 — 클라이언트가 distance를 모르므로 PostGIS로 자동 계산. todo: 트랙 이미지 차후 수정
+    // 에디터 저장용 — 클라이언트가 distance를 모르므로 PostGIS로 자동 계산.
+    // 트랙 이미지는 추후 썸네일 생성 로직 추가 예정 — 그 전까지 sentinel 문자열로 채움.
     @Transactional
     public Track createTrackFromEditor(MultiLineString geom) {
         String wkt = new WKTWriter().write(geom);
         Double distanceMeters = trackRepository.calculateLengthMeters(wkt);
         Double distanceKm = distanceMeters / 1000.0;
 
-        Track track = TrackConverter.toTrack(geom, distanceKm, null);
+        Track track = TrackConverter.toTrack(geom, distanceKm, PENDING_TRACK_IMAGE_URL);
 
         return trackRepository.save(track);
     }
