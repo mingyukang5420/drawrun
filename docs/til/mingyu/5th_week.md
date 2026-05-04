@@ -1,0 +1,78 @@
+## 5th Week TIL
+
+작성자 | 강민규
+
+---
+
+### 목차
+
+[0504-월요일](#-0504--mon)  <br>
+
+---
+
+## 📘 0504 · Mon
+
+#### 오늘 한 일 (What I did)
+
+- `district` 테이블 설계 및 스키마 추가 (`district_code CHAR(5) PK`, `boundary POLYGON`, `center_point POINT`)
+- 기상청 격자 위경도 파일(xlsx) 파싱으로 행정구역코드 5자리 및 중심 좌표 추출
+- Overpass API를 통한 행정 경계 relation 조회 함수(`fetch_boundary`) 구현
+- outer ring 세그먼트를 head-to-tail로 연결해 POLYGON WKT를 조립하는 알고리즘(`parse_boundary`) 구현
+- `district` 테이블 upsert 함수 추가 및 `fetch.py` / `load.py` 파이프라인 확장
+- `GDRIVE_DISTRICTS_URL` 환경변수 추가 및 `run_loader.sh` Docker 전달 보강
+- DB 적재 확인 과정에서 `select *` 출력 이상 원인 분석 및 해결
+- import 의존성 순서를 고려해 파일 단위 커밋 8개 작성 후 push
+
+---
+
+#### 배운 것 (What I learned)
+
+- PostgreSQL에서 `SERIAL`은 내부적으로 sequence를 생성하는 shorthand이고, `GENERATED ALWAYS AS IDENTITY`가 SQL 표준이다. 단, 자연 키가 안정적이고 의미를 가진다면 대리 키 없이 그 자체를 PK로 쓰는 것이 더 단순하다.
+- 한국 행정구역 코드 체계에서 시/도는 2자리, 구는 3자리를 추가해 5자리면 전국 구 단위를 고유하게 식별할 수 있다. 기상청 파일 기준 `1144000000`에서 앞 5자리 `11440`이 마포구다.
+- Overpass API는 `out geom`으로 relation 멤버 way의 geometry를 함께 반환한다. boundary relation의 outer role 세그먼트들은 연결 순서가 보장되지 않아서, 끝점을 1e-6 허용 오차로 매칭해 head-to-tail로 이어붙인 뒤 링을 닫아야 유효한 POLYGON이 된다.
+- `ST_Centroid(boundary)`로 중심점을 계산하는 것보다 기상청 공식 격자 좌표를 그대로 쓰는 것이 날씨 API 연동 목적에 더 적합하다. 기상청 격자 좌표는 동 단위 대표 지점 기준으로 산출된 값이기 때문이다.
+- `select * from district;`에서 아무것도 안 나오는 것처럼 보인 이유는 `boundary` 컬럼이 수천 개 좌표의 WKT 문자열이라 터미널 출력이 밀려났기 때문이다. `select *`에 geometry 컬럼이 포함되면 `\x` 모드를 쓰거나 필요한 컬럼만 명시하는 것이 낫다.
+- `netstat`에서 PID가 두 개 떠 있을 때, 둘 다 `com.docker.backend.exe`와 `wslrelay.exe`면 실제 PostgreSQL 인스턴스는 하나다. Windows에서 Docker가 IPv4(`0.0.0.0:5432`)와 WSL relay(`[::1]:5432`)를 동시에 열어두기 때문에 두 진입점이 같은 컨테이너를 가리킨다.
+
+---
+
+#### 문제 & 해결 (Problem & Solution)
+
+- **문제:**
+  - `select * from district;`가 아무것도 반환하지 않는 것처럼 보였음.
+  - Python으로 조회하면 2행이 있는데 psql에서는 비어 보여 DB 인스턴스 불일치를 의심했음.
+- **원인:**
+  - `boundary POLYGON` 컬럼이 수천 개 좌표로 구성된 거대한 WKT 문자열이라, `select *` 출력이 터미널 너비를 초과해 화면 밖으로 밀려난 것이었음.
+  - `COUNT(*) = 2`와 `pg_tables` 조회로 데이터가 실제로 존재함을 확인.
+- **해결:**
+  - geometry 컬럼을 제외한 컬럼만 명시하거나 `\x` expanded mode로 조회.
+
+---
+
+- **문제:**
+  - `fetch.py`에서 `parse_boundary`가 None을 반환해 `districts.csv`가 비어있을 수 있는 경우를 고려해야 했음.
+- **원인:**
+  - Overpass boundary relation의 outer 세그먼트들이 연속되지 않거나 방향이 역순인 경우 링 조립이 실패할 수 있음.
+- **해결:**
+  - 끝점 매칭 시 1e-6 허용 오차 적용 및 역순 세그먼트 뒤집기 로직 추가. 매칭 실패 시 경고 로그 후 None 반환으로 데이터 무결성 보호.
+
+---
+
+#### 느낀 점 (Insight)
+
+- PK 타입 선택은 단순한 기술 선택이 아니라 도메인 의존성 결정이다. 대리 키는 유연하지만 의미가 없고, 자연 키는 의미가 있지만 변경에 취약하다. **행정구역 코드처럼 정부 표준으로 안정적으로 관리되는 키라면 자연 키를 PK로 쓰는 것이 오히려 모델을 명확하게 한다.**
+- 공간 데이터를 다룰 때 `select *`는 함정이다. geometry 컬럼은 일반 텍스트 출력에 적합하지 않으므로, 조회 목적에 맞게 컬럼을 명시하거나 `ST_AsText`, `ST_AsGeoJSON`으로 가공해서 보는 습관이 필요하다.
+- 커밋 순서도 설계다. import 의존성이 있는 파일을 먼저 커밋해야 각 커밋 시점에서 코드가 실행 가능한 상태를 유지한다. **커밋 히스토리는 작업 순서가 아니라 논리적 빌드 가능 단위여야 한다.**
+
+---
+
+#### 내일 할 것 (Next)
+
+- 코스런 완주 후 코스 완주 판정 로직 구현
+- 코스 등록 시 `ST_Intersects(district.boundary, track.geom)`로 `course_district` 역산 로직 구현
+
+---
+
+#### 한줄 다짐
+
+- 데이터의 크기를 먼저 생각하고 조회 방식을 고른다.
