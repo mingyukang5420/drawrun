@@ -6,7 +6,12 @@ import com.running.app.domain.track.entity.Track;
 import com.running.app.domain.track.repository.TrackRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.PrecisionModel;
+import org.locationtech.jts.io.WKTWriter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +24,7 @@ public class TrackService {
 
     private final TrackRepository trackRepository;
 
-    // 노드를 멀티라인스트링 변환 -> 엔티티 생성 -> 저장 / 저장을 위해 Transactional 어노테이션 사용
+    // 자유러닝용 — 클라이언트가 GPS 누적 거리(distance)와 트랙 이미지 URL을 보내줌
     @Transactional
     public Track createTrack(
             List<TrackRequest.NodeDTO> nodes,
@@ -37,7 +42,20 @@ public class TrackService {
         return trackRepository.save(track);
     }
 
-    private MultiLineString createMultiLineString(List<TrackRequest.NodeDTO> nodes){
+    // 에디터 저장용 — 클라이언트가 distance를 모르므로 PostGIS로 자동 계산. todo: 트랙 이미지 차후 수정
+    @Transactional
+    public Track createTrackFromEditor(MultiLineString geom) {
+        String wkt = new WKTWriter().write(geom);
+        Double distanceMeters = trackRepository.calculateLengthMeters(wkt);
+        Double distanceKm = distanceMeters / 1000.0;
+
+        Track track = TrackConverter.toTrack(geom, distanceKm, null);
+
+        return trackRepository.save(track);
+    }
+
+    // 좌표 리스트 → MultiLineString 변환. EditorService 도 호출하므로 public
+    public MultiLineString createMultiLineString(List<TrackRequest.NodeDTO> nodes) {
         GeometryFactory geometryFactory = new GeometryFactory(
                 // Double 정밀도 사용
                 new PrecisionModel(),

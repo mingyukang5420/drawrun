@@ -41,9 +41,10 @@ public class Track extends BaseRDBEntity {
     )
     private Double distance;
 
+    // 에디터 작성 시 url을 어떻게 처리할 지 정해지지 않아, null 허용 -> 추후 수정
     @Column(
             name = "track_image_url",
-            nullable = false,
+            nullable = true,
             length = 500
     )
     private String trackImageUrl;
