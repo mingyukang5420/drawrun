@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/shared/map/widgets/map_view.dart';
 
+import '../running_viewmodel.dart';
+
 // 러닝 도메인의 지도 위젯.
 //
 // trackRoute:
@@ -22,15 +24,22 @@ class RunningMapView extends ConsumerStatefulWidget {
 }
 
 class _RunningMapViewState extends ConsumerState<RunningMapView> {
+  // initState 에서 한 번 잡아두고 dispose 에서 안전하게 사용.
+  // late final: 처음 한 번만 할당, 그 후 불변.
+  late final RunningNotifier _notifier;
+
+  @override
+  void initState() {
+    super.initState();
+    // initState 시점엔 ref 사용 안전.
+    // .notifier 를 잡아두면 dispose 시점에 ref 없이도 호출 가능.
+    _notifier = ref.read(runningViewModelProvider.notifier);
+  }
+
   @override
   void dispose() {
-    if (widget.trackRoute) {
-      // 위젯이 빠지는 시점에 controller 가 무효화되므로
-      // ViewModel 에서도 참조를 끊어준다 → 죽은 controller 호출 사고 방지.
-      ref
-          .read(runningViewModelProvider.notifier)
-          .clearMapController();
-    }
+    // ref 대신 미리 보관해둔 _notifier 사용 → 안전
+    _notifier.clearMapController();
     super.dispose();
   }
 

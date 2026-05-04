@@ -7,6 +7,7 @@ import 'package:running/features/running/presentation/widgets/running_metric_top
 import 'package:running/features/running/presentation/widgets/running_pause_map_sheet.dart';
 import 'package:running/features/running/presentation/widgets/running_pause_metric_grid.dart';
 import 'package:running/features/running/presentation/widgets/running_stop_long_press_button.dart';
+import 'package:running/features/running/presentation/screen/running_result_screen.dart';
 
 // 러닝 진행 화면. isPaused 값에 따라 두 모드를 분기 렌더링한다.
 //   - false: _RunningBody (상단 메트릭 + 가운데 큰 값 + 하단 일시정지 버튼)
@@ -32,9 +33,23 @@ class RunningActiveScreen extends ConsumerWidget {
               ? _PausedBody(
             // 정지 시: finish() 후 탭으로 복귀
             onStop: () async {
+              // 1) 측정 정리 — GPS 구독 해제, 타이머 종료, endedAt 기록
               await notifier.finish();
               if (!context.mounted) return;
-              // popUntil(isFirst): 루트 화면(=탭) 까지 모든 위 화면 닫기
+
+              // 2) 결과 화면을 push.
+              //    pushReplacement 가 아니라 push 인 이유:
+              //    runningViewModelProvider 는 autoDispose. RunningActiveScreen 을 닫으면
+              //    Provider 도 같이 정리되어 state(distanceKm, points 등) 가 날아감.
+              //    push 로 쌓으면 ActiveScreen 이 뒤에 살아있어 Provider 가 유지됨.
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const RunningResultScreen(),
+                ),
+              );
+              // 3) 결과 화면이 pop 으로 닫히고 돌아온 시점.
+              //    ActiveScreen 까지 함께 닫고 루트(탭)로 복귀.
+              if (!context.mounted) return;
               Navigator.of(context).popUntil((r) => r.isFirst);
             },
             // 재생 시: GPS 재구독 + 타이머 재시작

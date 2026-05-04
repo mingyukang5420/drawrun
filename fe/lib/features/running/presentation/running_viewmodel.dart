@@ -300,14 +300,21 @@ class RunningNotifier extends Notifier<RunningState> {
 
   // 결과 화면 진입 시 한 번 호출. 실패해도 화면은 그대로 보이고
   // saveError 가 채워져 UI 에서 재시도 버튼을 띄울 수 있다.
-  Future<void> saveCurrentSession() async {
+  Future<void> saveCurrentSession({
+    required String title,
+    int? courseId,
+  }) async {
     state = state.copyWith(isSaving: true, saveError: null);
     try {
-      await _repository.save(buildSession());
+      await _repository.save(
+        session: buildSession(),
+        title: title,
+        courseId: courseId,
+      );
       state = state.copyWith(isSaving: false);
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e);
-      rethrow;
+      rethrow;  // 호출부에서 추가 UI 처리 가능하게 다시 던짐
     }
   }
 }
