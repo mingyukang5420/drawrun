@@ -8,7 +8,6 @@ import com.running.app.domain.editor.service.EditorService;
 import com.running.app.global.osm.entity.OsmSplit;
 import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.ApiResponse;
-import com.running.app.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -77,12 +76,10 @@ public class EditorController {
                     """
     )
     public ApiResponse<SaveResponse> save(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @AuthenticationPrincipal String loginId,
             @Valid @RequestBody EditorRequest.SaveRequest request
     ) {
-        Long memberId = userDetails.getMember().getMemberId().longValue();
-
-        SaveResponse response = editorService.save(memberId, request);
+        SaveResponse response = editorService.save(loginId, request);
 
         return ApiResponse.onSuccess(response);
     }

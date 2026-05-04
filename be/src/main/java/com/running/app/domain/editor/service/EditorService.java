@@ -5,10 +5,14 @@ import com.running.app.domain.course.service.CourseService;
 import com.running.app.domain.editor.converter.EditorConverter;
 import com.running.app.domain.editor.dto.EditorRequest;
 import com.running.app.domain.editor.dto.EditorResponse;
+import com.running.app.domain.member.entity.Member;
+import com.running.app.domain.member.repository.MemberRepository;
 import com.running.app.domain.track.dto.TrackRequest;
 import com.running.app.domain.track.entity.Track;
 import com.running.app.domain.track.service.TrackService;
 import com.running.app.global.osm.service.OsmService;
+import com.running.app.global.response.exception.GeneralException;
+import com.running.app.global.response.status.ErrorStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,27 +33,33 @@ public class EditorService {
     private final OsmService osmService;
     private final TrackService trackService;
     private final CourseService courseService;
+    private final MemberRepository memberRepository;
 
     // 에디터로 그린 커스텀 코스 저장.
     // 검증 실패 시 INVALID_ROUTE throw → 트랜잭션 롤백 (Track / Course 모두 미저장).
     @Transactional
-    public EditorResponse.SaveResponse save(Long memberId, EditorRequest.SaveRequest request) {
-        // 1. order 정렬 + Track 입력 모델(TrackRequest.NodeDTO)로 변환
+    public EditorResponse.SaveResponse save(String loginId, EditorRequest.SaveRequest request) {
+        // 1. JwtAuthFilter 가 principal 로 등록한 loginId 로 Member 조회 → memberId 추출
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
+        // 2. order 정렬 + Track 입력 모델(TrackRequest.NodeDTO)로 변환
         List<TrackRequest.NodeDTO> sortedNodes = EditorConverter.toSortedTrackNodes(
                 request.getCoordinates()
         );
 
-        // 2. 좌표 검증 (osm_ways_split 위에 모두 있는지)
+        // 3. 좌표 검증 (osm_ways_split 위에 모두 있는지)
         osmService.validateAllPointsWalkable(sortedNodes, WALKABLE_BUFFER_METERS);
 
-        // 3. MultiLineString 생성 + Track 영속화 (거리는 PostGIS ST_Length 자동 계산)
+        // 4. MultiLineString 생성 + Track 영속화 (거리는 PostGIS ST_Length 자동 계산)
         MultiLineString geom = trackService.createMultiLineString(sortedNodes);
         Track track = trackService.createTrackFromEditor(geom);
 
-        // 4. Course 영속화 (record_id=null, registered_at=null → status=READY)
+        // 5. Course 영속화 (record_id=null, registered_at=null → status=READY)
         Course course = courseService.createFromEditor(memberId, track, request.getTitle());
 
-        // 5. 응답 변환
+        // 6. 응답 변환
         return EditorConverter.toSaveResponse(course);
     }
 }
