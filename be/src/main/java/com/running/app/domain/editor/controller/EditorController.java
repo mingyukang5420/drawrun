@@ -1,17 +1,25 @@
 package com.running.app.domain.editor.controller;
 
 import com.running.app.domain.editor.converter.EditorConverter;
+import com.running.app.domain.editor.dto.EditorRequest;
+import com.running.app.domain.editor.dto.EditorResponse.SaveResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
+import com.running.app.domain.editor.service.EditorService;
 import com.running.app.global.osm.entity.OsmSplit;
 import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.ApiResponse;
+import com.running.app.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class EditorController {
 
     private final OsmService osmService;
+    private final EditorService editorService;
 
     @GetMapping("/way")
     @Operation(
@@ -53,5 +62,28 @@ public class EditorController {
         WayResponse wayResponse = EditorConverter.toWayResponse(walkableWays);
 
         return ApiResponse.onSuccess(wayResponse);
+    }
+
+    @PostMapping
+    @Operation(
+            summary = "에디터 저장 — 사용자 커스텀 코스 등록",
+            description = """
+                    사용자가 에디터에서 그린 커스텀 러닝 코스를 저장.
+
+                    처리 흐름:
+                    1. 좌표가 도보 가능한 길(osm_ways_split) buffer 내에 있는지 검증 (실패 시 400 INVALID_ROUTE)
+                    2. Track 생성 (거리는 PostGIS ST_Length 로 자동 계산)
+                    3. Course 생성 (검증런 전이므로 status=READY, completionScore=0)
+                    """
+    )
+    public ApiResponse<SaveResponse> save(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody EditorRequest.SaveRequest request
+    ) {
+        Long memberId = userDetails.getMember().getMemberId().longValue();
+
+        SaveResponse response = editorService.save(memberId, request);
+
+        return ApiResponse.onSuccess(response);
     }
 }
