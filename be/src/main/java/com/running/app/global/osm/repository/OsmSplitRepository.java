@@ -16,4 +16,25 @@ public interface OsmSplitRepository extends JpaRepository<OsmSplit, Long> {
             @Param("maxLng") Double maxLng,
             @Param("maxLat") Double maxLat
     );
+
+    // (lng, lat) 좌표가 OsmSplit 의 epsilon(미터) buffer 내에 존재하는지 검사.
+    // 클라이언트가 받은 도보 가능한 길(osm_ways_split) 위에 있는지 확인 — 한 좌표라도 false 면 호출자가 INVALID_ROUTE 처리.
+    @Query(
+            value = """
+                    SELECT EXISTS (
+                        SELECT 1 FROM osm_ways_split s
+                        WHERE ST_DWithin(
+                            s.geom::geography,
+                            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                            :epsilon
+                        )
+                    )
+                    """,
+            nativeQuery = true
+    )
+    boolean existsSplitNearPoint(
+            @Param("lng") Double lng,
+            @Param("lat") Double lat,
+            @Param("epsilon") Double epsilon
+    );
 }
