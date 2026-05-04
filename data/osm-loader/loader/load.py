@@ -25,24 +25,26 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 from loader.config import load_db_config
-from loader.db import get_connection, insert_ways_batch, insert_crossings_batch
+from loader.db import get_connection, insert_ways_batch, insert_crossings_batch, upsert_districts
 
 logger = logging.getLogger(__name__)
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+DISTRICTS_CSV_NAME = "districts.csv"
 
 
-def _load_gdrive_urls() -> tuple[str, str]:
+def _load_gdrive_urls() -> tuple[str, str, str]:
     """환경변수에서 Google Drive URL 로드."""
     project_root = Path(__file__).resolve().parent.parent
     load_dotenv(project_root / ".env")
 
     ways_url = os.environ.get("GDRIVE_WAYS_URL")
     crossings_url = os.environ.get("GDRIVE_CROSSINGS_URL")
+    districts_url = os.environ.get("GDRIVE_DISTRICTS_URL")
 
-    if not ways_url or not crossings_url:
-        raise KeyError(".env에 GDRIVE_WAYS_URL, GDRIVE_CROSSINGS_URL을 설정해주세요.")
-    return ways_url, crossings_url
+    if not ways_url or not crossings_url or not districts_url:
+        raise KeyError(".env에 GDRIVE_WAYS_URL, GDRIVE_CROSSINGS_URL, GDRIVE_DISTRICTS_URL을 설정해주세요.")
+    return ways_url, crossings_url, districts_url
 
 
 def _read_local_csv(path: str, label: str) -> list[dict]:
@@ -91,6 +93,20 @@ def _parse_ways(rows: list[dict]) -> list[dict]:
             }
         )
     return ways
+
+
+def _parse_districts(rows: list[dict]) -> list[dict]:
+    """CSV row → upsert_districts 입력 형식 변환."""
+    return [
+        {
+            "district_code": r["district_code"],
+            "sido": r["sido"],
+            "gu": r["gu"],
+            "center_wkt": r["center_wkt"],
+            "boundary_wkt": r["boundary_wkt"],
+        }
+        for r in rows
+    ]
 
 
 def _parse_crossings(rows: list[dict]) -> list[dict]:
@@ -143,18 +159,24 @@ def main() -> None:
     # 로컬 CSV 우선, 없으면 Google Drive
     ways_local = os.path.join(DATA_DIR, "osm_ways.csv")
     crossings_local = os.path.join(DATA_DIR, "osm_crossings.csv")
+    districts_local = os.path.join(DATA_DIR, DISTRICTS_CSV_NAME)
 
-    if os.path.exists(ways_local) and os.path.exists(crossings_local):
+    if (os.path.exists(ways_local)
+            and os.path.exists(crossings_local)
+            and os.path.exists(districts_local)):
         ways_rows = _read_local_csv(ways_local, "osm_ways")
         crossings_rows = _read_local_csv(crossings_local, "osm_crossings")
+        districts_rows = _read_local_csv(districts_local, "districts")
     else:
-        ways_url, crossings_url = _load_gdrive_urls()
+        ways_url, crossings_url, districts_url = _load_gdrive_urls()
         ways_rows = _download_csv(ways_url, "osm_ways")
         crossings_rows = _download_csv(crossings_url, "osm_crossings")
+        districts_rows = _download_csv(districts_url, "districts")
 
     # 형식 변환
     ways = _parse_ways(ways_rows)
     crossings = _parse_crossings(crossings_rows)
+    districts = _parse_districts(districts_rows)
 
     # DB 적재
     cfg = load_db_config()
@@ -162,6 +184,10 @@ def main() -> None:
     conn = get_connection(cfg)
 
     try:
+        logger.info("district UPSERT 시작 (대상=%d)", len(districts))
+        upsert_districts(conn, districts)
+        logger.info("적재 완료: district=%d", _count(conn, "district"))
+
         logger.info("osm_ways INSERT 시작 (대상=%d)", len(ways))
         insert_ways_batch(conn, ways)
 
