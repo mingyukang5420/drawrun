@@ -142,6 +142,23 @@ class RunningNotifier extends Notifier<RunningState> {
   // 지도가 준비된 뒤 RunningMapView 에서 호출
   void setMapController(NaverMapController controller) {
     mapController = controller;
+    // 이전 controller 에 묶여 있던 routeLine 객체는 새 controller 에선 무효 → null 리셋.
+    // 안 지우면 _drawRoute 가 deleteOverlay 를 호출하다 옛 controller 참조로 사고 가능.
+    _routeLine = null;
+    // 시트가 처음 열릴 때 이미 누적된 points 를 즉시 다시 그려줌.
+    // 이 한 줄이 없으면 시트 첫 진입 시 폴리라인이 비어있고, 새 점이 와야만 그려짐.
+    if (state.points.length >= 2) {
+      _drawRoute(state.points);
+    }
+  }
+
+  // 지도 위젯이 dispose 될 때 호출.
+  // 죽은 controller 에 deleteOverlay/addOverlay 가 호출되어
+  // MissingPluginException 이 나는 것을 방지하기 위해 참조를 끊는다.
+  // _routeLine 도 함께 null 로 — 다음 setMapController 시 새 controller 에 깨끗이 다시 그린다.
+  void clearMapController() {
+    mapController = null;
+    _routeLine = null;
   }
 
   void startRunning() {
@@ -149,6 +166,12 @@ class RunningNotifier extends Notifier<RunningState> {
     _stopwatch.start();
     _startTicker();
     _locationSub = LocationService.getLatLngStream().listen(_onLocation);
+
+    // 첫 좌표 즉시 시도 — last known position 이라도 있으면 점 한 개 즉시 찍힘
+    LocationService.getCurrentLatLng().then((p) {
+      if (p != null && state.isRunning) _onLocation(p);
+    });
+
     state = state.copyWith(
       isRunning: true,
       isPaused: false,
@@ -216,16 +239,23 @@ class RunningNotifier extends Notifier<RunningState> {
 
   void _drawRoute(List<LatLng> points) {
     if (mapController == null || points.length < 2) return;
-    if (_routeLine != null) {
-      mapController!.deleteOverlay(_routeLine!.info);
+    try {
+      if (_routeLine != null) {
+        mapController!.deleteOverlay(_routeLine!.info);
+      }
+      _routeLine = NPolylineOverlay(
+        id: 'running_route',
+        coords: points.map((p) => p.toNLatLng()).toList(),
+        width: 6,
+        color: Colors.blueAccent,
+      );
+      mapController!.addOverlay(_routeLine!);
+    } catch (_) {
+      // PlatformView 가 dispose 된 직후라면 호출이 실패할 수 있다.
+      // 다음 setMapController 호출 시 깨끗이 다시 그릴 수 있도록 참조만 끊고 swallow.
+      mapController = null;
+      _routeLine = null;
     }
-    _routeLine = NPolylineOverlay(
-      id: 'running_route',
-      coords: points.map((p) => p.toNLatLng()).toList(),
-      width: 6,
-      color: Colors.blueAccent,
-    );
-    mapController!.addOverlay(_routeLine!);
   }
 
   // 1초마다 elapsedSeconds 갱신 → UI 클록 리빌드

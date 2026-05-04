@@ -40,7 +40,7 @@ class RunningPauseMapSheet extends StatelessWidget {
           child: Column(
             children: [
               _Handle(scrollController: scrollController),
-              const Expanded(child: RunningMapView()),
+              const Expanded(child: RunningMapView(trackRoute: true)),
             ],
           ),
         );
