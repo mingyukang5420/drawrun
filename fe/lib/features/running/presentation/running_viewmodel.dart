@@ -10,6 +10,7 @@ import 'package:running/shared/location/location_service.dart';
 import 'package:running/shared/map/lat_lng_naver_ext.dart';
 import 'package:running/shared/model/lat_lng.dart';
 import 'package:running/shared/network/api_exception.dart';
+import 'package:running/features/running/domain/running_repository.dart';
 
 // 러닝 화면이 구독하는 불변 상태 클래스
 // state = state.copyWith(...) 로 새 객체를 만들어야 Riverpod 이 UI 를 다시 그린다
@@ -116,6 +117,10 @@ class RunningNotifier extends Notifier<RunningState> {
   // 지도 제어 객체 (state 외부 보관)
   NaverMapController? mapController;
   NPolylineOverlay? _routeLine;
+
+  // 러닝 Repository 필드 및 생성자 추가
+  final RunningRepository _repository;
+  RunningNotifier(this._repository);
 
   // 타이밍 도구
   final Stopwatch _stopwatch = Stopwatch();
@@ -261,5 +266,18 @@ class RunningNotifier extends Notifier<RunningState> {
       altitudeM: s.altitudeM,
       bpm: s.bpm,
     );
+  }
+
+  // 결과 화면 진입 시 한 번 호출. 실패해도 화면은 그대로 보이고
+  // saveError 가 채워져 UI 에서 재시도 버튼을 띄울 수 있다.
+  Future<void> saveCurrentSession() async {
+    state = state.copyWith(isSaving: true, saveError: null);
+    try {
+      await _repository.save(buildSession());
+      state = state.copyWith(isSaving: false);
+    } on ApiException catch (e) {
+      state = state.copyWith(isSaving: false, saveError: e);
+      rethrow;
+    }
   }
 }
