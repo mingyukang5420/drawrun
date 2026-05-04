@@ -11,11 +11,11 @@ class CourseRemoteDataSource {
 
   CourseRemoteDataSource(this._dio);
 
-  // GET /v1/courses — 코스 목록 조회
+  // GET /api/v1/course — 코스 목록 조회
   // 응답 구조: { "result": { "content": [ ...Course 배열... ] } }
   Future<List<Course>> fetchCourses() async {
     try {
-      final response = await _dio.get('/v1/courses');
+      final response = await _dio.get('/api/v1/course');
       final content =
           response.data['result']['content'] as List<dynamic>;
       return content
@@ -26,26 +26,26 @@ class CourseRemoteDataSource {
     }
   }
 
-  // POST /v1/courses — 새 코스 저장
+  // POST /api/v1/course — 새 코스 저장
   // 서버 응답 바디는 사용하지 않으므로 Future<void> 반환
   Future<void> createCourse(Course course) async {
     try {
-      await _dio.post('/v1/courses', data: course.toJson());
+      await _dio.post('/api/v1/course', data: course.toJson());
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
   }
 
-  // DELETE /v1/courses/{id} — 코스 삭제
+  // DELETE /api/v1/course/{id} — 코스 삭제
   Future<void> deleteCourse(int id) async {
     try {
-      await _dio.delete('/v1/courses/$id');
+      await _dio.delete('/api/v1/course/$id');
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
   }
 
-  // GET /v1/editor/way — 지도 영역 내 주행 가능 도로 목록 조회
+  // GET /api/v1/editor/way — 지도 영역 내 주행 가능 도로 목록 조회
   // 바운딩 박스(minLat~maxLat, minLng~maxLng)와 zoom 을 쿼리 파라미터로 전달
   Future<List<Way>> fetchWays({
     required double minLat,
@@ -56,7 +56,7 @@ class CourseRemoteDataSource {
   }) async {
     try {
       final response = await _dio.get(
-        '/v1/editor/way',
+        '/api/v1/editor/way',
         queryParameters: {
           'minLat': minLat,
           'minLng': minLng,
