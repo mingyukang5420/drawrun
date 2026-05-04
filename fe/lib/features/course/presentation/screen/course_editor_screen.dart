@@ -1,59 +1,50 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:running/features/course/data/course_remote_datasource.dart';
-import 'package:running/features/course/data/course_repository_impl.dart';
-import 'package:running/features/course/presentation/course_viewmodel.dart';
+import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/widgets/course_map_view.dart';
-import 'package:running/shared/network/dio_client.dart';
 
 // 코스 생성 화면
 // 지도를 탭해 경로 점을 찍고, 저장 버튼으로 서버에 코스를 저장
-class CourseEditorScreen extends StatelessWidget {
+class CourseEditorScreen extends ConsumerWidget {
   const CourseEditorScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      // 의존성 체인: DioClient → Datasource → RepositoryImpl → ViewModel
-      create: (_) {
-        final datasource = CourseRemoteDatasource(DioClient.create());
-        return CourseViewModel(CourseRepositoryImpl(datasource));
-      },
-      child: Scaffold(
-        appBar: AppBar(title: const Text('코스 생성')),
+  Widget build(BuildContext context, WidgetRef ref) {
+    // ref.watch: points 변경 시 저장 버튼 활성화 여부를 다시 계산한다
+    final state = ref.watch(courseEditorViewModelProvider);
+    final notifier = ref.read(courseEditorViewModelProvider.notifier);
 
-        body: const CourseMapView(),
+    return Scaffold(
+      appBar: AppBar(title: const Text('코스 생성')),
 
-        floatingActionButton: Consumer<CourseViewModel>(
-          builder: (context, vm, _) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 점이 하나 이상 있을 때만 저장 버튼 활성화
-                FloatingActionButton(
-                  heroTag: 'save',
-                  onPressed:
-                      vm.points.isEmpty ? null : () => _showSaveDialog(context, vm),
-                  child: const Icon(Icons.save),
-                ),
-                const SizedBox(height: 8),
-                // 경로 초기화 버튼
-                FloatingActionButton(
-                  heroTag: 'clear',
-                  onPressed: vm.clear,
-                  child: const Icon(Icons.refresh),
-                ),
-              ],
-            );
-          },
-        ),
+      body: const CourseMapView(),
+
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 점이 하나 이상 있을 때만 저장 버튼 활성화
+          FloatingActionButton(
+            heroTag: 'save',
+            onPressed: state.points.isEmpty
+                ? null
+                : () => _showSaveDialog(context, ref),
+            child: const Icon(Icons.save),
+          ),
+          const SizedBox(height: 8),
+          // 경로 초기화 버튼
+          FloatingActionButton(
+            heroTag: 'clear',
+            onPressed: notifier.clear,
+            child: const Icon(Icons.refresh),
+          ),
+        ],
       ),
     );
   }
 
   // 코스 이름 입력 다이얼로그 표시 후 저장 처리
-  void _showSaveDialog(BuildContext context, CourseViewModel vm) {
+  void _showSaveDialog(BuildContext context, WidgetRef ref) {
     final textController = TextEditingController();
 
     showDialog<void>(
@@ -75,8 +66,10 @@ class CourseEditorScreen extends StatelessWidget {
               final name = textController.text.trim();
               if (name.isEmpty) return;
               Navigator.pop(dialogContext); // 다이얼로그 닫기
-              await vm.saveCourse(name);
-              // 저장 성공 후 편집 화면 닫기
+              // ref.read: 비동기 콜백 내부의 1회성 호출
+              await ref
+                  .read(courseEditorViewModelProvider.notifier)
+                  .saveCourse(name);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('저장'),

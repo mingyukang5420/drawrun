@@ -17,7 +17,8 @@ class LocationService {
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 0,
+        // 5m 미만 이동은 이벤트를 무시하여 과도한 좌표 저장 방지
+        distanceFilter: 5,
       ),
     );
   }

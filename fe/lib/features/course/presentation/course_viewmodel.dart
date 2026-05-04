@@ -1,72 +1,98 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/course/domain/course_repository.dart';
 import 'package:running/shared/model/lat_lng.dart' as shared;
 import 'package:running/shared/network/api_exception.dart';
 
-// 코스 기능의 상태와 비즈니스 로직을 관리하는 ViewModel
+// 코스 화면이 구독하는 불변 상태 클래스
+// 목록 화면(CourseScreen)과 편집 화면(CourseEditorScreen) 이
+// 각각 별도 Provider 인스턴스를 통해 공유한다
+class CourseState {
+  // ── 목록 상태 ──────────────────────────────────
+  final List<Course> courses;
+  final bool isLoading;
+  final String? errorMessage;
+
+  // ── 편집 상태 ───────────────────────────────────
+  // 지도에서 탭한 좌표 목록 (경로 점)
+  final List<NLatLng> points;
+
+  const CourseState({
+    this.courses = const [],
+    this.isLoading = false,
+    this.errorMessage,
+    this.points = const [],
+  });
+
+  CourseState copyWith({
+    List<Course>? courses,
+    bool? isLoading,
+    String? errorMessage,
+    List<NLatLng>? points,
+  }) {
+    return CourseState(
+      courses: courses ?? this.courses,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage ?? this.errorMessage,
+      points: points ?? this.points,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// CourseNotifier
 //
 // [MVVM 역할 분담]
-// View  (Screen/Widget) → 상태를 읽고 사용자 이벤트를 ViewModel 에 전달
-// ViewModel (이 파일)   → 상태 보유, Repository 호출, 지도 편집 로직 처리
+// View (Screen/Widget) → 상태를 읽고 사용자 이벤트를 Notifier 에 전달
+// Notifier (이 클래스) → state 보유, Repository 호출, 지도 편집 로직
 // Model (domain/course) → 순수 데이터 구조
 //
-// [상태 종류]
-// 목록 상태: courses, isLoading, errorMessage  (CourseScreen 에서 사용)
-// 편집 상태: points, routeLine, mapController  (CourseEditorScreen 에서 사용)
-class CourseViewModel extends ChangeNotifier {
+// repository 는 course_provider.dart 의 팩토리에서 생성자로 주입된다.
+// 순환 임포트를 피하기 위해 Notifier 가 직접 Provider 를 참조하지 않는다.
+// ─────────────────────────────────────────────────────────────────────
+class CourseNotifier extends Notifier<CourseState> {
   final CourseRepository _repository;
 
-  CourseViewModel(this._repository);
+  // autoLoad: true 면 build() 직후 loadCourses() 자동 호출 (목록 화면용)
+  final bool _autoLoad;
 
-  // ── 목록 상태 ──────────────────────────────
-  // 서버에서 불러온 코스 목록
-  List<Course> courses = [];
+  CourseNotifier(this._repository, {bool autoLoad = false})
+      : _autoLoad = autoLoad;
 
-  // 서버 통신 중 로딩 표시 여부
-  bool isLoading = false;
-
-  // API 호출 실패 시 화면에 표시할 메시지 (null 이면 오류 없음)
-  String? errorMessage;
-
-  // ── 지도 편집 상태 ─────────────────────────
-  // 지도에서 탭한 좌표 목록 (경로를 구성하는 점)
-  final List<NLatLng> points = [];
-
-  // 지도에 그려진 경로 오버레이 (null 이면 아직 그려지지 않은 상태)
-  NPolylineOverlay? routeLine;
-
-  // 지도 SDK 컨트롤러. onMapReady 콜백에서 등록
+  // 지도 SDK 컨트롤러 (UI 리빌드 없이 지도에 직접 그릴 때 사용)
   NaverMapController? mapController;
+  NPolylineOverlay? _routeLine;
 
-  // ── 목록 메서드 ────────────────────────────
+  @override
+  CourseState build() {
+    if (_autoLoad) {
+      // build() 가 동기 반환 후 비동기 로드를 시작한다
+      Future.microtask(loadCourses);
+    }
+    return const CourseState();
+  }
 
-  // 서버에서 코스 전체 목록 로드
+  // ── 목록 메서드 ────────────────────────────────
+
   Future<void> loadCourses() async {
-    isLoading = true;
-    errorMessage = null;
-    notifyListeners();
-
+    state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      courses = await _repository.getCourses();
+      final courses = await _repository.getCourses();
+      state = state.copyWith(courses: courses, isLoading: false);
     } on ApiException catch (e) {
-      errorMessage = e.message;
-    } finally {
-      isLoading = false;
-      notifyListeners();
+      state = state.copyWith(isLoading: false, errorMessage: e.message);
     }
   }
 
-  // 현재 편집 중인 경로를 코스로 저장
   Future<void> saveCourse(String name) async {
-    if (points.isEmpty) return;
+    if (state.points.isEmpty) return;
 
     // 지도용 NLatLng → 도메인용 shared.LatLng 변환
-    final domainPoints = points
+    final domainPoints = state.points
         .map((p) => shared.LatLng(latitude: p.latitude, longitude: p.longitude))
         .toList();
 
@@ -80,72 +106,61 @@ class CourseViewModel extends ChangeNotifier {
       await _repository.saveCourse(course);
       clear(); // 저장 성공 후 편집 상태 초기화
     } on ApiException catch (e) {
-      errorMessage = e.message;
-      notifyListeners();
+      state = state.copyWith(errorMessage: e.message);
     }
   }
 
-  // 코스 삭제 후 목록 새로고침
   Future<void> deleteCourse(int id) async {
     try {
       await _repository.deleteCourse(id);
       await loadCourses();
     } on ApiException catch (e) {
-      errorMessage = e.message;
-      notifyListeners();
+      state = state.copyWith(errorMessage: e.message);
     }
   }
 
-  // ── 편집 메서드 ────────────────────────────
+  // ── 편집 메서드 ────────────────────────────────
 
-  // 지도가 준비된 뒤 CourseMapView 에서 호출
   void setMapController(NaverMapController controller) {
     mapController = controller;
   }
 
-  // 지도 탭 시 경로 점 추가
   void addPoint(NLatLng point) {
-    points.add(point);
-    _drawRoute();
-    notifyListeners();
+    final newPoints = [...state.points, point];
+    state = state.copyWith(points: newPoints);
+    _drawRoute(newPoints);
   }
 
-  // 편집 중인 경로와 지도 오버레이 초기화
   void clear() {
-    if (mapController != null && routeLine != null) {
-      mapController!.deleteOverlay(routeLine!.info);
-      routeLine = null;
+    if (mapController != null && _routeLine != null) {
+      mapController!.deleteOverlay(_routeLine!.info);
+      _routeLine = null;
     }
-    points.clear();
-    notifyListeners();
+    state = state.copyWith(points: []);
   }
 
-  // points 를 이어 지도에 폴리라인 경로 표시
-  void _drawRoute() {
+  void _drawRoute(List<NLatLng> points) {
     if (mapController == null || points.length < 2) return;
-    if (routeLine != null) {
-      mapController!.deleteOverlay(routeLine!.info);
+    if (_routeLine != null) {
+      mapController!.deleteOverlay(_routeLine!.info);
     }
-    routeLine = NPolylineOverlay(
+    _routeLine = NPolylineOverlay(
       id: 'course_route',
       coords: points,
       width: 6,
     );
-    mapController!.addOverlay(routeLine!);
+    mapController!.addOverlay(_routeLine!);
   }
 
-  // ── 유틸리티 ───────────────────────────────
-
-  // points 전체 구간 합산 거리 (km 단위) 계산 결과
   double _calculateDistanceKm() {
     double total = 0;
-    for (int i = 0; i < points.length - 1; i++) {
-      total += _haversineKm(points[i], points[i + 1]);
+    final pts = state.points;
+    for (int i = 0; i < pts.length - 1; i++) {
+      total += _haversineKm(pts[i], pts[i + 1]);
     }
     return total;
   }
 
-  // 두 GPS 좌표 사이의 구면 거리 (Haversine 공식)
   double _haversineKm(NLatLng a, NLatLng b) {
     const r = 6371.0;
     final dLat = _toRad(b.latitude - a.latitude);
