@@ -31,6 +31,12 @@ area["name"="{district}"]["boundary"="administrative"]->.searchArea;
 out tags geom;
 """
 
+BOUNDARY_QUERY_TEMPLATE = """
+[out:json][timeout:60];
+relation["name"="{district}"]["boundary"="administrative"]["admin_level"~"^[4-6]$"];
+out geom;
+"""
+
 
 def fetch_overpass(district: str, timeout: int = 300, max_retries: int = 3) -> dict:
     """Overpass API에 쿼리를 POST. 실패 시 지수 백오프로 재시도.
@@ -71,6 +77,39 @@ def fetch_overpass(district: str, timeout: int = 300, max_retries: int = 3) -> d
                 logger.info("재시도 대기 %d초", wait)
                 time.sleep(wait)
     raise RuntimeError(f"Overpass 요청 {max_retries}회 모두 실패") from last_exc
+
+
+def fetch_boundary(district: str, timeout: int = 60, max_retries: int = 3) -> dict:
+    """행정구역 경계 relation을 Overpass API에서 조회.
+
+    파라미터
+        district: 행정구역명 (예: "마포구", "강남구")
+    리턴: Overpass JSON 응답. 'elements[0]'이 relation, members에 outer way geometry 포함.
+    """
+    query = BOUNDARY_QUERY_TEMPLATE.format(district=district)
+    last_exc: Exception | None = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info("[경계] Overpass 요청 시도 %d/%d (%s)", attempt, max_retries, district)
+            response = requests.post(
+                OVERPASS_ENDPOINT,
+                data={"data": query},
+                headers={"User-Agent": USER_AGENT},
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            relations = [e for e in payload.get("elements", []) if e.get("type") == "relation"]
+            logger.info("[경계] 응답 수신: relations=%d", len(relations))
+            return payload
+        except (requests.RequestException, ValueError) as exc:
+            last_exc = exc
+            logger.warning("[경계] 요청 실패 (시도 %d): %s", attempt, exc)
+            if attempt < max_retries:
+                wait = 2 ** (attempt - 1)
+                logger.info("재시도 대기 %d초", wait)
+                time.sleep(wait)
+    raise RuntimeError(f"[경계] Overpass 요청 {max_retries}회 모두 실패") from last_exc
 
 
 if __name__ == "__main__":

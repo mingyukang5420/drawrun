@@ -25,19 +25,24 @@ from loader.elevation_client import (
     calc_elevation_stats,
     fetch_elevation_batch,
 )
-from loader.overpass_client import fetch_overpass
-from loader.parser import parse_response
+from loader.overpass_client import fetch_boundary, fetch_overpass
+from loader.parser import parse_boundary, parse_response
 
 logger = logging.getLogger(__name__)
 
 DISTRICTS = [
-    "마포구",
-    "강남구",
+    {"sido": "서울특별시", "gu": "마포구", "code": "11440",
+     "center_lon": 126.910530555555, "center_lat": 37.5607055555555},
+    {"sido": "서울특별시", "gu": "강남구", "code": "11680",
+     "center_lon": 127.049555555555, "center_lat": 37.514575},
 ]
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 WAYS_CSV = os.path.join(DATA_DIR, "osm_ways.csv")
 CROSSINGS_CSV = os.path.join(DATA_DIR, "osm_crossings.csv")
+DISTRICTS_CSV = os.path.join(DATA_DIR, "districts.csv")
+
+DISTRICTS_FIELDS = ["district_code", "sido", "gu", "center_wkt", "boundary_wkt"]
 
 WAYS_FIELDS = [
     "osm_id",
@@ -123,7 +128,11 @@ def refill_ways(ways: list[dict]) -> list[dict]:
     return refilled
 
 
-def save_csv(all_ways: list[dict], all_crossings: list[dict]) -> None:
+def save_csv(
+    all_ways: list[dict],
+    all_crossings: list[dict],
+    all_districts: list[dict],
+) -> None:
     with open(WAYS_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=WAYS_FIELDS)
         writer.writeheader()
@@ -143,6 +152,12 @@ def save_csv(all_ways: list[dict], all_crossings: list[dict]) -> None:
         for c in all_crossings:
             writer.writerow({k: c.get(k) for k in CROSSINGS_FIELDS})
 
+    with open(DISTRICTS_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=DISTRICTS_FIELDS)
+        writer.writeheader()
+        for d in all_districts:
+            writer.writerow({k: d.get(k) for k in DISTRICTS_FIELDS})
+
 
 def main() -> None:
     logging.basicConfig(
@@ -154,34 +169,52 @@ def main() -> None:
 
     all_ways: list[dict] = []
     all_crossings: list[dict] = []
+    all_districts: list[dict] = []
 
     # 1. Overpass + 고도 API
-    for district in DISTRICTS:
+    for d in DISTRICTS:
+        gu = d["gu"]
         logger.info("=" * 50)
-        logger.info("[%s] 수집 시작", district)
+        logger.info("[%s] 수집 시작", gu)
         logger.info("=" * 50)
 
-        data = fetch_overpass(district)
+        data = fetch_overpass(gu)
         ways, crossings = parse_response(data)
 
-        logger.info("[%s] 고도값 부착 중...", district)
+        logger.info("[%s] 고도값 부착 중...", gu)
         ways = attach_elevation(ways)
 
         all_ways.extend(ways)
         all_crossings.extend(crossings)
-        logger.info(
-            "[%s] 수집 완료: ways=%d, crossings=%d", district, len(ways), len(crossings)
-        )
+        logger.info("[%s] 수집 완료: ways=%d, crossings=%d", gu, len(ways), len(crossings))
+
+        # 경계 polygon 수집
+        boundary_data = fetch_boundary(gu)
+        relations = [e for e in boundary_data.get("elements", []) if e.get("type") == "relation"]
+        if relations:
+            district_dict = parse_boundary(
+                relations[0],
+                sido=d["sido"],
+                gu=gu,
+                district_code=d["code"],
+                center_lon=d["center_lon"],
+                center_lat=d["center_lat"],
+            )
+            if district_dict:
+                all_districts.append(district_dict)
+        else:
+            logger.warning("[%s] boundary relation 없음", gu)
 
     # 2. 0.0 노드 재요청 → CSV에 반영
     logger.info("0.0 고도값 재요청 중...")
     all_ways = refill_ways(all_ways)
 
     # 3. CSV 저장
-    save_csv(all_ways, all_crossings)
+    save_csv(all_ways, all_crossings, all_districts)
     logger.info("CSV 저장 완료")
     logger.info("  osm_ways.csv:      %d rows → %s", len(all_ways), WAYS_CSV)
     logger.info("  osm_crossings.csv: %d rows → %s", len(all_crossings), CROSSINGS_CSV)
+    logger.info("  districts.csv:     %d rows → %s", len(all_districts), DISTRICTS_CSV)
     logger.info("Google Drive에 업로드 후 팀원에게 공유하세요.")
 
 

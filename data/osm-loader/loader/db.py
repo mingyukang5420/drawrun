@@ -95,6 +95,32 @@ def insert_ways_batch(conn, ways: list[dict], batch_size: int = 500) -> int:
     return total
 
 
+_UPSERT_DISTRICT = """
+INSERT INTO district (district_code, sido, gu, center_point, boundary)
+VALUES (%s, %s, %s,
+        ST_GeomFromText(%s, 4326),
+        ST_GeomFromText(%s, 4326))
+ON CONFLICT (district_code) DO UPDATE SET
+    boundary     = EXCLUDED.boundary,
+    center_point = EXCLUDED.center_point
+"""
+
+
+def upsert_districts(conn, districts: list[dict]) -> None:
+    """districts 리스트를 district 테이블에 upsert.
+
+    각 dict: district_code, sido, gu, center_wkt, boundary_wkt
+    """
+    params = [
+        (d["district_code"], d["sido"], d["gu"], d["center_wkt"], d["boundary_wkt"])
+        for d in districts
+    ]
+    with conn.cursor() as cur:
+        cur.executemany(_UPSERT_DISTRICT, params)
+    conn.commit()
+    logger.info("district upsert 완료: %d rows", len(districts))
+
+
 def insert_crossings_batch(conn, crossings: list[dict], batch_size: int = 500) -> int:
     """crossings 리스트를 batch_size씩 끊어 INSERT. 처리(시도)한 행 수를 반환.
 
