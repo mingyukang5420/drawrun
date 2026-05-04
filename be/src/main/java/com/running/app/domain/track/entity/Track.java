@@ -41,6 +41,8 @@ public class Track extends BaseRDBEntity {
     )
     private Double distance;
 
+    // 에디터 작성 시 url 미생성 — 추후 썸네일 생성 로직 추가 시점에 진짜 URL 로 일괄 업데이트 예정.
+    // 그 전까지는 sentinel 문자열로 채워서 NOT NULL 제약 만족.
     @Column(
             name = "track_image_url",
             nullable = false,
