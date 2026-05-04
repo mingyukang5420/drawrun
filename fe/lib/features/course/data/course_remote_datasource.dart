@@ -6,17 +6,19 @@ import 'package:running/shared/network/api_exception.dart';
 
 // 코스 관련 HTTP 요청 전담 클래스
 // JSON 파싱과 DioException → ApiException 변환을 여기서 처리
-// Repository 는 이 클래스를 통해서만 서버와 통신
 class CourseRemoteDataSource {
   final Dio _dio;
 
   CourseRemoteDataSource(this._dio);
 
-  // GET /course — 전체 코스 목록 조회
+  // GET /v1/courses — 코스 목록 조회
+  // 응답 구조: { "result": { "content": [ ...Course 배열... ] } }
   Future<List<Course>> fetchCourses() async {
     try {
-      final response = await _dio.get('/course');
-      return (response.data as List<dynamic>)
+      final response = await _dio.get('/v1/courses');
+      final content =
+          response.data['result']['content'] as List<dynamic>;
+      return content
           .map((e) => Course.fromJson(e as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
@@ -24,20 +26,20 @@ class CourseRemoteDataSource {
     }
   }
 
-  // POST /course — 새 코스 저장
-  Future<Course> createCourse(Course course) async {
+  // POST /v1/courses — 새 코스 저장
+  // 서버 응답 바디는 사용하지 않으므로 Future<void> 반환
+  Future<void> createCourse(Course course) async {
     try {
-      final response = await _dio.post('/course', data: course.toJson());
-      return Course.fromJson(response.data as Map<String, dynamic>);
+      await _dio.post('/v1/courses', data: course.toJson());
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
   }
 
-  // DELETE /course/{id} — 코스 삭제
+  // DELETE /v1/courses/{id} — 코스 삭제
   Future<void> deleteCourse(int id) async {
     try {
-      await _dio.delete('/course/$id');
+      await _dio.delete('/v1/courses/$id');
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
@@ -45,7 +47,6 @@ class CourseRemoteDataSource {
 
   // GET /v1/editor/way — 지도 영역 내 주행 가능 도로 목록 조회
   // 바운딩 박스(minLat~maxLat, minLng~maxLng)와 zoom 을 쿼리 파라미터로 전달
-  // 응답 구조: { "result": { "ways": [...] } }
   Future<List<Way>> fetchWays({
     required double minLat,
     required double minLng,
@@ -73,4 +74,3 @@ class CourseRemoteDataSource {
     }
   }
 }
-  
