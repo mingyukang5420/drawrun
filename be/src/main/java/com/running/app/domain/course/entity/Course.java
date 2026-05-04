@@ -2,11 +2,25 @@ package com.running.app.domain.course.entity;
 
 import com.running.app.domain.common.BaseRDBEntity;
 import com.running.app.domain.course.type.CourseDifficulty;
+import com.running.app.domain.course.type.CourseStatus;
 import com.running.app.domain.track.entity.Track;
-import jakarta.persistence.*;
-import lombok.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
@@ -50,5 +64,10 @@ public class Course extends BaseRDBEntity {
     //상태 변경 메서드 엔티티에 추가
     public void changeCompletionScore(Integer completionScore) {
         this.completionScore = completionScore;
+    }
+
+    // registered_at 한 컬럼에서 status 를 도출 -> registered_at 으로 에디터의 등록 여부를 판단
+    public CourseStatus getStatus() {
+        return registeredAt == null ? CourseStatus.READY : CourseStatus.DONE;
     }
 }
