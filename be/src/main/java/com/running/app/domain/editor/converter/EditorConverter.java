@@ -3,7 +3,7 @@ package com.running.app.domain.editor.converter;
 import com.running.app.domain.editor.dto.EditorResponse.Geom;
 import com.running.app.domain.editor.dto.EditorResponse.WayInnerResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
-import com.running.app.global.response.osm.entity.OsmWay;
+import com.running.app.global.osm.entity.OsmSplit;
 import java.util.ArrayList;
 import java.util.List;
 import org.locationtech.jts.geom.Coordinate;
@@ -12,17 +12,17 @@ import org.locationtech.jts.geom.LineString;
 public abstract class EditorConverter {
 
     // 서비스 로직의 반환값으로 나온 osmWayList -> WayResponse 응답 규격에 맞추어 변환
-    public static WayResponse toWayResponse(List<OsmWay> osmWayList) {
+    public static WayResponse toWayResponse(List<OsmSplit> osmWayList) {
 
         List<WayInnerResponse> ways = new ArrayList<>();
 
         // osmWayList -> WayInnerResponse 중첩 dto 변환
-        for (OsmWay osmWay : osmWayList) {
+        for (OsmSplit split : osmWayList) {
             WayInnerResponse wayInnerResponse = WayInnerResponse.builder()
-                    .osmId(osmWay.getOsmId())
-                    .highway(osmWay.getHighway())
-                    .name(osmWay.getName())
-                    .geom(toGeom(osmWay.getGeom()))
+                    .osmId(split.getOsmWay().getOsmId())
+                    .highway(split.getOsmWay().getHighway())
+                    .name(split.getOsmWay().getName())
+                    .geom(toGeom(split.getGeom()))
                     .build();
 
             ways.add(wayInnerResponse);

@@ -1,7 +1,7 @@
-package com.running.app.global.response.osm.service;
+package com.running.app.global.osm.service;
 
-import com.running.app.global.response.osm.entity.OsmWay;
-import com.running.app.global.response.osm.repository.OsmWayRepository;
+import com.running.app.global.osm.entity.OsmSplit;
+import com.running.app.global.osm.repository.OsmSplitRepository;
 import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +13,10 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class OsmService {
 
-    private final OsmWayRepository osmWayRepository;
+    private final OsmSplitRepository osmSplitRepository;
 
-    public List<OsmWay> getWalkableWays(Double minLat, Double minLng, Double maxLat, Double maxLng,
+    public List<OsmSplit> getWalkableWays(Double minLat, Double minLng, Double maxLat,
+            Double maxLng,
             Integer zoom) {
 
         // zoom 레벨 검증
@@ -26,7 +27,7 @@ public class OsmService {
             return Collections.emptyList();
         }
 
-        return osmWayRepository.findWaysInBbox(minLng, minLat, maxLng, maxLat);
+        return osmSplitRepository.findWaysInBbox(minLng, minLat, maxLng, maxLat);
     }
 
 }

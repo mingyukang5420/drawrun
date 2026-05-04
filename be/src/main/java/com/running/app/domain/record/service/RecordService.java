@@ -1,5 +1,6 @@
 package com.running.app.domain.record.service;
 
+import com.running.app.domain.course.service.CourseService;
 import com.running.app.domain.record.converter.RecordConverter;
 import com.running.app.domain.record.dto.RecordRequest;
 import com.running.app.domain.record.dto.RecordResponse;
@@ -23,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -40,8 +40,10 @@ public class RecordService {
     private final MemberRecordStatsRepository memberRecordStatsRepository;
     private final TrackService trackService;
     private final MemberRecordStatsService memberRecordStatsService;
+    private final CourseService courseService;
 
     //작성
+    // 코스 점수 계산 메서드 호출 추가
     @Transactional
     public void createRecord(
             Long memberId,
@@ -60,6 +62,12 @@ public class RecordService {
         );
 
         RunningRecord savedRunningRecord = runningRecordRepository.save(runningRecord);
+
+        //코스 점수 계산 메서드 호출
+        // courseId가 null이면 자유러닝이므로 계산에 넣지 않음.
+        if(request.getCourseId() != null) {
+            courseService.updateCompletionScore(request.getCourseId());
+        }
 
         // 통계 테이블에 해당 기록의 데이터 합산해서 저장
         memberRecordStatsService.increaseStats(savedRunningRecord);

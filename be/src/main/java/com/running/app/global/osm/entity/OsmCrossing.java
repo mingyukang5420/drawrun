@@ -1,4 +1,4 @@
-package com.running.app.global.response.osm.entity;
+package com.running.app.global.osm.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,7 +15,7 @@ import org.locationtech.jts.geom.Point;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OsmCrossing {
-    
+
     @Id
     @Column(name = "osm_id", nullable = false, unique = true)
     private Long osmId;
