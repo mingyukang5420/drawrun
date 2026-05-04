@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 public interface OsmSplitRepository extends JpaRepository<OsmSplit, Long> {
 
     // 최소 위경도, 최대 위경도로 만든 직사각형과 겹치는 경로 객체를 반환
-    @Query("SELECT w FROM OsmSplit w WHERE ST_Intersects(w.geom, ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326))")
+    @Query("SELECT w FROM OsmSplit w JOIN FETCH w.osmWay WHERE ST_Intersects(w.geom, ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326))")
     List<OsmSplit> findWaysInBbox(
             @Param("minLng") Double minLng,
             @Param("minLat") Double minLat,
