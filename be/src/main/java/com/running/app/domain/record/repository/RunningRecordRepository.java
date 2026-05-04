@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,4 +30,29 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
             Long memberId
     );
 
+    @EntityGraph(attributePaths = {"track"})
+    List<RunningRecord> findAllByMemberIdAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+            Long memberId,
+            LocalDateTime startAt,
+            LocalDateTime endAt
+    );
+
+    // 로그인한 사용자가 완주한 코스 목록
+    @Query("""
+        select distinct r.courseId
+        from RunningRecord r
+        where r.memberId = :memberId
+          and r.courseId in :courseIds
+          and r.isCompleted = true
+        """)
+    List<Long> findCompletedCourseIds(
+            Long memberId,
+            List<Long> courseIds
+    );
+
+    // 전체 코스 횟수 조회
+    Integer countByCourseId(Long courseId);
+
+    // 완주한 코스 횟수 조회
+    Integer countByCourseIdAndIsCompletedTrue(Long courseId);
 }
