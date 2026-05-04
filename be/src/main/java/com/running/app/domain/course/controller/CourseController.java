@@ -6,10 +6,7 @@ import com.running.app.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -64,6 +61,36 @@ public class CourseController {
                 regions,
                 isCompleted,
                 sort
+        );
+
+        return ApiResponse.onSuccess(response);
+    }
+
+    @Operation(
+            summary = "코스 상세 조회",
+            description = """
+                    특정 코스의 상세 정보 조회
+                    
+                    반환 정보 :
+                    - 코스 기본 정보
+                    - 난이도
+                    - 지역 목록
+                    - 완주 점수
+                    - 지도 미리보기
+                    - 거리
+                    - 로그인한 사용자의 완주 여부
+                    - 경로 좌표 nodes
+                    """
+    )
+    @GetMapping("/{courseId}")
+    public ApiResponse<CourseResponse.CourseDetailDTO> getCourse(
+            @PathVariable(name = "courseId") Long courseId
+    ) {
+        Long memberId = 1L;
+
+        CourseResponse.CourseDetailDTO response = courseService.getCourse(
+                memberId,
+                courseId
         );
 
         return ApiResponse.onSuccess(response);
