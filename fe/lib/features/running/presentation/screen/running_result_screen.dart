@@ -309,20 +309,35 @@ class _MetricCell extends StatelessWidget {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
         decoration: BoxDecoration(
           color: const Color(0xFFF7F7F8),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           children: [
-            Text(label,
+            // 라벨 — 11 → 9.5 로 축소, 한 줄 고정.
+            // FittedBox 로 감싸 셀 폭이 좁아져도 자동 축소되게 함.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
                 style:
-                const TextStyle(fontSize: 11, color: Colors.black45)),
+                const TextStyle(fontSize: 9.5, color: Colors.black45),
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(value,
+            // 값 — 16 → 14 로 살짝 축소 + 같은 FittedBox 가드.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w700)),
+                    fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+            ),
           ],
         ),
       ),

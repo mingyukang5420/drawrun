@@ -60,13 +60,24 @@ class _GridCell extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // 작고 흐린 라벨
-          Text(label,
-              style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
           const SizedBox(height: 4),
           // 굵은 값
-          Text(value,
-              style:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );
