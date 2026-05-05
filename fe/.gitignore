@@ -46,6 +46,7 @@ app.*.map.json
 
 # Environment variables (contains API keys)
 .env
+!.env.example
 
 # Desktop platform directories (not needed for mobile-only project)
 linux/

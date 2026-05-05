@@ -14,7 +14,7 @@ class CourseRepositoryImpl implements CourseRepository {
   Future<List<Course>> getCourses() => _datasource.fetchCourses();
 
   @override
-  Future<Course> saveCourse(Course course) => _datasource.createCourse(course);
+  Future<void> saveCourse(Course course) => _datasource.createCourse(course);
 
   @override
   Future<void> deleteCourse(int id) => _datasource.deleteCourse(id);

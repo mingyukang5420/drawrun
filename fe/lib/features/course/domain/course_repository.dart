@@ -10,8 +10,8 @@ abstract class CourseRepository {
   // 서버에서 코스 전체 목록 조회
   Future<List<Course>> getCourses();
 
-  // 새 코스 저장 후 서버가 채운 id/createdAt 포함 코스 반환
-  Future<Course> saveCourse(Course course);
+  // 새 코스를 서버에 저장 (응답 바디 불필요)
+  Future<void> saveCourse(Course course);
 
   // id 에 해당하는 코스 삭제
   Future<void> deleteCourse(int id);
