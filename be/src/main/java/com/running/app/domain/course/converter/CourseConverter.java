@@ -2,11 +2,32 @@ package com.running.app.domain.course.converter;
 
 import com.running.app.domain.course.dto.CourseResponse;
 import com.running.app.domain.course.entity.Course;
+import com.running.app.domain.course.type.CourseDifficulty;
+import com.running.app.domain.track.entity.Track;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import com.running.app.domain.track.converter.TrackConverter;
+import com.running.app.domain.track.entity.Track;
 import org.springframework.data.domain.Slice;
 
 public abstract class CourseConverter {
+
+    // 에디터 저장용 — record_id / registered_at 은 null, completion_score 는 0 으로 시작
+    public static Course toCourseFromEditor(
+            Long memberId,
+            Track track,
+            String title,
+            CourseDifficulty difficulty
+    ) {
+        return Course.builder()
+                .memberId(memberId)
+                .track(track)
+                .title(title)
+                .difficulty(difficulty)
+                .completionScore(0)
+                .build();
+    }
 
     public static CourseResponse.CourseListDTO toListDTO(
             Course course,
@@ -36,6 +57,28 @@ public abstract class CourseConverter {
                 .size(courseSlice.getSize())
                 .hasNext(courseSlice.hasNext())
                 .build();
+    }
+
+    public static CourseResponse.CourseDetailDTO toDetailDTO(
+            Course course,
+            List<String> regions,
+            Boolean isCompleted
+    ) {
+        Track track = course.getTrack();
+
+        return CourseResponse.CourseDetailDTO.builder()
+                .courseId(course.getId())
+                .title(course.getTitle())
+                .difficulty(course.getDifficulty().name())
+                .regions(regions)
+                .completionScore(course.getCompletionScore())
+                .thumbnailUrl(track.getTrackImageUrl())
+                .distance(track.getDistance())
+                .isCompleted(isCompleted)
+                .createdAt(formatDate(course.getRegisteredAt()))
+                .nodes(TrackConverter.toNodeDTOList(track))
+                .build();
+
     }
 
     private static String formatDate(LocalDateTime dateTime) {

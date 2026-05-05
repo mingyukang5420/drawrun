@@ -112,5 +112,6 @@ MSYS_NO_PATHCONV=1 docker run --rm \
   -e POSTGRES_PASSWORD \
   -e GDRIVE_WAYS_URL="${GDRIVE_WAYS_URL:-}" \
   -e GDRIVE_CROSSINGS_URL="${GDRIVE_CROSSINGS_URL:-}" \
+  -e GDRIVE_DISTRICTS_URL="${GDRIVE_DISTRICTS_URL:-}" \
   python:3.11-slim \
   bash -c "pip install -r requirements.txt -q && python -m loader.load"

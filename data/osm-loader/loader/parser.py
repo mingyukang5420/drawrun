@@ -64,6 +64,95 @@ def parse_node(element: dict) -> dict:
     }
 
 
+def _assemble_ring(segments: list[list[tuple[float, float]]]) -> list[tuple[float, float]] | None:
+    """outer 세그먼트 리스트를 head-to-tail로 연결해 닫힌 링을 반환.
+
+    각 세그먼트는 (lon, lat) 튜플의 리스트.
+    끝점 매칭은 1e-6 허용 오차를 적용한다.
+    연결에 실패하면 None 반환.
+    """
+    EPS = 1e-6
+
+    def near(a: tuple, b: tuple) -> bool:
+        return abs(a[0] - b[0]) < EPS and abs(a[1] - b[1]) < EPS
+
+    if not segments:
+        return None
+
+    ring = list(segments[0])
+    remaining = list(segments[1:])
+
+    while remaining:
+        last = ring[-1]
+        matched = False
+        for i, seg in enumerate(remaining):
+            if near(seg[0], last):
+                ring.extend(seg[1:])
+                remaining.pop(i)
+                matched = True
+                break
+            if near(seg[-1], last):
+                ring.extend(reversed(seg[:-1]))
+                remaining.pop(i)
+                matched = True
+                break
+        if not matched:
+            logger.warning("세그먼트 연결 실패: 남은 세그먼트 %d개", len(remaining))
+            return None
+
+    if not near(ring[0], ring[-1]):
+        ring.append(ring[0])
+
+    return ring
+
+
+def parse_boundary(
+    element: dict,
+    sido: str,
+    gu: str,
+    district_code: str,
+    center_lon: float,
+    center_lat: float,
+) -> dict | None:
+    """Overpass boundary relation element를 district INSERT용 dict로 변환.
+
+    outer role 멤버의 geometry를 연결해 POLYGON WKT를 생성한다.
+    center_point는 기상청 격자 위경도 파일 좌표를 그대로 사용한다.
+    조립 실패 시 None 반환.
+    """
+    members = element.get("members") or []
+    segments: list[list[tuple[float, float]]] = []
+    for m in members:
+        if m.get("role") != "outer":
+            continue
+        geometry = m.get("geometry") or []
+        if len(geometry) < 2:
+            continue
+        segments.append([(p["lon"], p["lat"]) for p in geometry])
+
+    if not segments:
+        logger.warning("[%s] outer 세그먼트 없음", gu)
+        return None
+
+    ring = _assemble_ring(segments)
+    if ring is None:
+        logger.warning("[%s] polygon 링 조립 실패", gu)
+        return None
+
+    coords = ", ".join(f"{lon} {lat}" for lon, lat in ring)
+    boundary_wkt = f"POLYGON(({coords}))"
+    center_wkt = f"POINT({center_lon} {center_lat})"
+
+    logger.info("[%s] boundary 조립 완료: %d points", gu, len(ring))
+    return {
+        "district_code": district_code,
+        "sido": sido,
+        "gu": gu,
+        "center_wkt": center_wkt,
+        "boundary_wkt": boundary_wkt,
+    }
+
+
 def parse_response(data: dict) -> tuple[list[dict], list[dict]]:
     """Overpass 응답에서 way/crossing을 분리해 두 리스트로 반환.
 

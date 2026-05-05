@@ -55,4 +55,10 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
 
     // 완주한 코스 횟수 조회
     Integer countByCourseIdAndIsCompletedTrue(Long courseId);
+
+    // 로그인한 사용자가 이 코스를 완주했는지 확인
+    Boolean existsByMemberIdAndCourseIdAndIsCompletedTrue(
+            Long memberId,
+            Long CourseId
+    );
 }

@@ -4,6 +4,7 @@ import com.running.app.global.response.ApiResponse;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
 import jakarta.validation.ConstraintViolationException;
+import java.sql.SQLException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -79,17 +80,33 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    // SQLState 23505 = unique_violation (회원가입 중복 등) → SIGNUP_CONFLICT (409)
+    // 그 외 (23502 NOT NULL, 23503 FK 등) → INTERNAL_SERVER_ERROR (500). 서버 측 데이터 오류.
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolationException(
             DataIntegrityViolationException ex
     ) {
+        log.error("Data integrity violation", ex);
 
-        log.error("Missing parameter: {}", ex.getMessage());
+        String sqlState = null;
+        Throwable cause = ex.getMostSpecificCause();
+        if (cause instanceof SQLException sqlEx) {
+            sqlState = sqlEx.getSQLState();
+        }
+
+        if ("23505".equals(sqlState)) {
+            return ResponseEntity
+                    .status(ErrorStatus.SIGNUP_CONFLICT.getHttpStatus())
+                    .body(ApiResponse.onFailure(
+                            ErrorStatus.SIGNUP_CONFLICT,
+                            null
+                    ));
+        }
 
         return ResponseEntity
-                .status(ErrorStatus.SIGNUP_CONFLICT.getHttpStatus())
+                .status(ErrorStatus.INTERNAL_SERVER_ERROR.getHttpStatus())
                 .body(ApiResponse.onFailure(
-                        ErrorStatus.SIGNUP_CONFLICT,
+                        ErrorStatus.INTERNAL_SERVER_ERROR,
                         null
                 ));
     }

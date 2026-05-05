@@ -6,7 +6,12 @@ import com.running.app.domain.track.entity.Track;
 import com.running.app.domain.track.repository.TrackRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.PrecisionModel;
+import org.locationtech.jts.io.WKTWriter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +22,13 @@ public class TrackService {
 
     private static final int SRID = 4326;
 
+    // 에디터 저장 시 트랙 이미지 미생성 — 추후 썸네일 생성 로직 추가 시 일괄 업데이트 sentinel.
+    // tracks.track_image_url 이 NOT NULL 제약을 가지고 있어 임시 문자열로 채움.
+    private static final String PENDING_TRACK_IMAGE_URL = "썸네일 url 저장 로직 추가 예정";
+
     private final TrackRepository trackRepository;
 
-    // 노드를 멀티라인스트링 변환 -> 엔티티 생성 -> 저장 / 저장을 위해 Transactional 어노테이션 사용
+    // 자유러닝용 — 클라이언트가 GPS 누적 거리(distance)와 트랙 이미지 URL을 보내줌
     @Transactional
     public Track createTrack(
             List<TrackRequest.NodeDTO> nodes,
@@ -37,7 +46,21 @@ public class TrackService {
         return trackRepository.save(track);
     }
 
-    private MultiLineString createMultiLineString(List<TrackRequest.NodeDTO> nodes){
+    // 에디터 저장용 — 클라이언트가 distance를 모르므로 PostGIS로 자동 계산.
+    // 트랙 이미지는 추후 썸네일 생성 로직 추가 예정 — 그 전까지 sentinel 문자열로 채움.
+    @Transactional
+    public Track createTrackFromEditor(MultiLineString geom) {
+        String wkt = new WKTWriter().write(geom);
+        Double distanceMeters = trackRepository.calculateLengthMeters(wkt);
+        Double distanceKm = distanceMeters / 1000.0;
+
+        Track track = TrackConverter.toTrack(geom, distanceKm, PENDING_TRACK_IMAGE_URL);
+
+        return trackRepository.save(track);
+    }
+
+    // 좌표 리스트 → MultiLineString 변환. EditorService 도 호출하므로 public
+    public MultiLineString createMultiLineString(List<TrackRequest.NodeDTO> nodes) {
         GeometryFactory geometryFactory = new GeometryFactory(
                 // Double 정밀도 사용
                 new PrecisionModel(),

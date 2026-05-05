@@ -97,8 +97,8 @@ class CourseNotifier extends Notifier<CourseState> {
         .toList();
 
     final course = Course(
-      name: name,
-      distanceKm: _calculateDistanceKm(),
+      title: name,
+      distance: _calculateDistanceKm(),
       points: domainPoints,
     );
 

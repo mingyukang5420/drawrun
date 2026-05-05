@@ -8,6 +8,7 @@ import com.running.app.domain.course.repository.CourseDistrictRepository;
 import com.running.app.domain.course.repository.CourseRepository;
 import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.record.repository.RunningRecordRepository;
+import com.running.app.domain.track.entity.Track;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,6 +19,7 @@ import java.util.Set;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
+import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -177,6 +179,37 @@ public class CourseService {
         );
     }
 
+    // 에디터 저장 — Track 은 이미 저장된 상태로 들어옴.
+    @Transactional
+    public Course createFromEditor(Long memberId, Track track, String title) {
+        CourseDifficulty difficulty = determineDifficulty(track.getDistance());
+
+        Course course = CourseConverter.toCourseFromEditor(memberId, track, title, difficulty);
+        Course saved = courseRepository.save(course);
+
+        mapCourseDistricts(saved.getId(), track.getGeom());
+
+        return saved;
+    }
+
+    // 거리 기반 난이도 자동 산정. 추후 elevation_gain 등 다중 입력으로 고도화 예정.
+    private CourseDifficulty determineDifficulty(double distanceKm) {
+        if (distanceKm < 3.0) {
+            return CourseDifficulty.BEGINNER;
+        }
+        if (distanceKm < 5.0) {
+            return CourseDifficulty.EASY;
+        }
+        if (distanceKm < 10.0) {
+            return CourseDifficulty.NORMAL;
+        }
+        return CourseDifficulty.HARD;
+    }
+
+    // TODO: District 의 boundary 컬럼 매핑이 추가되면 좌표 BBox 와 ST_Intersects 로 course_district 채움
+    private void mapCourseDistricts(Long courseId, MultiLineString geom) {
+    }
+
     //코스 점수 계산해서 업데이트
     @Transactional
     public void updateCompletionScore(Long courseId) {
@@ -217,5 +250,35 @@ public class CourseService {
 
         // 오차를 막기 위해 한번 더 0~100 으로 제한
         return Math.max(0, Math.min(100, score));
+    }
+
+    public CourseResponse.CourseDetailDTO getCourse(
+            Long memberId,
+            Long courseId
+    ) {
+        Course course = courseRepository.findByIdWithTrack(courseId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+        List<String> regions = getRegions(courseId);
+
+        Boolean isCompleted = runningRecordRepository
+                .existsByMemberIdAndCourseIdAndIsCompletedTrue(
+                        memberId,
+                        courseId
+                );
+
+        return CourseConverter.toDetailDTO(
+                course,
+                regions,
+                isCompleted
+        );
+    }
+
+    private List<String> getRegions(Long courseId) {
+
+        return courseDistrictRepository.findAllByCourse_Id(courseId)
+                .stream()
+                .map(courseDistrict -> courseDistrict.getDistrict().getGu())
+                .toList();
     }
 }

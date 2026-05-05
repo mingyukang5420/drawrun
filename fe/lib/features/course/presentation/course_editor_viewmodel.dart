@@ -210,8 +210,8 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         .toList();
 
     final course = Course(
-      name: state.courseName,
-      distanceKm: state.totalDistanceKm,
+      title: state.courseName,
+      distance: state.totalDistanceKm,
       points: domainPoints,
     );
 
@@ -221,6 +221,9 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       reset(); // 저장 성공 후 편집 상태를 초기화
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e.message);
+    } catch (_) {
+      // ApiException 이외의 예외 (JSON 파싱 오류 등) 를 일반 메시지로 처리
+      state = state.copyWith(isSaving: false, saveError: '저장 중 오류가 발생했습니다');
     }
   }
 
