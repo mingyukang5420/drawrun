@@ -39,7 +39,7 @@ class RunningRepositoryImpl implements RunningRepository {
       'distance': session.distanceKm, // 단위: km (도메인과 동일)
       'trackImageUrl': trackImageUrl, // 현재 'tempValue' 고정
       'runningTime': session.elapsed.inSeconds, // 단위: 초
-      'avgPace': session.avgPaceSecPerKm,
+      'avgPace': _toMinPerKm(session.avgPaceSecPerKm),
       'calories': session.caloriesKcal, // 단위: kcal
       'cadence': 0, // 도메인 모델에 없음. 일단 0 고정
       'startedAt': _formatLocalIso(session.startedAt),
@@ -57,5 +57,17 @@ class RunningRepositoryImpl implements RunningRepository {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${dt.year}-${two(dt.month)}-${two(dt.day)}'
         'T${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
+  }
+
+  // 분/km 변환.
+  // 정책: "초 단위에서 반올림한 뒤 60 으로 나눠 분/km 로 보낸다".
+  //
+  // distanceKm 이 0 일 때 ViewModel 이 0.0 을 넘겨 주므로 분기 단순화 가능하지만,
+  // 안전을 위해 NaN / Infinity 도 0 으로 떨어뜨린다.
+  double _toMinPerKm(double secPerKm) {
+    if (secPerKm.isNaN || secPerKm.isInfinite || secPerKm <= 0) return 0.0;
+    // 초 단위 정수로 반올림 → 60 으로 나눠 분 단위 소수
+    final roundedSec = secPerKm.round();
+    return roundedSec / 60.0;
   }
 }

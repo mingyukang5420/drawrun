@@ -90,8 +90,16 @@ class RunningState {
   }
 
   String get paceLabel {
-    if (distanceKm == 0) return "--'--\"";
+    // distance 가 너무 작거나 0 이면 의미 없는 큰 값이 나오므로 안 보여 준다.
+    // 50 m 미만은 GPS 노이즈로 본다 (필요시 임계 조정).
+    if (distanceKm < 0.05) return "--'--\"/km";
+
     final paceSec = elapsedSeconds / distanceKm;
+
+    // 비현실적으로 느린 페이스도 가드.
+    // 60'00"/km (= 시속 1km) 보다 느리면 사실상 멈춰 있는 것에 가까우므로 마스킹.
+    if (paceSec > 60 * 60) return "--'--\"/km";
+
     final m = paceSec ~/ 60;
     final s = (paceSec % 60).round();
     return "$m'${s.toString().padLeft(2, '0')}\"/km";
