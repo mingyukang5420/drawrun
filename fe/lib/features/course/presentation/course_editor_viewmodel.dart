@@ -325,7 +325,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         maxLng: bounds.northEast.longitude + _kBoundsPaddingDeg,
         zoom: position.zoom.toInt(),
       );
-      await _drawWays(ways);
+      _drawWays(ways);
     } on ApiException {
       // 도로 데이터 로드 실패는 조용히 무시한다 (보조 기능이므로 UX 방해 최소화)
     } catch (_) {
@@ -336,13 +336,16 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // 도로 목록을 지도에 연한 파랑 폴리라인으로 그린다
   // GeoJSON 좌표는 [경도, 위도] 순이므로 NLatLng(위도, 경도) 로 변환해야 한다
   // 같은 osmId 가 여러 세그먼트로 분할될 수 있으므로 시작·끝 좌표로 중복 판단한다
-  // addOverlay 성공 후에만 상태에 등록 → 실패 세그먼트가 이후 재시도를 막지 않음
-  Future<void> _drawWays(List<Way> ways) async {
+  // addOverlay 는 fire-and-forget 으로 호출한다:
+  //   await 를 걸면 각 await 사이에 다른 이벤트가 끼어들어 카운터/상태가
+  //   꼬이고 결과적으로 아무 선도 그려지지 않는 문제가 재현됨
+  void _drawWays(List<Way> ways) {
     if (_mapController == null) return;
     for (final way in ways) {
       if (way.geom.coordinates.length < 2) continue;
       final key = _segmentKey(way.geom.coordinates);
       if (_drawnSegmentKeys.contains(key)) continue;
+      _drawnSegmentKeys.add(key);
 
       final coords = way.geom.coordinates
           .map((c) => NLatLng(c[1], c[0])) // [lng, lat] → NLatLng(lat, lng)
@@ -353,16 +356,9 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         color: const Color(0xFF90CAF9), // 연한 파랑으로 도로를 표시
         width: 4,
       );
-      try {
-        await _mapController!.addOverlay(overlay);
-        // addOverlay 가 성공한 경우에만 추적 목록에 등록한다
-        _drawnSegmentKeys.add(key);
-        _wayOverlays.add(overlay);
-        _wayCoordinates.add(coords);
-      } catch (_) {
-        // 이 세그먼트 실패 시 카운터를 되돌리고 다음 세그먼트로 진행
-        _wayOverlaySeq--;
-      }
+      _wayOverlays.add(overlay);
+      _wayCoordinates.add(coords);
+      _mapController!.addOverlay(overlay); // fire-and-forget
     }
     if (_wayCoordinates.isNotEmpty && !state.hasWays) {
       state = state.copyWith(hasWays: true);
