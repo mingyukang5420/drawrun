@@ -61,7 +61,17 @@ class CourseEditorScreen extends ConsumerWidget {
             ),
           ),
 
-          // 3단계: 오른쪽 플로팅 버튼 열 (검색·현재위치·자동경로)
+          // 3단계: 도로 상태 안내 힌트 배너
+          // 하단 패널 바로 위에 떠서 사용자에게 현재 가능한 동작을 안내한다
+          if (state.nodes.isEmpty)
+            Positioned(
+              bottom: 90,
+              left: 0,
+              right: 0,
+              child: _RoadHintBanner(hasWays: state.hasWays),
+            ),
+
+          // 4단계: 오른쪽 플로팅 버튼 열 (검색·현재위치·자동경로)
           // bottom: 120 으로 하단 패널과 겹치지 않도록 여백 확보
           Positioned(
             right: 12,
@@ -73,7 +83,7 @@ class CourseEditorScreen extends ConsumerWidget {
             ),
           ),
 
-          // 4단계: 하단 컨트롤 패널 (실행취소·다시실행·초기화 + 저장 CTA)
+          // 5단계: 하단 컨트롤 패널 (실행취소·다시실행·초기화 + 저장 CTA)
           Positioned(
             bottom: 0,
             left: 0,
@@ -452,6 +462,59 @@ class _ControlButton extends StatelessWidget {
             style: TextStyle(fontSize: 11, color: color),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 도로 상태 안내 힌트 배너
+// hasWays 에 따라 "확대하세요" 또는 "도로를 탭하세요" 메시지를 표시한다
+// 노드가 하나라도 추가되면 부모에서 숨겨진다
+// ─────────────────────────────────────────────────────────────────────
+class _RoadHintBanner extends StatelessWidget {
+  final bool hasWays;
+
+  const _RoadHintBanner({required this.hasWays});
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, String text, Color color) = hasWays
+        ? (
+            Icons.touch_app,
+            '파란 도로 위를 탭해 경로를 추가하세요',
+            const Color(0xFF1976D2), // 도로 오버레이와 유사한 파랑
+          )
+        : (
+            Icons.zoom_in,
+            '지도를 더 확대하면 달릴 수 있는 도로가 표시됩니다',
+            Colors.black54,
+          );
+
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.92),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                text,
+                style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

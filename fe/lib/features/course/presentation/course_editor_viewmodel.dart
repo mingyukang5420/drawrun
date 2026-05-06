@@ -43,6 +43,10 @@ class CourseEditorState {
   // 저장 실패 시 설정되는 오류 메시지
   final String? saveError;
 
+  // 현재 뷰포트에 주행 가능 도로가 로드된 상태인지 여부
+  // true 이면 도로 밖 탭이 차단됨을 UI 에서 안내할 수 있다
+  final bool hasWays;
+
   const CourseEditorState({
     this.courseName = '새 코스',
     this.nodes = const [],
@@ -52,6 +56,7 @@ class CourseEditorState {
     this.autoSnap = false,
     this.isSaving = false,
     this.saveError,
+    this.hasWays = false,
   });
 
   CourseEditorState copyWith({
@@ -62,6 +67,7 @@ class CourseEditorState {
     double? totalDistanceKm,
     bool? autoSnap,
     bool? isSaving,
+    bool? hasWays,
     // ?? 대신 직접 할당 → null 로 명시적으로 초기화 가능
     Object? saveError = _sentinel,
   }) {
@@ -73,6 +79,7 @@ class CourseEditorState {
       totalDistanceKm: totalDistanceKm ?? this.totalDistanceKm,
       autoSnap: autoSnap ?? this.autoSnap,
       isSaving: isSaving ?? this.isSaving,
+      hasWays: hasWays ?? this.hasWays,
       saveError: saveError == _sentinel
           ? this.saveError
           : saveError as String?,
@@ -130,11 +137,12 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // 지도 탭 → 새 노드 추가
   // 도로 데이터가 있으면 30m 이내 도로에만 스냅, 없으면 그대로 추가
   // 추가 전 nodes 를 undoStack 에 보관하고 redoStack 은 비운다
-  void addNode(NLatLng tapPoint) {
+  // 반환값: true = 노드 추가됨, false = 도로 밖 탭으로 차단됨
+  bool addNode(NLatLng tapPoint) {
     final NLatLng point;
     if (_wayCoordinates.isNotEmpty) {
       final snapped = _snapToNearestWay(tapPoint);
-      if (snapped == null) return; // 도로 30m 밖 탭은 무시
+      if (snapped == null) return false; // 도로 30m 밖 탭은 무시
       point = snapped;
     } else {
       point = tapPoint; // 도로 미표시 상태의 폴백
@@ -148,6 +156,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       totalDistanceKm: _calcDistance(newNodes),
     );
     _drawRoute(newNodes);
+    return true;
   }
 
   // 마지막 addNode 를 취소하고 직전 노드 상태로 복원
@@ -317,6 +326,8 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       _wayCoordinates.add(coords); // 스냅 계산용으로 좌표도 보관
       _mapController!.addOverlay(overlay);
     }
+    // 도로 로드 완료 → UI 가 안내 문구를 표시할 수 있도록 상태 갱신
+    state = state.copyWith(hasWays: _wayCoordinates.isNotEmpty);
   }
 
   // 지도에서 도로 오버레이를 모두 제거한다
@@ -327,6 +338,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     }
     _wayOverlays.clear();
     _wayCoordinates.clear();
+    state = state.copyWith(hasWays: false);
   }
 
   // 탭 지점에서 가장 가까운 도로 위 점을 반환한다
