@@ -108,6 +108,12 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // 주행 가능 도로 오버레이 목록 (osmId 별로 개별 관리)
   final List<NPolylineOverlay> _wayOverlays = [];
 
+  // 스냅 계산용 도로 좌표 목록 (_wayOverlays 와 1:1 대응)
+  final List<List<NLatLng>> _wayCoordinates = [];
+
+  // 탭 지점에서 이 거리(m) 이내의 도로만 노드 추가를 허용
+  static const _kSnapThresholdM = 30.0;
+
   @override
   CourseEditorState build() => const CourseEditorState();
 
@@ -122,8 +128,17 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   }
 
   // 지도 탭 → 새 노드 추가
+  // 도로 데이터가 있으면 30m 이내 도로에만 스냅, 없으면 그대로 추가
   // 추가 전 nodes 를 undoStack 에 보관하고 redoStack 은 비운다
-  void addNode(NLatLng point) {
+  void addNode(NLatLng tapPoint) {
+    final NLatLng point;
+    if (_wayCoordinates.isNotEmpty) {
+      final snapped = _snapToNearestWay(tapPoint);
+      if (snapped == null) return; // 도로 30m 밖 탭은 무시
+      point = snapped;
+    } else {
+      point = tapPoint; // 도로 미표시 상태의 폴백
+    }
     final newUndo = [...state.undoStack, List<NLatLng>.from(state.nodes)];
     final newNodes = [...state.nodes, point];
     state = state.copyWith(
@@ -299,6 +314,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         width: 4,
       );
       _wayOverlays.add(overlay);
+      _wayCoordinates.add(coords); // 스냅 계산용으로 좌표도 보관
       _mapController!.addOverlay(overlay);
     }
   }
@@ -310,6 +326,44 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       _mapController!.deleteOverlay(overlay.info);
     }
     _wayOverlays.clear();
+    _wayCoordinates.clear();
+  }
+
+  // 탭 지점에서 가장 가까운 도로 위 점을 반환한다
+  // 모든 도로 세그먼트를 순회해 최소 거리 점을 구하고,
+  // _kSnapThresholdM 초과이면 null 을 반환해 노드 추가를 차단한다
+  NLatLng? _snapToNearestWay(NLatLng tap) {
+    NLatLng? best;
+    double bestDist = double.infinity;
+
+    for (final coords in _wayCoordinates) {
+      for (int i = 0; i < coords.length - 1; i++) {
+        final candidate = _nearestPointOnSegment(tap, coords[i], coords[i + 1]);
+        final d = _haversineKm(tap, candidate) * 1000; // m 단위
+        if (d < bestDist) {
+          bestDist = d;
+          best = candidate;
+        }
+      }
+    }
+
+    return (bestDist <= _kSnapThresholdM) ? best : null;
+  }
+
+  // 점 p 에서 선분 ab 위의 최근접 점을 반환한다 (투영값을 [0, 1] 로 클램프)
+  NLatLng _nearestPointOnSegment(NLatLng p, NLatLng a, NLatLng b) {
+    final dx = b.longitude - a.longitude;
+    final dy = b.latitude - a.latitude;
+    final lenSq = dx * dx + dy * dy;
+    if (lenSq == 0) return a; // 세그먼트 길이 0 → 끝점 반환
+    final t = ((p.longitude - a.longitude) * dx +
+            (p.latitude - a.latitude) * dy) /
+        lenSq;
+    final clamped = t.clamp(0.0, 1.0);
+    return NLatLng(
+      a.latitude + clamped * dy,
+      a.longitude + clamped * dx,
+    );
   }
 
   // 노드 목록의 총 거리를 하버사인 공식으로 계산 (km)
