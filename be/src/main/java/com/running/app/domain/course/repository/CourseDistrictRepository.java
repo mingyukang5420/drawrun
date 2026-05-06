@@ -14,4 +14,7 @@ public interface CourseDistrictRepository extends JpaRepository<CourseDistrict, 
     // 코스 ID로 지역 정보 한번에 조회 (목록 조회용)
     @EntityGraph(attributePaths = {"district"})
     List<CourseDistrict> findAllByCourse_IdIn(List<Long> courseIds);
+
+    // Course 삭제 전 자식 행 정리용 — course_district.course_id FK 위반 방지
+    void deleteByCourseId(Long courseId);
 }

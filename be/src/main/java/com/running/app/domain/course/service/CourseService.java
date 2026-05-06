@@ -9,15 +9,14 @@ import com.running.app.domain.course.repository.CourseRepository;
 import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.domain.track.entity.Track;
+import com.running.app.global.response.exception.GeneralException;
+import com.running.app.global.response.status.ErrorStatus;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import com.running.app.global.response.exception.GeneralException;
-import com.running.app.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
 import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.data.domain.PageRequest;
@@ -210,15 +209,17 @@ public class CourseService {
     private void mapCourseDistricts(Long courseId, MultiLineString geom) {
     }
 
-    //코스 점수 계산해서 업데이트
     @Transactional
+    //코스 점수 계산해서 업데이트
+
     public void updateCompletionScore(Long courseId) {
 
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.BAD_REQUEST));
 
         Integer totalRunCount = runningRecordRepository.countByCourseId(courseId);
-        Integer completedCount = runningRecordRepository.countByCourseIdAndIsCompletedTrue(courseId);
+        Integer completedCount = runningRecordRepository.countByCourseIdAndIsCompletedTrue(
+                courseId);
 
         Integer completionScore = calculateCompletionScore(
                 completedCount,
@@ -230,9 +231,10 @@ public class CourseService {
     }
 
     // 코스 점수 계산 로직
-    private Integer calculateCompletionScore(Integer completedCount, Integer totalRunCount, CourseDifficulty difficulty) {
+    private Integer calculateCompletionScore(Integer completedCount, Integer totalRunCount,
+            CourseDifficulty difficulty) {
         //기본값 0
-        if(totalRunCount == null || totalRunCount == 0) {
+        if (totalRunCount == null || totalRunCount == 0) {
             return 0;
         }
 
@@ -242,7 +244,7 @@ public class CourseService {
         double numerator = safeCompletedCount * weight;
         double denominator = totalRunCount + (safeCompletedCount * weight - safeCompletedCount);
 
-        if(denominator == 0.0){
+        if (denominator == 0.0) {
             return 0;
         }
 
