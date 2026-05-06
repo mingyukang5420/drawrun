@@ -123,12 +123,20 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // 탭 지점에서 이 거리(m) 이내의 도로만 노드 추가를 허용
   static const _kSnapThresholdM = 30.0;
 
+  // 뷰포트 바운딩 박스에 추가하는 여백 (도 단위, 약 300m)
+  // 화면 경계에 걸친 도로가 중간에 끊겨 보이는 현상을 방지
+  static const _kBoundsPaddingDeg = 0.003;
+
   @override
   CourseEditorState build() => const CourseEditorState();
 
   // 지도 컨트롤러 등록 (onMapReady 콜백에서 1회 호출)
+  // onCameraIdle 은 카메라 이동 완료 후에만 발생하는데, 위치 오버레이 설정이
+  // setMapController 보다 먼저 실행되어 초기 onCameraIdle 을 놓칠 수 있으므로
+  // 등록 직후 현재 뷰포트의 도로를 즉시 로드한다
   void setMapController(NaverMapController controller) {
     _mapController = controller;
+    loadWays();
   }
 
   // 코스 이름 변경 (상단 바 편집 다이얼로그에서 호출)
@@ -293,12 +301,13 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         return;
       }
       // 현재 화면에 보이는 지도 범위를 조회한다
+      // _kBoundsPaddingDeg 여백을 추가해 화면 경계 도로가 중간에 끊기지 않도록 한다
       final bounds = await _mapController!.getContentBounds();
       final ways = await _repository.getWays(
-        minLat: bounds.southWest.latitude,
-        minLng: bounds.southWest.longitude,
-        maxLat: bounds.northEast.latitude,
-        maxLng: bounds.northEast.longitude,
+        minLat: bounds.southWest.latitude - _kBoundsPaddingDeg,
+        minLng: bounds.southWest.longitude - _kBoundsPaddingDeg,
+        maxLat: bounds.northEast.latitude + _kBoundsPaddingDeg,
+        maxLng: bounds.northEast.longitude + _kBoundsPaddingDeg,
         zoom: position.zoom.toInt(),
       );
       _drawWays(ways);
