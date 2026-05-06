@@ -25,6 +25,10 @@ class CourseEditorMapView extends ConsumerWidget {
         // 지도 탭 시 해당 좌표를 노드로 추가
         ref.read(courseEditorProvider.notifier).addNode(latLng);
       },
+      // 카메라가 멈추면 현재 뷰포트의 주행 가능 도로를 새로 불러온다
+      onCameraIdle: () {
+        ref.read(courseEditorProvider.notifier).loadWays();
+      },
     );
   }
 }
