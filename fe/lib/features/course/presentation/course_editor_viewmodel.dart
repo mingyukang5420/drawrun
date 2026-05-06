@@ -280,14 +280,15 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   }
 
   // 카메라가 멈출 때마다 호출된다 (CourseEditorMapView 의 onCameraIdle 에서 연결)
-  // 줌 16 이상이면 현재 뷰포트의 주행 가능 도로를 불러와 지도에 표시한다
+  // 줌 14 이상이면 현재 뷰포트의 주행 가능 도로를 불러와 지도에 표시한다
+  // (지도 초기 진입 시 기본 줌이 14~15 이므로 별도 확대 없이 바로 표시됨)
   Future<void> loadWays() async {
     if (_mapController == null) return;
     try {
       // 현재 카메라 위치와 줌 레벨을 조회한다
       final position = await _mapController!.getCameraPosition();
-      if (position.zoom < 16) {
-        // 줌 아웃 상태에서는 도로 오버레이를 지운다 (데이터 양이 너무 많아짐)
+      if (position.zoom < 14) {
+        // 줌 13 이하에서는 뷰포트가 너무 넓어 도로 데이터 양이 과다해지므로 초기화
         _clearWays();
         return;
       }
