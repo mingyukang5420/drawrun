@@ -2,7 +2,7 @@
 -- district: 행정 구역
 -- ============================================================
 CREATE TABLE IF NOT EXISTS district (
-    district_code CHAR(5)     PRIMARY KEY,               -- 행정구역코드 앞 5자리 (예: '11440')
+    district_id   CHAR(5)     PRIMARY KEY,               -- 행정구역코드 앞 5자리 (예: '11440')
     sido          VARCHAR(50) NOT NULL,
     gu            VARCHAR(50) NOT NULL,
     center_point  GEOMETRY(POINT,   4326),               -- 기상청 격자 위경도 기준
