@@ -42,7 +42,7 @@ WAYS_CSV = os.path.join(DATA_DIR, "osm_ways.csv")
 CROSSINGS_CSV = os.path.join(DATA_DIR, "osm_crossings.csv")
 DISTRICTS_CSV = os.path.join(DATA_DIR, "districts.csv")
 
-DISTRICTS_FIELDS = ["district_code", "sido", "gu", "center_wkt", "boundary_wkt"]
+DISTRICTS_FIELDS = ["district_id", "sido", "gu", "center_wkt", "boundary_wkt"]
 
 WAYS_FIELDS = [
     "osm_id",
@@ -196,7 +196,7 @@ def main() -> None:
                 relations[0],
                 sido=d["sido"],
                 gu=gu,
-                district_code=d["code"],
+                district_id=d["code"],
                 center_lon=d["center_lon"],
                 center_lat=d["center_lat"],
             )
