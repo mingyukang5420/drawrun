@@ -299,8 +299,8 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       // 현재 카메라 위치와 줌 레벨을 조회한다
       final position = await _mapController!.getCameraPosition();
       if (position.zoom < 14) {
-        // 줌 13 이하에서는 뷰포트가 너무 넓어 도로 데이터 양이 과다해지므로 초기화
-        _clearWays();
+        // 줌 13 이하에서는 새로 요청하지 않는다
+        // 기존에 로드된 도로는 유지해 사용자가 다시 확대했을 때 즉시 표시된다
         return;
       }
       // 현재 화면에 보이는 지도 범위를 조회한다
