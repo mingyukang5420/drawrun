@@ -1,6 +1,10 @@
 server:
   servlet:
     context-path: /api
+
+app:
+  upload:
+    track-image-url-prefix: /api/uploads/tracks
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/running
