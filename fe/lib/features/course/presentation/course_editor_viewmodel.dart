@@ -134,11 +134,15 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
 
   @override
   CourseEditorState build() {
-    // 노티파이어가 파기(autoDispose)될 때 지도 오버레이를 정리한다
-    // 정리하지 않으면 재진입 시 동일 ID 충돌로 addOverlay 가 무음 실패한다
+    // 노티파이어 파기 시 지도 오버레이만 정리한다 (state 갱신은 하지 않음)
+    // state 를 건드리면 Riverpod 이 StateError 를 던지므로 별도 메서드 사용
     ref.onDispose(() {
-      _clearWays();
-      _clearPolyline();
+      _disposeOverlays();
+      // 경로 폴리라인도 정리 (state 접근 없이 SDK 에서만 제거)
+      if (_mapController != null && _routeLine != null) {
+        _mapController!.deleteOverlay(_routeLine!.info);
+        _routeLine = null;
+      }
     });
     return const CourseEditorState();
   }
@@ -332,37 +336,47 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // 도로 목록을 지도에 연한 파랑 폴리라인으로 그린다
   // GeoJSON 좌표는 [경도, 위도] 순이므로 NLatLng(위도, 경도) 로 변환해야 한다
   // 같은 osmId 가 여러 세그먼트로 분할될 수 있으므로 시작·끝 좌표로 중복 판단한다
-  // addOverlay 는 플랫폼 채널 비동기 호출이므로 Future.wait 로 일괄 완료를 보장한다
+  // addOverlay 성공 후에만 상태에 등록 → 실패 세그먼트가 이후 재시도를 막지 않음
   Future<void> _drawWays(List<Way> ways) async {
     if (_mapController == null) return;
-    final futures = <Future<void>>[];
     for (final way in ways) {
       if (way.geom.coordinates.length < 2) continue;
       final key = _segmentKey(way.geom.coordinates);
-      if (_drawnSegmentKeys.contains(key)) continue; // 동일 세그먼트 스킵
-      _drawnSegmentKeys.add(key);
+      if (_drawnSegmentKeys.contains(key)) continue;
 
       final coords = way.geom.coordinates
           .map((c) => NLatLng(c[1], c[0])) // [lng, lat] → NLatLng(lat, lng)
           .toList();
       final overlay = NPolylineOverlay(
-        id: 'way_${_wayOverlaySeq++}', // 세그먼트마다 고유 ID
+        id: 'way_${_wayOverlaySeq++}',
         coords: coords,
         color: const Color(0xFF90CAF9), // 연한 파랑으로 도로를 표시
         width: 4,
       );
-      _wayOverlays.add(overlay);
-      _wayCoordinates.add(coords);
-      futures.add(_mapController!.addOverlay(overlay));
+      try {
+        await _mapController!.addOverlay(overlay);
+        // addOverlay 가 성공한 경우에만 추적 목록에 등록한다
+        _drawnSegmentKeys.add(key);
+        _wayOverlays.add(overlay);
+        _wayCoordinates.add(coords);
+      } catch (_) {
+        // 이 세그먼트 실패 시 카운터를 되돌리고 다음 세그먼트로 진행
+        _wayOverlaySeq--;
+      }
     }
-    await Future.wait(futures); // 모든 오버레이 추가 완료 대기
     if (_wayCoordinates.isNotEmpty && !state.hasWays) {
       state = state.copyWith(hasWays: true);
     }
   }
 
-  // 지도에서 도로 오버레이를 모두 제거한다 (줌아웃 또는 초기화 시 호출)
+  // 지도에서 도로 오버레이를 모두 제거하고 state 를 갱신한다
   void _clearWays() {
+    _disposeOverlays();
+    state = state.copyWith(hasWays: false);
+  }
+
+  // 오버레이만 정리한다 (state 갱신 없음 — onDispose 에서 사용)
+  void _disposeOverlays() {
     if (_mapController == null) return;
     for (final overlay in _wayOverlays) {
       _mapController!.deleteOverlay(overlay.info);
@@ -371,7 +385,6 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     _wayCoordinates.clear();
     _drawnSegmentKeys.clear();
     _wayOverlaySeq = 0;
-    state = state.copyWith(hasWays: false);
   }
 
   // 세그먼트 지문: 시작·끝 좌표를 문자열로 결합해 동일 세그먼트를 식별
