@@ -4,6 +4,7 @@ server:
 
 app:
   upload:
+    track-image-dir: C:/Users/SSAFY/Desktop/uploads/tracks
     track-image-url-prefix: /api/uploads/tracks
 spring:
   datasource:
