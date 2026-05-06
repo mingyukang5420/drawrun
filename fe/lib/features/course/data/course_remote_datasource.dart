@@ -26,11 +26,11 @@ class CourseRemoteDataSource {
     }
   }
 
-  // POST /api/v1/course — 새 코스 저장
+  // POST /api/v1/editor — 새 코스 저장
   // 서버 응답 바디는 사용하지 않으므로 Future<void> 반환
   Future<void> createCourse(Course course) async {
     try {
-      await _dio.post('/api/v1/course', data: course.toJson());
+      await _dio.post('/api/v1/editor', data: course.toJson());
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
