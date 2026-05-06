@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/course/domain/course_repository.dart';
+import 'package:running/features/course/domain/way.dart';
 import 'package:running/shared/location/location_service.dart';
 import 'package:running/shared/model/lat_lng.dart' as shared;
 import 'package:running/shared/network/api_exception.dart';
@@ -103,6 +104,9 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
 
   // 현재 지도에 그려진 경로 폴리라인 오버레이
   NPolylineOverlay? _routeLine;
+
+  // 주행 가능 도로 오버레이 목록 (osmId 별로 개별 관리)
+  final List<NPolylineOverlay> _wayOverlays = [];
 
   @override
   CourseEditorState build() => const CourseEditorState();
@@ -247,6 +251,65 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       _mapController!.deleteOverlay(_routeLine!.info);
       _routeLine = null;
     }
+  }
+
+  // 카메라가 멈출 때마다 호출된다 (CourseEditorMapView 의 onCameraIdle 에서 연결)
+  // 줌 16 이상이면 현재 뷰포트의 주행 가능 도로를 불러와 지도에 표시한다
+  Future<void> loadWays() async {
+    if (_mapController == null) return;
+    try {
+      // 현재 카메라 위치와 줌 레벨을 조회한다
+      final position = await _mapController!.getCameraPosition();
+      if (position.zoom < 16) {
+        // 줌 아웃 상태에서는 도로 오버레이를 지운다 (데이터 양이 너무 많아짐)
+        _clearWays();
+        return;
+      }
+      // 현재 화면에 보이는 지도 범위를 조회한다
+      final bounds = await _mapController!.getContentBounds();
+      final ways = await _repository.getWays(
+        minLat: bounds.southWest.latitude,
+        minLng: bounds.southWest.longitude,
+        maxLat: bounds.northEast.latitude,
+        maxLng: bounds.northEast.longitude,
+        zoom: position.zoom.toInt(),
+      );
+      _drawWays(ways);
+    } on ApiException {
+      // 도로 데이터 로드 실패는 조용히 무시한다 (보조 기능이므로 UX 방해 최소화)
+    } catch (_) {
+      // SDK 호출 실패 등 예상치 못한 오류도 무시
+    }
+  }
+
+  // 도로 목록을 지도에 연한 파랑 폴리라인으로 그린다
+  // GeoJSON 좌표는 [경도, 위도] 순이므로 NLatLng(위도, 경도) 로 변환해야 한다
+  void _drawWays(List<Way> ways) {
+    if (_mapController == null) return;
+    _clearWays();
+    for (final way in ways) {
+      if (way.geom.coordinates.length < 2) continue;
+      final coords = way.geom.coordinates
+          .map((c) => NLatLng(c[1], c[0])) // [lng, lat] → NLatLng(lat, lng)
+          .toList();
+      final overlay = NPolylineOverlay(
+        id: 'way_${way.osmId}',
+        coords: coords,
+        color: const Color(0xFF90CAF9), // 연한 파랑으로 도로를 표시
+        width: 4,
+      );
+      _wayOverlays.add(overlay);
+      _mapController!.addOverlay(overlay);
+    }
+  }
+
+  // 지도에서 도로 오버레이를 모두 제거한다
+  void _clearWays() {
+    if (_mapController == null) return;
+    for (final overlay in _wayOverlays) {
+      _mapController!.deleteOverlay(overlay.info);
+    }
+    _wayOverlays.clear();
   }
 
   // 노드 목록의 총 거리를 하버사인 공식으로 계산 (km)
