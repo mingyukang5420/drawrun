@@ -4,6 +4,8 @@ import com.running.app.domain.track.converter.TrackConverter;
 import com.running.app.domain.track.dto.TrackRequest;
 import com.running.app.domain.track.entity.Track;
 import com.running.app.domain.track.repository.TrackRepository;
+import com.running.app.global.response.exception.GeneralException;
+import com.running.app.global.response.status.ErrorStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.locationtech.jts.geom.Coordinate;
@@ -12,6 +14,7 @@ import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.WKTWriter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,11 +25,12 @@ public class TrackService {
 
     private static final int SRID = 4326;
 
-    // 에디터 저장 시 트랙 이미지 미생성 — 추후 썸네일 생성 로직 추가 시 일괄 업데이트 sentinel.
-    // tracks.track_image_url 이 NOT NULL 제약을 가지고 있어 임시 문자열로 채움.
     private static final String PENDING_TRACK_IMAGE_URL = "썸네일 url 저장 로직 추가 예정";
 
     private final TrackRepository trackRepository;
+
+    @Value("${app.upload.track-image-url-prefix}")
+    private String trackImageUrlPrefix;
 
     // 자유러닝용 — 클라이언트가 GPS 누적 거리(distance)와 트랙 이미지 URL을 보내줌
     @Transactional
@@ -35,6 +39,8 @@ public class TrackService {
             Double distance,
             String trackImageUrl
     ) {
+        validateTrackImageUrl(trackImageUrl);
+
         MultiLineString geom = createMultiLineString(nodes);
 
         Track track = TrackConverter.toTrack(
@@ -77,5 +83,38 @@ public class TrackService {
 
         //LineString -> MultiLineString
         return geometryFactory.createMultiLineString(new LineString[]{lineString});
+    }
+
+    // 이미지 경로 검증 로직
+    private void validateTrackImageUrl(String trackImageUrl) {
+        // 비어 있지 않은지 체크
+        if (trackImageUrl == null || trackImageUrl.isBlank()) {
+            throw new GeneralException(ErrorStatus.INVALID_TRACK_IMAGE_URL);
+        }
+        // 설정한 prefix로 시작하는지 체크
+        String normalizedPrefix = normalizeUrlPrefix(trackImageUrlPrefix);
+        String normalizedTrackImageUrl = trackImageUrl.trim();
+
+        if (!normalizedTrackImageUrl.startsWith(normalizedPrefix + "/")) {
+            throw new GeneralException(ErrorStatus.INVALID_TRACK_IMAGE_URL, trackImageUrl);
+        }
+        // ".." 같은 잘못된 경로가 있는지 체크
+        if (normalizedTrackImageUrl.contains("..")) {
+            throw new GeneralException(ErrorStatus.INVALID_TRACK_IMAGE_URL, trackImageUrl);
+        }
+    }
+
+    private String normalizeUrlPrefix(String urlPrefix) {
+        String normalized = urlPrefix.trim();
+
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        return normalized;
     }
 }
