@@ -133,7 +133,15 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   static const _kBoundsPaddingDeg = 0.003;
 
   @override
-  CourseEditorState build() => const CourseEditorState();
+  CourseEditorState build() {
+    // 노티파이어가 파기(autoDispose)될 때 지도 오버레이를 정리한다
+    // 정리하지 않으면 재진입 시 동일 ID 충돌로 addOverlay 가 무음 실패한다
+    ref.onDispose(() {
+      _clearWays();
+      _clearPolyline();
+    });
+    return const CourseEditorState();
+  }
 
   // 지도 컨트롤러 등록 (onMapReady 콜백에서 1회 호출)
   // map_view.dart 에서 컨트롤러 등록을 카메라 이동보다 먼저 수행하므로
@@ -313,7 +321,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         maxLng: bounds.northEast.longitude + _kBoundsPaddingDeg,
         zoom: position.zoom.toInt(),
       );
-      _drawWays(ways);
+      await _drawWays(ways);
     } on ApiException {
       // 도로 데이터 로드 실패는 조용히 무시한다 (보조 기능이므로 UX 방해 최소화)
     } catch (_) {
@@ -324,8 +332,10 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // 도로 목록을 지도에 연한 파랑 폴리라인으로 그린다
   // GeoJSON 좌표는 [경도, 위도] 순이므로 NLatLng(위도, 경도) 로 변환해야 한다
   // 같은 osmId 가 여러 세그먼트로 분할될 수 있으므로 시작·끝 좌표로 중복 판단한다
-  void _drawWays(List<Way> ways) {
+  // addOverlay 는 플랫폼 채널 비동기 호출이므로 Future.wait 로 일괄 완료를 보장한다
+  Future<void> _drawWays(List<Way> ways) async {
     if (_mapController == null) return;
+    final futures = <Future<void>>[];
     for (final way in ways) {
       if (way.geom.coordinates.length < 2) continue;
       final key = _segmentKey(way.geom.coordinates);
@@ -343,8 +353,9 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       );
       _wayOverlays.add(overlay);
       _wayCoordinates.add(coords);
-      _mapController!.addOverlay(overlay);
+      futures.add(_mapController!.addOverlay(overlay));
     }
+    await Future.wait(futures); // 모든 오버레이 추가 완료 대기
     if (_wayCoordinates.isNotEmpty && !state.hasWays) {
       state = state.copyWith(hasWays: true);
     }
