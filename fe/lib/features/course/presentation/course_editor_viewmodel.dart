@@ -112,13 +112,18 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // 현재 지도에 그려진 경로 폴리라인 오버레이
   NPolylineOverlay? _routeLine;
 
-  // 주행 가능 도로 오버레이 (osmId → overlay)
-  // Map 으로 관리해 중복 없이 누적하고, osmId 로 즉시 접근 가능
-  final Map<int, NPolylineOverlay> _wayOverlays = {};
+  // 주행 가능 도로 오버레이 목록 (지우기 전용)
+  final List<NPolylineOverlay> _wayOverlays = [];
 
-  // 스냅 계산용 도로 좌표 (osmId → coords)
-  // _wayOverlays 와 키를 공유해 항상 1:1 대응을 유지
-  final Map<int, List<NLatLng>> _wayCoordinates = {};
+  // 스냅 계산용 도로 좌표 목록 (_wayOverlays 와 1:1 대응)
+  final List<List<NLatLng>> _wayCoordinates = [];
+
+  // 이미 그려진 세그먼트 지문 집합 (시작·끝 좌표 문자열)
+  // 같은 osmId 가 여러 세그먼트로 분할 반환되므로 osmId 대신 좌표로 중복 판단
+  final Set<String> _drawnSegmentKeys = {};
+
+  // 오버레이 고유 ID 생성용 카운터 (같은 osmId 세그먼트마다 다른 ID 부여)
+  int _wayOverlaySeq = 0;
 
   // 탭 지점에서 이 거리(m) 이내의 도로만 노드 추가를 허용
   static const _kSnapThresholdM = 30.0;
@@ -320,26 +325,28 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
 
   // 도로 목록을 지도에 연한 파랑 폴리라인으로 그린다
   // GeoJSON 좌표는 [경도, 위도] 순이므로 NLatLng(위도, 경도) 로 변환해야 한다
-  // 이미 그려진 osmId 는 건너뛰어 스크롤·줌 변경 시에도 기존 도로를 유지한다
+  // 같은 osmId 가 여러 세그먼트로 분할될 수 있으므로 시작·끝 좌표로 중복 판단한다
   void _drawWays(List<Way> ways) {
     if (_mapController == null) return;
     for (final way in ways) {
-      if (_wayCoordinates.containsKey(way.osmId)) continue; // 이미 로드된 도로 스킵
       if (way.geom.coordinates.length < 2) continue;
+      final key = _segmentKey(way.geom.coordinates);
+      if (_drawnSegmentKeys.contains(key)) continue; // 동일 세그먼트 스킵
+      _drawnSegmentKeys.add(key);
+
       final coords = way.geom.coordinates
           .map((c) => NLatLng(c[1], c[0])) // [lng, lat] → NLatLng(lat, lng)
           .toList();
       final overlay = NPolylineOverlay(
-        id: 'way_${way.osmId}',
+        id: 'way_${_wayOverlaySeq++}', // 세그먼트마다 고유 ID
         coords: coords,
         color: const Color(0xFF90CAF9), // 연한 파랑으로 도로를 표시
         width: 4,
       );
-      _wayCoordinates[way.osmId] = coords;
-      _wayOverlays[way.osmId] = overlay;
+      _wayOverlays.add(overlay);
+      _wayCoordinates.add(coords);
       _mapController!.addOverlay(overlay);
     }
-    // 새로 추가된 도로가 있으면 UI 힌트 상태 갱신
     if (_wayCoordinates.isNotEmpty && !state.hasWays) {
       state = state.copyWith(hasWays: true);
     }
@@ -348,12 +355,21 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // 지도에서 도로 오버레이를 모두 제거한다 (줌아웃 또는 초기화 시 호출)
   void _clearWays() {
     if (_mapController == null) return;
-    for (final overlay in _wayOverlays.values) {
+    for (final overlay in _wayOverlays) {
       _mapController!.deleteOverlay(overlay.info);
     }
     _wayOverlays.clear();
     _wayCoordinates.clear();
+    _drawnSegmentKeys.clear();
+    _wayOverlaySeq = 0;
     state = state.copyWith(hasWays: false);
+  }
+
+  // 세그먼트 지문: 시작·끝 좌표를 문자열로 결합해 동일 세그먼트를 식별
+  String _segmentKey(List<List<double>> coords) {
+    final s = coords.first;
+    final e = coords.last;
+    return '${s[0]}_${s[1]}_${e[0]}_${e[1]}';
   }
 
   // 탭 지점에서 가장 가까운 도로 위 점을 반환한다
@@ -363,7 +379,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     NLatLng? best;
     double bestDist = double.infinity;
 
-    for (final coords in _wayCoordinates.values) {
+    for (final coords in _wayCoordinates) {
       for (int i = 0; i < coords.length - 1; i++) {
         final candidate = _nearestPointOnSegment(tap, coords[i], coords[i + 1]);
         final d = _haversineKm(tap, candidate) * 1000; // m 단위
