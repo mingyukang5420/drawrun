@@ -136,12 +136,10 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   CourseEditorState build() => const CourseEditorState();
 
   // 지도 컨트롤러 등록 (onMapReady 콜백에서 1회 호출)
-  // onCameraIdle 은 카메라 이동 완료 후에만 발생하는데, 위치 오버레이 설정이
-  // setMapController 보다 먼저 실행되어 초기 onCameraIdle 을 놓칠 수 있으므로
-  // 등록 직후 현재 뷰포트의 도로를 즉시 로드한다
+  // map_view.dart 에서 컨트롤러 등록을 카메라 이동보다 먼저 수행하므로
+  // 위치 이동 완료 후 발생하는 onCameraIdle 에서 loadWays 가 정상 실행된다
   void setMapController(NaverMapController controller) {
     _mapController = controller;
-    loadWays();
   }
 
   // 코스 이름 변경 (상단 바 편집 다이얼로그에서 호출)
