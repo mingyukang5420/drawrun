@@ -96,11 +96,11 @@ def insert_ways_batch(conn, ways: list[dict], batch_size: int = 500) -> int:
 
 
 _UPSERT_DISTRICT = """
-INSERT INTO district (district_code, sido, gu, center_point, boundary)
+INSERT INTO district (district_id, sido, gu, center_point, boundary)
 VALUES (%s, %s, %s,
         ST_GeomFromText(%s, 4326),
         ST_GeomFromText(%s, 4326))
-ON CONFLICT (district_code) DO UPDATE SET
+ON CONFLICT (district_id) DO UPDATE SET
     boundary     = EXCLUDED.boundary,
     center_point = EXCLUDED.center_point
 """
@@ -109,10 +109,10 @@ ON CONFLICT (district_code) DO UPDATE SET
 def upsert_districts(conn, districts: list[dict]) -> None:
     """districts 리스트를 district 테이블에 upsert.
 
-    각 dict: district_code, sido, gu, center_wkt, boundary_wkt
+    각 dict: district_id, sido, gu, center_wkt, boundary_wkt
     """
     params = [
-        (d["district_code"], d["sido"], d["gu"], d["center_wkt"], d["boundary_wkt"])
+        (d["district_id"], d["sido"], d["gu"], d["center_wkt"], d["boundary_wkt"])
         for d in districts
     ]
     with conn.cursor() as cur:
