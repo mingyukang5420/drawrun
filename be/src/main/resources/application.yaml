@@ -31,3 +31,9 @@ springdoc:
 
 server:
   forward-headers-strategy: framework
+
+app:
+  upload:
+    track-image-dir: /home/ubuntu/app/uploads/tracks #서버에 저장할 경로
+    track-image-url-prefix: /uploads/tracks #업로드 후 응답이나 DB에 저장할 공개 경로의 앞부분
+                            #임시로 uploads/tracks로 설정
