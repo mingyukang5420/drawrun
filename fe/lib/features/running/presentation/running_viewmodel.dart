@@ -28,6 +28,9 @@ class RunningState {
   final double altitudeM;
   final int bpm;
 
+  // 분당 발걸음 수.
+  final int cadenceSpm;
+
   final bool isSaving;
   final ApiException? saveError;
   final DateTime? startedAt;
@@ -42,6 +45,7 @@ class RunningState {
     this.caloriesKcal = 0,
     this.altitudeM = 0.0,
     this.bpm = 0,
+    this.cadenceSpm = 0,
     this.isSaving = false,
     this.saveError,
     this.startedAt,
@@ -57,6 +61,7 @@ class RunningState {
     int? caloriesKcal,
     double? altitudeM,
     int? bpm,
+    int? cadenceSpm,
     bool? isSaving,
     ApiException? saveError,
     DateTime? startedAt,
@@ -71,6 +76,7 @@ class RunningState {
       caloriesKcal: caloriesKcal ?? this.caloriesKcal,
       altitudeM: altitudeM ?? this.altitudeM,
       bpm: bpm ?? this.bpm,
+      cadenceSpm: cadenceSpm ?? this.cadenceSpm,
       isSaving: isSaving ?? this.isSaving,
       saveError: saveError ?? this.saveError,
       startedAt: startedAt ?? this.startedAt,
@@ -79,7 +85,7 @@ class RunningState {
   }
 
   // UI 표시용 계산 게터
-  String get distanceLabel => '${distanceKm.toStringAsFixed(2)} km';
+  String get distanceLabel => '${distanceKm.toStringAsFixed(2)}';
 
   String get elapsedLabel {
     final h = elapsedSeconds ~/ 3600;
@@ -92,23 +98,24 @@ class RunningState {
   String get paceLabel {
     // distance 가 너무 작거나 0 이면 의미 없는 큰 값이 나오므로 안 보여 준다.
     // 50 m 미만은 GPS 노이즈로 본다 (필요시 임계 조정).
-    if (distanceKm < 0.05) return "--'--\"/km";
+    if (distanceKm < 0.05) return "--'--\"";
 
     final paceSec = elapsedSeconds / distanceKm;
 
     // 비현실적으로 느린 페이스도 가드.
     // 60'00"/km (= 시속 1km) 보다 느리면 사실상 멈춰 있는 것에 가까우므로 마스킹.
-    if (paceSec > 60 * 60) return "--'--\"/km";
+    if (paceSec > 60 * 60) return "--'--\"";
 
     final m = paceSec ~/ 60;
     final s = (paceSec % 60).round();
-    return "$m'${s.toString().padLeft(2, '0')}\"/km";
+    return "$m'${s.toString().padLeft(2, '0')}\"";
   }
 
   String get avgPaceLabel => paceLabel;
-  String get caloriesLabel => '$caloriesKcal kcal';
+  String get caloriesLabel => '$caloriesKcal';
   String get altitudeLabel => '${altitudeM.toStringAsFixed(0)} m';
-  String get bpmLabel => '$bpm bpm';
+  String get bpmLabel => '$bpm';
+  String get cadenceLabel => '$cadenceSpm';
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -185,6 +192,15 @@ class RunningNotifier extends Notifier<RunningState> {
       isPaused: false,
       startedAt: state.startedAt ?? DateTime.now(),
     );
+  }
+
+  void syncFromBackground() {
+    // 일시정지 / 종료 상태에서는 동기화할 게 없다 (Stopwatch 도 멈춰 있음).
+    if (!state.isRunning || state.isPaused) return;
+    // _stopwatch 의 진짜 경과 시간으로 상태를 즉시 갱신.
+    state = state.copyWith(elapsedSeconds: _stopwatch.elapsed.inSeconds);
+    // 멈춰 있던 1초 ticker 도 다시 시동 — 다음 tick 부터 정상.
+    _startTicker();
   }
 
   Future<void> pause() async {
@@ -303,6 +319,7 @@ class RunningNotifier extends Notifier<RunningState> {
       caloriesKcal: s.caloriesKcal,
       altitudeM: s.altitudeM,
       bpm: s.bpm,
+      cadenceSpm: s.cadenceSpm,
     );
   }
 

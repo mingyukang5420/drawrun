@@ -14,6 +14,8 @@ class RunningSession {
   final int caloriesKcal;
   final double altitudeM;
   final int bpm;
+  // TODO: 케이던스 로직 적용
+  final int cadenceSpm;
 
   const RunningSession({
     required this.startedAt,
@@ -25,5 +27,6 @@ class RunningSession {
     required this.caloriesKcal,
     required this.altitudeM,
     required this.bpm,
+    required this.cadenceSpm,
   });
 }

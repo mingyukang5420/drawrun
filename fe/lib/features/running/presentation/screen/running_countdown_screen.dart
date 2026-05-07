@@ -18,7 +18,7 @@ class RunningCountdownScreen extends ConsumerStatefulWidget {
 
 class _RunningCountdownScreenState
     extends ConsumerState<RunningCountdownScreen> {
-  static const _sequence = ['3', '2', '1', 'Start!'];
+  static const _sequence = ['3', '2', '1'];
   int _index = 0;
   Timer? _timer;
 
