@@ -194,6 +194,15 @@ class RunningNotifier extends Notifier<RunningState> {
     );
   }
 
+  void syncFromBackground() {
+    // 일시정지 / 종료 상태에서는 동기화할 게 없다 (Stopwatch 도 멈춰 있음).
+    if (!state.isRunning || state.isPaused) return;
+    // _stopwatch 의 진짜 경과 시간으로 상태를 즉시 갱신.
+    state = state.copyWith(elapsedSeconds: _stopwatch.elapsed.inSeconds);
+    // 멈춰 있던 1초 ticker 도 다시 시동 — 다음 tick 부터 정상.
+    _startTicker();
+  }
+
   Future<void> pause() async {
     await _locationSub?.cancel();
     _locationSub = null;
