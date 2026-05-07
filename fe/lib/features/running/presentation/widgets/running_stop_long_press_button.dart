@@ -11,12 +11,12 @@ class RunningStopLongPressButton extends StatefulWidget {
   // 콜백을 Future 로 받는 이유: 호출자가 await 해서
   // "정지 후 화면 이동" 같은 직렬 동작을 보장할 수 있게.
   final Future<void> Function() onLongPressed;
-  // 누르고 있어야 하는 시간 = 3초
+  // 누르고 있어야 하는 시간 = 1초
   final Duration holdDuration;
   const RunningStopLongPressButton({
     super.key,
     required this.onLongPressed,
-    this.holdDuration = const Duration(seconds: 3),
+    this.holdDuration = const Duration(seconds: 1),
   });
 
   @override
