@@ -1,5 +1,6 @@
 package com.running.app.domain.editor.dto;
 
+import com.running.app.domain.track.dto.TrackRequest;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -84,5 +85,19 @@ public abstract class EditorResponse {
         private Integer page;
         private Integer size;
         private Boolean hasNext;
+    }
+
+    // 에디터 상세 조회 응답.
+    // status 는 draft.status(READY/DONE) 와 등록 여부(REGISTERED) 가 합쳐진 derived 값.
+    @Getter
+    @Builder
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class DraftDetailResponse {
+
+        private Long courseDraftId;
+        private String title;
+        private String status;                            // READY / DONE / REGISTERED
+        private List<TrackRequest.NodeDTO> coordinates;   // [{lat, lng}, ...]
     }
 }

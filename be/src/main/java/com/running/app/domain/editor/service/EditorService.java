@@ -122,6 +122,25 @@ public class EditorService {
         }
     }
 
+    // 에디터 상세 조회.
+    // 권한: 본인 소유 드래프트만 조회 가능. 타인 드래프트면 FORBIDDEN.
+    // status: draft.status(READY/DONE) + 등록 여부(REGISTERED) 가 합쳐진 derived 값.
+    public EditorResponse.DraftDetailResponse getDraftDetail(String loginId, Long courseDraftId) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        CourseDraft courseDraft = courseDraftRepository.findById(courseDraftId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+        if (!courseDraft.getMemberId().equals(member.getMemberId().longValue())) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        boolean isRegistered = courseDraftService.isRegistered(courseDraftId);
+
+        return EditorConverter.toDraftDetailResponse(courseDraft, isRegistered);
+    }
+
     // 에디터 목록 조회 — filter 별로 Repository 분기.
     // 정렬은 각 쿼리 안에 created_at DESC 로 명시되어 있어 Pageable 의 Sort 는 사용하지 않는다.
     public EditorResponse.DraftListResultResponse getDraftList(

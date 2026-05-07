@@ -81,6 +81,7 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
                           FROM records r
                               JOIN courses c ON c.source_record_id = r.record_id
                           WHERE r.course_draft_id = cd.course_draft_id
+                            AND c.deleted_at IS NULL
                       )
                     ORDER BY cd.created_at DESC
                     """
@@ -109,6 +110,7 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
                         LEFT JOIN courses  c ON c.source_record_id  = r.record_id
                     WHERE cd.member_id = :memberId
                       AND c.course_id IS NOT NULL
+                      AND c.deleted_at IS NULL
                     ORDER BY cd.created_at DESC
                     """
     )
@@ -116,4 +118,20 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
             @Param("memberId") Long memberId,
             Pageable pageable
     );
+
+    // 상세 조회 시 status derived 용. 이 draft 를 source 로 한 record 가
+    // 정식 코스로(soft delete 되지 않은 상태로) 등록되어 있는지 검사.
+    @Query(
+            nativeQuery = true,
+            value = """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM records r
+                            JOIN courses c ON c.source_record_id = r.record_id
+                        WHERE r.course_draft_id = :courseDraftId
+                          AND c.deleted_at IS NULL
+                    )
+                    """
+    )
+    boolean existsRegisteredCourseByDraftId(@Param("courseDraftId") Long courseDraftId);
 }
