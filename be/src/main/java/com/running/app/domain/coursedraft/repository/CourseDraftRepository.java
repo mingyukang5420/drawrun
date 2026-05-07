@@ -57,6 +57,39 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
             Pageable pageable
     );
 
+    // [DONE] status=DONE 이지만 아직 정식 코스로 등록되지 않은 드래프트만.
+    // 한 draft 에 records 가 여러 건 매달릴 수 있으므로 LEFT JOIN + IS NULL 대신 NOT EXISTS 로
+    // cardinality 영향 없이 "등록된 record 가 0개" 를 검증. CourseDraft 엔티티에 records/courses
+    // 매핑이 없으므로 native 로 작성.
+    @Query(
+            nativeQuery = true,
+            value = """
+                    SELECT cd.course_draft_id   AS courseDraftId,
+                           NULL                  AS courseId,
+                           cd.title              AS title,
+                           cd.difficulty         AS difficulty,
+                           cd.status             AS status,
+                           t.distance            AS distance,
+                           t.track_image_url     AS trackImageUrl,
+                           cd.created_at         AS createdAt
+                    FROM course_drafts cd
+                        LEFT JOIN tracks t ON t.track_id = cd.track_id
+                    WHERE cd.member_id = :memberId
+                      AND cd.status = 'DONE'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM records r
+                              JOIN courses c ON c.source_record_id = r.record_id
+                          WHERE r.course_draft_id = cd.course_draft_id
+                      )
+                    ORDER BY cd.created_at DESC
+                    """
+    )
+    Slice<CourseDraftListItem> findUnregisteredDoneByMemberId(
+            @Param("memberId") Long memberId,
+            Pageable pageable
+    );
+
     // [REGISTERED] course_drafts → records → courses 체인이 형성된 행만.
     // CourseDraft 엔티티에 records, courses 와의 연관관계 매핑이 없으므로 native 로 작성.
     @Query(

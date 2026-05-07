@@ -139,8 +139,7 @@ public class EditorService {
             case ALL -> courseDraftRepository.findAllByMemberId(memberId, pageable);
             case READY -> courseDraftRepository.findAllByMemberIdAndStatus(
                     memberId, CourseDraftStatus.READY, pageable);
-            case DONE -> courseDraftRepository.findAllByMemberIdAndStatus(
-                    memberId, CourseDraftStatus.DONE, pageable);
+            case DONE -> courseDraftRepository.findUnregisteredDoneByMemberId(memberId, pageable);
             case REGISTERED -> courseDraftRepository.findRegisteredByMemberId(memberId, pageable);
         };
 

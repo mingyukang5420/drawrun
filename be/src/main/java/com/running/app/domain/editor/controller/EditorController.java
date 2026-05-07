@@ -78,8 +78,9 @@ public class EditorController {
                     filter:
                     - ALL        : 전체 (상태·등록 여부 무관)
                     - READY      : 작성중 (에디터 저장만, 아직 뛰지 않음 → status=READY)
-                    - DONE       : 검증됨 (뛰어봤으나 정식 등록 전 또는 등록 후 → status=DONE)
+                    - DONE       : 검증됨 (뛰어봤으나 아직 정식 등록 전 → status=DONE && 미등록)
                     - REGISTERED : 등록됨 (해당 드래프트로 뛴 record 가 정식 코스로 등록됨)
+                    DONE 과 REGISTERED 는 disjoint.
 
                     페이지네이션: page (0-based), size 10 고정. created_at DESC 정렬.
                     응답: { content, page, size, hasNext }
