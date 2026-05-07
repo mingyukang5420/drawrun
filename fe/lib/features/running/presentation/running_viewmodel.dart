@@ -85,7 +85,7 @@ class RunningState {
   }
 
   // UI 표시용 계산 게터
-  String get distanceLabel => '${distanceKm.toStringAsFixed(2)} km';
+  String get distanceLabel => '${distanceKm.toStringAsFixed(2)}';
 
   String get elapsedLabel {
     final h = elapsedSeconds ~/ 3600;
@@ -98,24 +98,24 @@ class RunningState {
   String get paceLabel {
     // distance 가 너무 작거나 0 이면 의미 없는 큰 값이 나오므로 안 보여 준다.
     // 50 m 미만은 GPS 노이즈로 본다 (필요시 임계 조정).
-    if (distanceKm < 0.05) return "--'--\"/km";
+    if (distanceKm < 0.05) return "--'--\"";
 
     final paceSec = elapsedSeconds / distanceKm;
 
     // 비현실적으로 느린 페이스도 가드.
     // 60'00"/km (= 시속 1km) 보다 느리면 사실상 멈춰 있는 것에 가까우므로 마스킹.
-    if (paceSec > 60 * 60) return "--'--\"/km";
+    if (paceSec > 60 * 60) return "--'--\"";
 
     final m = paceSec ~/ 60;
     final s = (paceSec % 60).round();
-    return "$m'${s.toString().padLeft(2, '0')}\"/km";
+    return "$m'${s.toString().padLeft(2, '0')}\"";
   }
 
   String get avgPaceLabel => paceLabel;
-  String get caloriesLabel => '$caloriesKcal kcal';
+  String get caloriesLabel => '$caloriesKcal';
   String get altitudeLabel => '${altitudeM.toStringAsFixed(0)} m';
-  String get bpmLabel => '$bpm bpm';
-  String get cadenceLabel => '$cadenceSpm spm';
+  String get bpmLabel => '$bpm';
+  String get cadenceLabel => '$cadenceSpm';
 }
 
 // ─────────────────────────────────────────────────────────────────────
