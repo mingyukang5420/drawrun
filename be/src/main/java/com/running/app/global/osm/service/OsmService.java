@@ -9,6 +9,10 @@ import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -48,6 +52,25 @@ public class OsmService {
                         node.getLng(), node.getLat(), epsilon);
                 throw new GeneralException(ErrorStatus.INVALID_ROUTE);
             }
+        }
+    }
+
+    // 사용자 트랙 중 안전 도로(osm_ways_split)가 커버하는 비율을 반환 (0.0 ~ 1.0).
+    // searchMeters 이내 안전 도로를 합산 후, bufferDegrees 범위 내에 겹치는 트랙 길이 비율을 계산.
+    public double calculateSafeRatio(MultiLineString userGeom, double bufferDegrees, double searchMeters) {
+        double userLength = userGeom.getLength();
+        if (userLength == 0) return 0.0;
+
+        String safeUnionWkt = osmSplitRepository.findUnionWktNearGeom(userGeom.toText(), searchMeters);
+        try {
+            Geometry safeRoads = new WKTReader().read(safeUnionWkt);
+            if (safeRoads.isEmpty()) return 0.0;
+
+            double coveredLength = userGeom.intersection(safeRoads.buffer(bufferDegrees)).getLength();
+            return coveredLength / userLength;
+        } catch (ParseException e) {
+            log.warn("isSafe WKT 파싱 오류, ratio=0 처리: {}", e.getMessage());
+            return 0.0;
         }
     }
 }
