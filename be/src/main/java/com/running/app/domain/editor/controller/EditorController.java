@@ -1,7 +1,9 @@
 package com.running.app.domain.editor.controller;
 
+import com.running.app.domain.coursedraft.type.CourseDraftFilterType;
 import com.running.app.domain.editor.converter.EditorConverter;
 import com.running.app.domain.editor.dto.EditorRequest;
+import com.running.app.domain.editor.dto.EditorResponse.DraftListResultResponse;
 import com.running.app.domain.editor.dto.EditorResponse.SaveResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
 import com.running.app.domain.editor.service.EditorService;
@@ -65,6 +67,51 @@ public class EditorController {
         WayResponse wayResponse = EditorConverter.toWayResponse(walkableWays);
 
         return ApiResponse.onSuccess(wayResponse);
+    }
+
+    @GetMapping
+    @Operation(
+            summary = "에디터 목록 조회 — 사용자 드래프트 목록",
+            description = """
+                    로그인 사용자가 에디터에서 저장한 드래프트(course_drafts) 목록을 filter 기준으로 조회.
+
+                    filter:
+                    - ALL        : 전체 (상태·등록 여부 무관)
+                    - READY      : 작성중 (에디터 저장만, 아직 뛰지 않음 → status=READY)
+                    - DONE       : 검증됨 (뛰어봤으나 아직 정식 등록 전 → status=DONE && 미등록)
+                    - REGISTERED : 등록됨 (해당 드래프트로 뛴 record 가 정식 코스로 등록됨)
+                    DONE 과 REGISTERED 는 disjoint.
+
+                    페이지네이션: page (0-based), size 10 고정. created_at DESC 정렬.
+                    응답: { content, page, size, hasNext }
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 — 토큰 없음/만료/위변조"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자 없음 — MEMBER_NOT_FOUND"
+            )
+    })
+    public ApiResponse<DraftListResultResponse> getDraftList(
+            @AuthenticationPrincipal String loginId,
+
+            @Parameter(description = "필터 — ALL / READY / DONE / REGISTERED", required = true, example = "ALL")
+            @RequestParam CourseDraftFilterType filter,
+
+            @Parameter(description = "페이지 번호(0-based). 기본값 0", example = "0")
+            @RequestParam(defaultValue = "0") Integer page
+    ) {
+        DraftListResultResponse response = editorService.getDraftList(loginId, filter, page);
+
+        return ApiResponse.onSuccess(response);
     }
 
     @PostMapping

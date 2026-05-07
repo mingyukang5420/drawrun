@@ -1,18 +1,23 @@
 package com.running.app.domain.editor.converter;
 
+import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.editor.dto.EditorRequest;
+import com.running.app.domain.editor.dto.EditorResponse.DraftListResponse;
+import com.running.app.domain.editor.dto.EditorResponse.DraftListResultResponse;
 import com.running.app.domain.editor.dto.EditorResponse.Geom;
 import com.running.app.domain.editor.dto.EditorResponse.SaveResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayInnerResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
 import com.running.app.domain.track.dto.TrackRequest;
 import com.running.app.global.osm.entity.OsmSplit;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
+import org.springframework.data.domain.Slice;
 
 public abstract class EditorConverter {
 
@@ -58,6 +63,56 @@ public abstract class EditorConverter {
         }
 
         return WayResponse.builder().ways(ways).build();
+    }
+
+    // 에디터 목록 조회 — 단일 항목 변환.
+    // difficulty / status 는 Projection 의 enum 값을 .name() 으로 String 화.
+    // distance 는 소수점 1째 자리 반올림, createdAt 은 YYYY-MM-DD 문자열로 가공.
+    public static DraftListResponse toDraftListResponse(CourseDraftListItem item) {
+        return DraftListResponse.builder()
+                .courseDraftId(item.getCourseDraftId())
+                .courseId(item.getCourseId())
+                .title(item.getTitle())
+                .difficulty(item.getDifficulty().name())
+                .status(item.getStatus().name())
+                .distance(formatDistance(item.getDistance()))
+                .trackImageUrl(item.getTrackImageUrl())
+                .createdAt(formatDate(item.getCreatedAt()))
+                .build();
+    }
+
+    // 거리 표현용 — 소수점 1째 자리에서 반올림. 단위(km) 는 FE 책임.
+    private static Double formatDistance(Double distance) {
+        if (distance == null) {
+            return null;
+        }
+        return Math.round(distance * 10.0) / 10.0;
+    }
+
+    // 날짜 표현용 — YYYY-MM-DD. CourseConverter.formatDate 와 동일 포맷(목록 카드 일관성).
+    private static String formatDate(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return null;
+        }
+        return String.format(
+                "%d-%02d-%02d",
+                dateTime.getYear(),
+                dateTime.getMonthValue(),
+                dateTime.getDayOfMonth()
+        );
+    }
+
+    // 에디터 목록 조회 — Slice 결과를 wrapper 응답으로 변환.
+    public static DraftListResultResponse toDraftListResultResponse(
+            Slice<CourseDraftListItem> slice,
+            List<DraftListResponse> content
+    ) {
+        return DraftListResultResponse.builder()
+                .content(content)
+                .page(slice.getNumber())
+                .size(slice.getSize())
+                .hasNext(slice.hasNext())
+                .build();
     }
 
     // LineString -> 응답을 위한 Geom 클래스로 변환하기 위한 헬퍼 메서드
