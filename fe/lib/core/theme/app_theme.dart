@@ -1,0 +1,3 @@
+theme: ThemeData(
+  fontFamily: 'Pretendard',
+)
