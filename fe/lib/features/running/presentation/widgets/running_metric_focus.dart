@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:running/core/theme/app_text_style.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 
 // 가운데 큰 값. 탭하면 시간 → 거리 → 페이스 → 심박수 순환.
@@ -47,14 +48,12 @@ class _RunningMetricFocusState extends ConsumerState<RunningMetricFocus> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(label,
-                style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                style: AppTextStyle.label.copyWith(color: Colors.grey)),
             const SizedBox(height: 8),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 64, fontWeight: FontWeight.bold)),
+            Text(value, style: AppTextStyle.suitDisplayLarge),
             // 단위가 있는 항목(거리·심박수)만 단위 텍스트 표시
             if (unit.isNotEmpty)
-              Text(unit, style: const TextStyle(fontSize: 18)),
+              Text(unit, style: AppTextStyle.suitUnit),
           ],
         ),
       ),
