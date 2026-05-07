@@ -12,6 +12,8 @@ import 'package:running/shared/model/lat_lng.dart';
 import 'package:running/shared/network/api_exception.dart';
 import 'package:running/features/running/domain/running_repository.dart';
 
+import '../../../shared/sensor/cadence_service.dart';
+
 // 러닝 화면이 구독하는 불변 상태 클래스
 // state = state.copyWith(...) 로 새 객체를 만들어야 Riverpod 이 UI 를 다시 그린다
 class RunningState {
@@ -144,12 +146,18 @@ class RunningNotifier extends Notifier<RunningState> {
   // GPS 스트림 구독
   StreamSubscription<LatLng>? _locationSub;
 
+  // CadenceService 의 spmStream 구독 핸들
+  final CadenceService _cadence = CadenceService();
+  StreamSubscription<int>? _cadenceSub;
+
   @override
   RunningState build() {
     // Provider 해제(탭 전환 등) 시 자원 자동 정리
     ref.onDispose(() {
       _locationSub?.cancel();
       _ticker?.cancel();
+      _cadenceSub?.cancel();
+      _cadence.dispose();
     });
     return const RunningState();
   }
@@ -180,6 +188,8 @@ class RunningNotifier extends Notifier<RunningState> {
     if (_locationSub != null) return; // 중복 구독 방지
     _stopwatch.start();
     _startTicker();
+    _cadence.startListening();
+    _cadenceSub = _cadence.spmStream.listen(_onCadence);
     _locationSub = LocationService.getLatLngStream().listen(_onLocation);
 
     // 첫 좌표 즉시 시도 — last known position 이라도 있으면 점 한 개 즉시 찍힘
@@ -205,27 +215,41 @@ class RunningNotifier extends Notifier<RunningState> {
 
   Future<void> pause() async {
     await _locationSub?.cancel();
+    await _cadenceSub?.cancel();
     _locationSub = null;
     _stopwatch.stop();
     _ticker?.cancel();
     _ticker = null;
+    _cadenceSub = null;
+
+    await _cadence.stopListening();
+
     state = state.copyWith(isPaused: true);
   }
 
   void resume() {
     if (_locationSub != null) return;
     _stopwatch.start();
+    _cadence.startListening();
     _startTicker();
     _locationSub = LocationService.getLatLngStream().listen(_onLocation);
+
+    _cadenceSub = _cadence.spmStream.listen(_onCadence);
+
     state = state.copyWith(isPaused: false);
   }
 
   Future<void> finish() async {
     await _locationSub?.cancel();
+    await _cadenceSub?.cancel();
+    _cadenceSub = null;
     _locationSub = null;
     _stopwatch.stop();
     _ticker?.cancel();
     _ticker = null;
+
+    await _cadence.stopListening();
+
     state = state.copyWith(
       isRunning: false,
       isPaused: false,
@@ -235,7 +259,9 @@ class RunningNotifier extends Notifier<RunningState> {
 
   Future<void> clear() async {
     await _locationSub?.cancel();
+    await _cadenceSub?.cancel();
     _locationSub = null;
+    _cadenceSub = null;
     if (mapController != null && _routeLine != null) {
       mapController!.deleteOverlay(_routeLine!.info);
       _routeLine = null;
@@ -243,6 +269,9 @@ class RunningNotifier extends Notifier<RunningState> {
     _stopwatch.reset();
     _ticker?.cancel();
     _ticker = null;
+
+    await _cadence.stopListening();
+
     state = const RunningState(); // 전체 초기화
   }
 
@@ -259,6 +288,14 @@ class RunningNotifier extends Notifier<RunningState> {
       distanceKm: state.distanceKm + addedKm,
     );
     _drawRoute(newPoints);
+  }
+
+  // CadenceService 가 spm 한 값을 흘려줄 때마다 호출.
+  // state 의 cadenceSpm 만 갈아끼우면 ref.watch 한 화면이 자동 리빌드된다.
+  void _onCadence(int spm) {
+    // 일시정지/종료 직후 늦게 도착한 이벤트는 무시 — 표시값이 튀지 않게.
+    if (!state.isRunning || state.isPaused) return;
+    state = state.copyWith(cadenceSpm: spm);
   }
 
   void _drawRoute(List<LatLng> points) {
