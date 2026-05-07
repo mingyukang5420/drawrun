@@ -1,5 +1,7 @@
 package com.running.app.domain.record.service;
 
+import com.running.app.domain.course.entity.Course;
+import com.running.app.domain.course.repository.CourseRepository;
 import com.running.app.domain.course.service.CourseService;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
@@ -18,6 +20,8 @@ import com.running.app.domain.track.service.TrackService;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -38,12 +42,16 @@ import java.util.Map;
 @Transactional(readOnly = true) //읽기 전용 처리
 public class RecordService {
 
+    private static final double COMPLETION_THRESHOLD = 0.8;
+    private static final double BUFFER_DEGREES = 0.0005; // 위도 기준 약 55m
+
     private final RunningRecordRepository runningRecordRepository;
     private final CourseDraftRepository courseDraftRepository;
     private final MemberRecordStatsRepository memberRecordStatsRepository;
     private final TrackService trackService;
     private final MemberRecordStatsService memberRecordStatsService;
     private final CourseService courseService;
+    private final CourseRepository courseRepository;
 
     //작성
     @Transactional
@@ -59,9 +67,12 @@ public class RecordService {
                 request.getTrackImageUrl()
         );
 
+        boolean isCompleted = determineIsCompleted(request, track);
+
         RunningRecord runningRecord = RecordConverter.toRunningRecord(
                 memberId,
                 track,
+                isCompleted,
                 request
         );
 
@@ -128,6 +139,26 @@ public class RecordService {
         ).orElseThrow(() -> new GeneralException(ErrorStatus.RECORD_NOT_FOUND));
 
         runningRecord.changeTitle(request.getTitle());
+    }
+
+    private boolean determineIsCompleted(RecordRequest.CreateDTO request, Track userTrack) {
+        if (request.getCourseId() == null) {
+            return true;
+        }
+
+        Course course = courseRepository.findById(request.getCourseId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+        MultiLineString courseGeom = course.getTrack().getGeom();
+        MultiLineString userGeom = userTrack.getGeom();
+
+        double courseLength = courseGeom.getLength();
+        if (courseLength == 0) return false;
+
+        Geometry userBuffer = userGeom.buffer(BUFFER_DEGREES);
+        double coveredLength = courseGeom.intersection(userBuffer).getLength();
+
+        return coveredLength / courseLength >= COMPLETION_THRESHOLD;
     }
 
     public RecordResponse.StatsDTO getRecordStats(

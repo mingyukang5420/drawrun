@@ -14,6 +14,7 @@ public class RecordConverter {
     public static RunningRecord toRunningRecord(
             Long memberId,
             Track track,
+            Boolean isCompleted,
             RecordRequest.CreateDTO request
     ) {
         return RunningRecord.builder()
@@ -25,7 +26,7 @@ public class RecordConverter {
                 .avgPace(request.getAvgPace())
                 .calories(request.getCalories())
                 .cadence(request.getCadence())
-                .isCompleted(determineIsCompleted(request)) // 완주판정 임시 true 처리
+                .isCompleted(isCompleted)
                 .isSafe(determineIsSafe(track)) // 검증 임시 true 처리
                 .title(request.getTitle())
                 .startedAt(request.getStartedAt())
@@ -139,12 +140,7 @@ public class RecordConverter {
 
     //---------------------------------------------
 
-    // TODO 완주 여부 판단 로직 구현
-    private static Boolean determineIsCompleted(RecordRequest.CreateDTO request) {
-        return true;
-    }
-
-    // TODO 안전 여부 판단 로직 구현
+    // 안전 여부 판단 로직 구현
     private static Boolean determineIsSafe(Track track) {
         return true;
     }
