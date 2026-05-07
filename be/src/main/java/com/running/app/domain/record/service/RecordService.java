@@ -568,7 +568,7 @@ public class RecordService {
                 )
                 .orElseThrow(() -> new GeneralException(ErrorStatus.BAD_REQUEST));
 
-        courseDraft.markDone();
+        courseDraft.verify();
     }
 
     // 제대로 뛴 코스런에 대해서만 완주 점수 갱신하도록
