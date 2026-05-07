@@ -124,22 +124,21 @@ public class EditorController {
 
     @DeleteMapping
     @Operation(
-            summary = "에디터 삭제 — 미등록 커스텀 코스 삭제",
+            summary = "에디터 삭제 — 미등록 임시 코스(드래프트) 삭제",
             description = """
-                    사용자가 에디터에서 임시 저장한(아직 등록하지 않은) 커스텀 러닝 코스를 삭제.
+                    사용자가 에디터에서 임시 저장한(아직 정식 코스로 등록되지 않은) 드래프트를 삭제.
 
                     삭제 대상:
-                    - registered_at IS NULL 인 Course (= READY 상태, 에디터 임시 저장본)
-                    - 등록 완료된 코스(DONE)는 삭제 불가 → 400 ALREADY_REGISTERED_COURSE
+                    - status = READY 인 CourseDraft (에디터 임시 저장본)
+                    - DONE(= 정식 코스 등록 가능 후보) 상태는 삭제 불가 → 400 ALREADY_REGISTERED_COURSE
 
                     처리 흐름:
                     1. loginId 로 Member 조회 (없으면 404 MEMBER_NOT_FOUND)
-                    2. courseId 로 Course 조회 (없으면 404 COURSE_NOT_FOUND)
-                    3. 본인 소유 검증 (다른 사용자의 코스면 403 FORBIDDEN)
-                    4. 등록 여부 검증 (registered_at != null 이면 400 ALREADY_REGISTERED_COURSE)
-                    5. course_district 자식 행 삭제 (FK 위반 방지)
-                    6. Course 삭제
-                    7. RunningRecord 가 참조하지 않는 Track 이면 동반 삭제 (참조 중이면 보존)
+                    2. courseDraftId 로 CourseDraft 조회 (없으면 404 COURSE_NOT_FOUND)
+                    3. 본인 소유 검증 (다른 사용자의 드래프트면 403 FORBIDDEN)
+                    4. 상태 검증 (status == DONE 이면 400 ALREADY_REGISTERED_COURSE)
+                    5. CourseDraft 삭제
+                    6. RunningRecord 가 참조하지 않는 Track 이면 동반 삭제 (참조 중이면 보존)
                     """
     )
     @ApiResponses({
@@ -149,7 +148,7 @@ public class EditorController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "이미 등록 완료된 코스 — ALREADY_REGISTERED_COURSE"
+                    description = "정식 코스 등록 가능 후보(DONE) 상태 — ALREADY_REGISTERED_COURSE"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "401",
@@ -157,21 +156,21 @@ public class EditorController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
-                    description = "권한 없음 — 본인이 만든 코스가 아님(FORBIDDEN)"
+                    description = "권한 없음 — 본인이 만든 드래프트가 아님(FORBIDDEN)"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
-                    description = "대상 없음 — 사용자(MEMBER_NOT_FOUND) 또는 코스(COURSE_NOT_FOUND)"
+                    description = "대상 없음 — 사용자(MEMBER_NOT_FOUND) 또는 드래프트(COURSE_NOT_FOUND)"
             )
     })
     public ApiResponse<Void> delete(
             @AuthenticationPrincipal String loginId,
 
-            @Parameter(description = "삭제할 코스 ID. 본인이 만든 미등록(READY) 코스만 삭제 가능", required = true, example = "42")
-            @RequestParam Long courseId
+            @Parameter(description = "삭제할 임시 코스(드래프트) ID. 본인이 만든 READY 상태 드래프트만 삭제 가능", required = true, example = "42")
+            @RequestParam Long courseDraftId
     ) {
 
-        editorService.delete(loginId, courseId);
+        editorService.delete(loginId, courseDraftId);
 
         return ApiResponse.OK;
     }
