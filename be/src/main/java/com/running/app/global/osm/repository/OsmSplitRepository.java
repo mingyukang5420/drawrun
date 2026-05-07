@@ -37,4 +37,26 @@ public interface OsmSplitRepository extends JpaRepository<OsmSplit, Long> {
             @Param("lat") Double lat,
             @Param("epsilon") Double epsilon
     );
+
+    // 트랙(WKT) 주변 epsilonMeters 이내 안전 도로 세그먼트를 합쳐 WKT로 반환.
+    // 해당 범위 내 세그먼트가 없으면 'MULTILINESTRING EMPTY' 반환.
+    @Query(
+            value = """
+                    SELECT COALESCE(
+                        ST_AsText(ST_Union(geom)),
+                        'MULTILINESTRING EMPTY'
+                    )
+                    FROM osm_ways_split
+                    WHERE ST_DWithin(
+                        geom::geography,
+                        ST_GeomFromText(:wkt, 4326)::geography,
+                        :epsilonMeters
+                    )
+                    """,
+            nativeQuery = true
+    )
+    String findUnionWktNearGeom(
+            @Param("wkt") String wkt,
+            @Param("epsilonMeters") double epsilonMeters
+    );
 }

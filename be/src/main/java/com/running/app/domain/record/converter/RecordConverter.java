@@ -15,6 +15,7 @@ public class RecordConverter {
             Long memberId,
             Track track,
             Boolean isCompleted,
+            Boolean isSafe,
             RecordRequest.CreateDTO request
     ) {
         return RunningRecord.builder()
@@ -27,7 +28,7 @@ public class RecordConverter {
                 .calories(request.getCalories())
                 .cadence(request.getCadence())
                 .isCompleted(isCompleted)
-                .isSafe(determineIsSafe(track)) // 검증 임시 true 처리
+                .isSafe(isSafe)
                 .title(request.getTitle())
                 .startedAt(request.getStartedAt())
                 .endedAt(request.getEndedAt())
@@ -139,11 +140,6 @@ public class RecordConverter {
     }
 
     //---------------------------------------------
-
-    // 안전 여부 판단 로직 구현
-    private static Boolean determineIsSafe(Track track) {
-        return true;
-    }
 
     // [2026.04.22] 형식으로 변환
     private static String formatDate(LocalDateTime startedAt) {

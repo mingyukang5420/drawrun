@@ -17,6 +17,7 @@ import com.running.app.domain.recordstats.type.RecordStatsPeriodType;
 import com.running.app.domain.recordstats.service.MemberRecordStatsService;
 import com.running.app.domain.track.entity.Track;
 import com.running.app.domain.track.service.TrackService;
+import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
@@ -41,10 +42,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Transactional(readOnly = true) //읽기 전용 처리
 public class RecordService {
-
     private static final double COMPLETION_THRESHOLD = 0.8;
     private static final double BUFFER_DEGREES = 0.0005; // 위도 기준 약 55m
-
+    private static final double SAFE_BUFFER_DEGREES = 0.0005;
+    private static final double SAFE_THRESHOLD = 0.8;
+    private static final double SAFE_SEARCH_METERS = 60.0;
     private final RunningRecordRepository runningRecordRepository;
     private final CourseDraftRepository courseDraftRepository;
     private final MemberRecordStatsRepository memberRecordStatsRepository;
@@ -52,7 +54,7 @@ public class RecordService {
     private final MemberRecordStatsService memberRecordStatsService;
     private final CourseService courseService;
     private final CourseRepository courseRepository;
-
+    private final OsmService osmService;
     //작성
     @Transactional
     public void createRecord(
@@ -66,13 +68,15 @@ public class RecordService {
                 request.getDistance(),
                 request.getTrackImageUrl()
         );
-
+        
         boolean isCompleted = determineIsCompleted(request, track);
+        boolean isSafe = determineIsSafe(track);
 
         RunningRecord runningRecord = RecordConverter.toRunningRecord(
                 memberId,
                 track,
                 isCompleted,
+                isSafe,
                 request
         );
 
@@ -88,6 +92,13 @@ public class RecordService {
         // 통계 테이블에 해당 기록의 데이터 합산해서 저장
         memberRecordStatsService.increaseStats(savedRunningRecord);
 
+    }
+
+    private boolean determineIsSafe(Track userTrack) {
+        double safeRatio = osmService.calculateSafeRatio(
+                userTrack.getGeom(), SAFE_BUFFER_DEGREES, SAFE_SEARCH_METERS
+        );
+        return safeRatio >= SAFE_THRESHOLD;
     }
 
     public RecordResponse.ListResultDTO getRecordList(
