@@ -322,8 +322,11 @@ class _MetricCell extends StatelessWidget {
               child: Text(
                 label,
                 maxLines: 1,
-                style:
-                const TextStyle(fontSize: 9.5, color: Colors.black45),
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  color: Colors.black45,
+                  height: 1.0,
+                ),
               ),
             ),
             const SizedBox(height: 4),
@@ -334,7 +337,10 @@ class _MetricCell extends StatelessWidget {
                 value,
                 maxLines: 1,
                 style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w700),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                ),
               ),
             ),
           ],
