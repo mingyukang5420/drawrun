@@ -4,7 +4,6 @@ import com.running.app.domain.course.entity.Course;
 import com.running.app.domain.course.type.CourseDifficulty;
 import java.util.List;
 import java.util.Optional;
-
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,9 +15,9 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @Query("""
             select c
             from Course c
-            join fetch c.track t
+            join fetch c.sourceRecord sr
+            join fetch sr.track t
             where c.deletedAt is null
-              and c.registeredAt is not null
               and (:difficulty is null or c.difficulty = :difficulty)
               and (:minDistance is null or t.distance >= :minDistance)
               and (:maxDistance is null or t.distance <= :maxDistance)
@@ -59,9 +58,9 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @Query("""
             select distinct c
             from Course c
-            join fetch c.track t
+            join fetch c.sourceRecord sr
+            join fetch sr.track t
             where c.deletedAt is null
-              and c.registeredAt is not null
               and (:difficulty is null or c.difficulty = :difficulty)
               and (:minDistance is null or t.distance >= :minDistance)
               and (:maxDistance is null or t.distance <= :maxDistance)
@@ -107,14 +106,17 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     );
 
     // 코스 상세 조회 메서드
-    // 연결된 track도 같이 가져온다.
     @Query("""
             select c
             from Course c
-            join fetch c.track
+            join fetch c.sourceRecord sr
+            join fetch sr.track
             where c.id = :courseId
-                and c.deletedAt is null
-                and c.registeredAt is not null
+              and c.deletedAt is null
             """)
     Optional<Course> findByIdWithTrack(Long courseId);
+
+    Optional<Course> findByIdAndMemberIdAndDeletedAtIsNull(Long id, Long memberId);
+
+    boolean existsBySourceRecord_Id(Long sourceRecordId);
 }

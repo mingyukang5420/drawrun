@@ -1,6 +1,8 @@
 package com.running.app.domain.record.service;
 
 import com.running.app.domain.course.service.CourseService;
+import com.running.app.domain.coursedraft.entity.CourseDraft;
+import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
 import com.running.app.domain.record.converter.RecordConverter;
 import com.running.app.domain.record.dto.RecordRequest;
 import com.running.app.domain.record.dto.RecordResponse;
@@ -37,18 +39,20 @@ import java.util.Map;
 public class RecordService {
 
     private final RunningRecordRepository runningRecordRepository;
+    private final CourseDraftRepository courseDraftRepository;
     private final MemberRecordStatsRepository memberRecordStatsRepository;
     private final TrackService trackService;
     private final MemberRecordStatsService memberRecordStatsService;
     private final CourseService courseService;
 
     //작성
-    // 코스 점수 계산 메서드 호출 추가
     @Transactional
     public void createRecord(
             Long memberId,
             RecordRequest.CreateDTO request
     ) {
+        validateRecordSource(request);
+
         Track track = trackService.createTrack(
                 request.getNodes(),
                 request.getDistance(),
@@ -61,13 +65,14 @@ public class RecordService {
                 request
         );
 
+        normalizeCourseRunToFreeRun(runningRecord);
+
         RunningRecord savedRunningRecord = runningRecordRepository.save(runningRecord);
 
+        //에디터 런 검증 완료 시 status DONE으로 변경
+        verifyCourseDraftIfEligible(memberId, savedRunningRecord);
         //코스 점수 계산 메서드 호출
-        // courseId가 null이면 자유러닝이므로 계산에 넣지 않음.
-        if(request.getCourseId() != null) {
-            courseService.updateCompletionScore(request.getCourseId());
-        }
+        updateCourseScoreIfEligible(savedRunningRecord);
 
         // 통계 테이블에 해당 기록의 데이터 합산해서 저장
         memberRecordStatsService.increaseStats(savedRunningRecord);
@@ -486,6 +491,63 @@ public class RecordService {
                 .orElse(today.getYear());
 
         return String.format("%d년~%d년", startYear, today.getYear());
+    }
+
+    // courseId와 courseDraftId가 동시에 들어오면 예외처리
+    // 코스러닝 + 에디터러닝 동시 입력 방지
+    private void validateRecordSource(RecordRequest.CreateDTO request) {
+        if (request.getCourseId() != null && request.getCourseDraftId() != null) {
+            throw new GeneralException(ErrorStatus.BAD_REQUEST);
+        }
+    }
+
+    // is_completed가 false인 코스런을 자유런으로
+    private void normalizeCourseRunToFreeRun(RunningRecord runningRecord) {
+        // 해당 기록이 코스런이 아니라면 return
+        if (!runningRecord.isCourseRun()) {
+            return;
+        }
+        // 해당 기록이 완주(일치) 되었다면 return
+        if (Boolean.TRUE.equals(runningRecord.getIsCompleted())){
+            return;
+        }
+        //아니면 코스런이지만 일치하지 않으므로 자유런으로 변경
+        //course_id -> null / is_completed -> true
+        runningRecord.normalizeToFreeRun();
+    }
+
+    // 에디터 코스가 검증되었다면 status DONE으로 변경
+    private void verifyCourseDraftIfEligible(Long memberId, RunningRecord runningRecord) {
+        // 해당 기록이 에디터 런이 아니면 return
+        if (!runningRecord.isCourseDraftRun()) {
+            return;
+        }
+        // 해당 기록의 is_completed가 false 라면 return
+        if(!Boolean.TRUE.equals(runningRecord.getIsCompleted())){
+            return;
+        }
+        // 해당 기록의 is_safe가 false 라면 return
+        if(!Boolean.TRUE.equals(runningRecord.getIsSafe())) {
+            return;
+        }
+
+        CourseDraft courseDraft = courseDraftRepository.findByIdAndMemberId(
+                        runningRecord.getCourseDraftId(),
+                        memberId
+                )
+                .orElseThrow(() -> new GeneralException(ErrorStatus.BAD_REQUEST));
+
+        courseDraft.markDone();
+    }
+
+    // 제대로 뛴 코스런에 대해서만 완주 점수 갱신하도록
+    private void updateCourseScoreIfEligible(RunningRecord runningRecord) {
+        // 해당 기록이 코스런이 아니거나, is_completed가 false 라면 return
+        if (!runningRecord.isCourseRun() || !Boolean.TRUE.equals(runningRecord.getIsCompleted())) {
+            return;
+        }
+
+        courseService.updateCompletionScore(runningRecord.getCourseId());
     }
 }
 

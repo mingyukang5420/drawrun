@@ -19,6 +19,7 @@ public class RecordConverter {
         return RunningRecord.builder()
                 .memberId(memberId)
                 .courseId(request.getCourseId())
+                .courseDraftId(request.getCourseDraftId())
                 .track(track)
                 .runningTime(request.getRunningTime())
                 .avgPace(request.getAvgPace())
@@ -41,6 +42,7 @@ public class RecordConverter {
                 .recordId(runningRecord.getId())
                 .trackId(track.getTrackId())
                 .courseId(runningRecord.getCourseId())
+                .courseDraftId(runningRecord.getCourseDraftId())
                 .title(runningRecord.getTitle())
                 .distance(track.getDistance())
                 .trackImageUrl(track.getTrackImageUrl())
@@ -92,6 +94,7 @@ public class RecordConverter {
                 .recordId(runningRecord.getId())
                 .trackId(track.getTrackId())
                 .courseId(runningRecord.getCourseId())
+                .courseDraftId(runningRecord.getCourseDraftId())
                 .title(runningRecord.getTitle())
                 .date(formatDate(runningRecord.getStartedAt()))
                 .trackImageUrl(track.getTrackImageUrl())
@@ -136,12 +139,12 @@ public class RecordConverter {
 
     //---------------------------------------------
 
-    // 완주 여부 판단 로직 구현
+    // TODO 완주 여부 판단 로직 구현
     private static Boolean determineIsCompleted(RecordRequest.CreateDTO request) {
         return true;
     }
 
-    // 안전 여부 판단 로직 구현
+    // TODO 안전 여부 판단 로직 구현
     private static Boolean determineIsSafe(Track track) {
         return true;
     }
