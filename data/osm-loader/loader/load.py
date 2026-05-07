@@ -186,7 +186,7 @@ def main() -> None:
     try:
         logger.info("district UPSERT 시작 (대상=%d)", len(districts))
         upsert_districts(conn, districts)
-        logger.info("적재 완료: district=%d", _count(conn, "district"))
+        logger.info("적재 완료: district=%d", _count(conn, "districts"))
 
         logger.info("osm_ways INSERT 시작 (대상=%d)", len(ways))
         insert_ways_batch(conn, ways)
