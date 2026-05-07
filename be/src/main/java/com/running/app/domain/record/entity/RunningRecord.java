@@ -30,6 +30,9 @@ public class RunningRecord extends BaseRDBEntity {
     @Column(name = "course_id")
     private Long courseId;
 
+    @Column(name = "course_draft_id")
+    private Long courseDraftId;
+
     //같은 트랙에 대한 기록이 N개가 될 수 있으므로 ManyToOne 사용
     //trackId가 필요하면 record.getTrack().getId()로 접근
     @ManyToOne(fetch = FetchType.LAZY)
@@ -67,5 +70,26 @@ public class RunningRecord extends BaseRDBEntity {
     // 제목 수정용
     public void changeTitle(String title) {
         this.title = title;
+    }
+    ///
+    /// 러닝 종류 분기 규칙 설정
+    ///
+
+    // 코스 런 체크
+    public boolean isCourseRun() {
+        return courseId != null;
+    }
+
+    // 에디터 런 체크
+    // -> true면 에디터 코스의 status를 VERIFIED로 갱신
+    public boolean isCourseDraftRun() {
+        return courseId == null && courseDraftId != null;
+    }
+
+    // is_complete 가 false인 코스러닝을 자유러닝으로
+    // courseId 삭제 및 isCompleted true 처리
+    public void normalizeToFreeRun() {
+        this.courseId = null;
+        this.isCompleted = true;
     }
 }
