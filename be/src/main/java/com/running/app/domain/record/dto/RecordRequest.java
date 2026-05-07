@@ -23,6 +23,7 @@ public abstract class RecordRequest {
     public static class CreateDTO {
 
         private Long courseId;
+        private Long courseDraftId;
 
         @NotBlank(message = "제목은 필수입니다.")
         @Size(max = 20, message = "제목은 20자 이하여야 합니다.")
