@@ -1,6 +1,6 @@
 package com.running.app.domain.editor.converter;
 
-import com.running.app.domain.course.entity.Course;
+import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.editor.dto.EditorRequest;
 import com.running.app.domain.editor.dto.EditorResponse.Geom;
 import com.running.app.domain.editor.dto.EditorResponse.SaveResponse;
@@ -28,13 +28,14 @@ public abstract class EditorConverter {
                 .toList();
     }
 
-    // 영속화된 Course → 응답 DTO. status 는 Course 의 도메인 메서드(getStatus)로 도출.
+    // 영속화된 CourseDraft → 응답 DTO.
+    // 내부 enum 값(READY/DONE) 과 응답 contract 가 동일해서 별도 매핑 없이 .name() 으로 직결.
     // isValidRoute 는 검증 통과 후에만 응답이 만들어지므로 항상 true.
-    public static SaveResponse toSaveResponse(Course course) {
+    public static SaveResponse toSaveResponse(CourseDraft courseDraft) {
         return SaveResponse.builder()
-                .editorId(course.getId())
-                .title(course.getTitle())
-                .status(course.getStatus().name())
+                .editorId(courseDraft.getId())
+                .title(courseDraft.getTitle())
+                .status(courseDraft.getStatus().name())
                 .isValidRoute(true)
                 .build();
     }
