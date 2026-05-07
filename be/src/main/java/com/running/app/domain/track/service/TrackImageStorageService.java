@@ -29,14 +29,17 @@ public class TrackImageStorageService {
     private static final List<String> ALLOWED_EXTENSIONS = List.of(".png", ".jpg", ".jpeg");
 
     private final Path trackImageDirectory;
-    private final String trackImageUrlPrefix;
+    private final String trackImagePathPrefix;
+    private final String trackImagePublicBaseUrl;
 
     public TrackImageStorageService(
             @Value("${app.upload.track-image-dir}") String trackImageDir,
-            @Value("${app.upload.track-image-url-prefix}") String trackImageUrlPrefix
+            @Value("${app.upload.track-image-path-prefix}") String trackImagePathPrefix,
+            @Value("${app.upload.track-image-public-base-url}") String trackImagePublicBaseUrl
     ) {
         this.trackImageDirectory = Paths.get(trackImageDir).toAbsolutePath().normalize();
-        this.trackImageUrlPrefix = normalizeUrlPrefix(trackImageUrlPrefix);
+        this.trackImagePathPrefix = normalizePathPrefix(trackImagePathPrefix);
+        this.trackImagePublicBaseUrl = normalizeBaseUrl(trackImagePublicBaseUrl);
     }
 
     // 저장 메서드
@@ -58,8 +61,9 @@ public class TrackImageStorageService {
             throw new GeneralException(ErrorStatus.FILE_UPLOAD_FAILED, e);
         }
 
-        // ./uploads/tracks/{UUID}.png 의 형태 접근 경로 프론트에 반환
-        return new TrackImageResponse(trackImageUrlPrefix + "/" + storedFileName);
+        return new TrackImageResponse(
+                trackImagePublicBaseUrl + trackImagePathPrefix + "/" + storedFileName
+        );
     }
 
     //파일 검증 로직(빈 파일인지, 허용된 타입 체크)
@@ -88,25 +92,39 @@ public class TrackImageStorageService {
 
         String extension = originalFilename.substring(extensionStartIndex).toLowerCase();
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new GeneralException(ErrorStatus.INVALID_IMAGE_FILE, "PNG 또는 JPEG 확장자만 허용됩니다.");
+            throw new GeneralException(ErrorStatus.INVALID_IMAGE_FILE, "PNG 또는 JPEG 확장자만 허용합니다.");
         }
 
         return extension;
     }
 
-    // prefix 정리 해 형태 맞추는 메서드
-    private String normalizeUrlPrefix(String urlPrefix) {
-        if (urlPrefix == null || urlPrefix.isBlank()) {
-            throw new GeneralException(ErrorStatus.FILE_UPLOAD_FAILED, "트랙 이미지 URL prefix 설정이 비어 있습니다.");
+    private String normalizePathPrefix(String pathPrefix) {
+        if (pathPrefix == null || pathPrefix.isBlank()) {
+            throw new GeneralException(ErrorStatus.FILE_UPLOAD_FAILED, "트랙 이미지 path prefix 설정이 비어 있습니다.");
         }
 
-        String normalized = urlPrefix.trim();
+        String normalized = pathPrefix.trim();
+
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+
         if (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
 
-        if (!normalized.startsWith("/")) {
-            normalized = "/" + normalized;
+        return normalized;
+    }
+
+    private String normalizeBaseUrl(String baseUrl) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new GeneralException(ErrorStatus.FILE_UPLOAD_FAILED, "트랙 이미지 public base url 설정이 비어 있습니다.");
+        }
+
+        String normalized = baseUrl.trim();
+
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
         }
 
         return normalized;
