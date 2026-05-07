@@ -20,17 +20,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true) //읽기 전용으로 두기
+@Transactional(readOnly = true)
 public class TrackService {
 
     private static final int SRID = 4326;
 
-    private static final String PENDING_TRACK_IMAGE_URL = "썸네일 url 저장 로직 추가 예정";
+    private static final String PENDING_TRACK_IMAGE_URL = "editor-track-image-pending";
 
     private final TrackRepository trackRepository;
 
-    @Value("${app.upload.track-image-url-prefix}")
-    private String trackImageUrlPrefix;
+    @Value("${app.upload.track-image-path-prefix}")
+    private String trackImagePathPrefix;
+
+    @Value("${app.upload.track-image-public-base-url}")
+    private String trackImagePublicBaseUrl;
 
     // 자유러닝용 — 클라이언트가 GPS 누적 거리(distance)와 트랙 이미지 URL을 보내줌
     @Transactional
@@ -91,11 +94,13 @@ public class TrackService {
         if (trackImageUrl == null || trackImageUrl.isBlank()) {
             throw new GeneralException(ErrorStatus.INVALID_TRACK_IMAGE_URL);
         }
-        // 설정한 prefix로 시작하는지 체크
-        String normalizedPrefix = normalizeUrlPrefix(trackImageUrlPrefix);
-        String normalizedTrackImageUrl = trackImageUrl.trim();
 
-        if (!normalizedTrackImageUrl.startsWith(normalizedPrefix + "/")) {
+        String normalizedBaseUrl = normalizeBaseUrl(trackImagePublicBaseUrl);
+        String normalizedPathPrefix = normalizePathPrefix(trackImagePathPrefix);
+        String normalizedTrackImageUrl = trackImageUrl.trim();
+        String expectedPrefix = normalizedBaseUrl + normalizedPathPrefix;
+
+        if (!normalizedTrackImageUrl.startsWith(expectedPrefix + "/")) {
             throw new GeneralException(ErrorStatus.INVALID_TRACK_IMAGE_URL, trackImageUrl);
         }
         // ".." 같은 잘못된 경로가 있는지 체크
@@ -104,12 +109,22 @@ public class TrackService {
         }
     }
 
-    private String normalizeUrlPrefix(String urlPrefix) {
-        String normalized = urlPrefix.trim();
+    private String normalizePathPrefix(String pathPrefix) {
+        String normalized = pathPrefix.trim();
 
         if (!normalized.startsWith("/")) {
             normalized = "/" + normalized;
         }
+
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        return normalized;
+    }
+
+    private String normalizeBaseUrl(String baseUrl) {
+        String normalized = baseUrl.trim();
 
         if (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
