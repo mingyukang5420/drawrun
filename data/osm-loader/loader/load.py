@@ -99,7 +99,7 @@ def _parse_districts(rows: list[dict]) -> list[dict]:
     """CSV row → upsert_districts 입력 형식 변환."""
     return [
         {
-            "district_code": r["district_code"],
+            "district_id": r["district_id"],
             "sido": r["sido"],
             "gu": r["gu"],
             "center_wkt": r["center_wkt"],
