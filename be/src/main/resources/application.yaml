@@ -34,6 +34,6 @@ server:
 
 app:
   upload:
-    track-image-dir: /home/ubuntu/app/uploads/tracks #서버에 저장할 경로
-    track-image-url-prefix: /uploads/tracks #업로드 후 응답이나 DB에 저장할 공개 경로의 앞부분
-                            #임시로 uploads/tracks로 설정
+    track-image-dir: /home/ubuntu/uploads/tracks #서버에 저장할 실제 저장 디렉토리
+    track-image-path-prefix: /uploads/tracks #nginx가 노출할 URL path
+    track-image-public-base-url: https://k14a103.p.ssafy.io #DB에 저장할 도메인 포함 base URL
