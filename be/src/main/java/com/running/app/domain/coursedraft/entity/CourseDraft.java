@@ -57,4 +57,20 @@ public class CourseDraft extends BaseRDBEntity {
     public void verify() {
         this.status = CourseDraftStatus.DONE;
     }
+
+    // 에디터 수정 — 제목 변경.
+    public void changeTitle(String title) {
+        this.title = title;
+    }
+
+    // 에디터 수정 — 좌표 변경 시 새 Track 으로 swap.
+    // 호출자가 새 Track 을 영속화한 뒤 전달.
+    public void changeTrack(Track track) {
+        this.track = track;
+    }
+
+    // 에디터 수정 — 좌표 변경에 따른 distance 변동에 맞춰 난이도 재산정.
+    public void changeDifficulty(CourseDifficulty difficulty) {
+        this.difficulty = difficulty;
+    }
 }

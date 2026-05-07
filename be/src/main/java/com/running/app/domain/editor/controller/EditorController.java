@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -213,6 +214,84 @@ public class EditorController {
             @Valid @RequestBody EditorRequest.SaveRequest request
     ) {
         SaveResponse response = editorService.save(loginId, request);
+
+        return ApiResponse.onSuccess(response);
+    }
+
+    @PatchMapping("/{courseDraftId}")
+    @Operation(
+            summary = "에디터 수정 — 제목 + 좌표 시퀀스 갱신",
+            description = """
+                    본인이 만든 READY 상태 드래프트의 제목과 좌표를 갱신.
+
+                    수정 가능 조건:
+                    - 본인 소유 드래프트
+                    - status == READY (DONE / 등록된 상태는 수정 불가)
+
+                    요청 본문은 저장(POST /v1/editor) 과 동일 형식 — title + coordinates(lat, lng, order).
+                    수정 사항이 없는 항목도 원래 값을 그대로 담아 보낸다.
+
+                    처리 흐름:
+                    1. 본인 소유 / READY 상태 검증
+                    2. 좌표가 osm_ways_split 위에 있는지 검증 (실패 시 INVALID_ROUTE)
+                    3. 새 Track INSERT (PostGIS ST_Length 로 distance 자동 계산)
+                    4. CourseDraft 의 title / track / difficulty 갱신 (distance 변경 → difficulty 자동 재산정)
+                    5. 기존 Track 미참조 시 동반 삭제
+
+                    응답: 상세 조회와 동일 (`courseDraftId / title / status / coordinates`)
+                    """,
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "에디터 수정 요청 바디 — 제목과 좌표 시퀀스(order 기준 정렬). 수정 없는 항목도 원래 값 그대로 포함.",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "에디터 수정 요청 예시",
+                                    value = """
+                                            {
+                                              "title": "한강 러닝 코스",
+                                              "coordinates": [
+                                                { "lat": 37.5480598, "lng": 126.9177061, "order": 1 },
+                                                { "lat": 37.5479675, "lng": 126.9181941, "order": 2 },
+                                                { "lat": 37.54793, "lng": 126.91838, "order": 3 }
+                                              ]
+                                            }
+                                            """
+                            )
+                    )
+            )
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "수정 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "검증 실패 — 입력 형식 오류 / 뛸 수 없는 길(INVALID_ROUTE) / 수정 불가 상태(EDITOR_NOT_EDITABLE)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 — 토큰 없음/만료/위변조"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음 — 본인이 만든 드래프트가 아님(FORBIDDEN)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "대상 없음 — 사용자(MEMBER_NOT_FOUND) 또는 드래프트(COURSE_NOT_FOUND)"
+            )
+    })
+    public ApiResponse<DraftDetailResponse> update(
+            @AuthenticationPrincipal String loginId,
+
+            @Parameter(description = "수정할 드래프트 ID", required = true, example = "1")
+            @PathVariable Long courseDraftId,
+
+            @Valid @RequestBody EditorRequest.SaveRequest request
+    ) {
+        DraftDetailResponse response = editorService.update(loginId, courseDraftId, request);
 
         return ApiResponse.onSuccess(response);
     }
