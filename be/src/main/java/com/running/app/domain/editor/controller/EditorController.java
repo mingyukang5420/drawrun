@@ -185,9 +185,9 @@ public class EditorController {
                                             {
                                               "title": "한강 러닝 코스",
                                               "coordinates": [
-                                                { "lat": 37.5500, "lng": 126.9200, "order": 1 },
-                                                { "lat": 37.5510, "lng": 126.9210, "order": 2 },
-                                                { "lat": 37.5520, "lng": 126.9220, "order": 3 }
+                                                { "lat": 37.5480598, "lng": 126.9177061, "order": 1 },
+                                                { "lat": 37.5479675, "lng": 126.9181941, "order": 2 },
+                                                { "lat": 37.54793, "lng": 126.91838, "order": 3 }
                                               ]
                                             }
                                             """
