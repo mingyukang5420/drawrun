@@ -55,4 +55,34 @@ public abstract class EditorResponse {
         private String status;     // READY / DONE (내부 enum DRAFT/VERIFIED 와 매핑)
         private Boolean isValidRoute;
     }
+
+    // 에디터 목록 조회 — 단일 항목
+    @Getter
+    @Builder
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class DraftListResponse {
+
+        private Long courseDraftId;
+        private Long courseId;          // 미등록 시 null
+        private String title;
+        private String difficulty;
+        private String status;          // READY / DONE
+        private Double distance;        // 소수점 1째 자리 반올림 (예: 2.3)
+        private String trackImageUrl;
+        private String createdAt;       // YYYY-MM-DD
+    }
+
+    // 에디터 목록 조회 — Slice 결과 wrapper
+    @Getter
+    @Builder
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class DraftListResultResponse {
+
+        private List<DraftListResponse> content;
+        private Integer page;
+        private Integer size;
+        private Boolean hasNext;
+    }
 }

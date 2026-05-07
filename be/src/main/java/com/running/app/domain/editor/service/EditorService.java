@@ -1,9 +1,11 @@
 package com.running.app.domain.editor.service;
 
 import com.running.app.domain.course.type.CourseDifficulty;
+import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
 import com.running.app.domain.coursedraft.service.CourseDraftService;
+import com.running.app.domain.coursedraft.type.CourseDraftFilterType;
 import com.running.app.domain.coursedraft.type.CourseDraftStatus;
 import com.running.app.domain.editor.converter.EditorConverter;
 import com.running.app.domain.editor.dto.EditorRequest;
@@ -22,6 +24,9 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.MultiLineString;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +39,9 @@ public class EditorService {
     // 좌표 검증 시 OsmSplit buffer 허용 오차(미터).
     // 부동소수점 직렬화/역직렬화 오차 흡수용 안전망. 도로 폭보다 훨씬 작아 오인 매칭 위험 X.
     private static final double WALKABLE_BUFFER_METERS = 1.0;
+
+    // 에디터 목록 페이지 크기. 무한스크롤 1회 페치 단위.
+    private static final int DRAFT_LIST_PAGE_SIZE = 10;
 
     private final OsmService osmService;
     private final TrackService trackService;
@@ -112,6 +120,35 @@ public class EditorService {
         if (!runningRecordRepository.existsByTrack_TrackId(trackId)) {
             trackRepository.deleteById(trackId);
         }
+    }
+
+    // 에디터 목록 조회 — filter 별로 Repository 분기.
+    // 정렬은 각 쿼리 안에 created_at DESC 로 명시되어 있어 Pageable 의 Sort 는 사용하지 않는다.
+    public EditorResponse.DraftListResultResponse getDraftList(
+            String loginId,
+            CourseDraftFilterType filter,
+            Integer page
+    ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
+        Pageable pageable = PageRequest.of(page, DRAFT_LIST_PAGE_SIZE);
+
+        Slice<CourseDraftListItem> slice = switch (filter) {
+            case ALL -> courseDraftRepository.findAllByMemberId(memberId, pageable);
+            case READY -> courseDraftRepository.findAllByMemberIdAndStatus(
+                    memberId, CourseDraftStatus.READY, pageable);
+            case DONE -> courseDraftRepository.findAllByMemberIdAndStatus(
+                    memberId, CourseDraftStatus.DONE, pageable);
+            case REGISTERED -> courseDraftRepository.findRegisteredByMemberId(memberId, pageable);
+        };
+
+        List<EditorResponse.DraftListResponse> content = slice.getContent().stream()
+                .map(EditorConverter::toDraftListResponse)
+                .toList();
+
+        return EditorConverter.toDraftListResultResponse(slice, content);
     }
 
     // 거리 기반 난이도 자동 산정.
