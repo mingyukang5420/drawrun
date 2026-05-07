@@ -41,7 +41,7 @@ class RunningRepositoryImpl implements RunningRepository {
       'runningTime': session.elapsed.inSeconds, // 단위: 초
       'avgPace': _toMinPerKm(session.avgPaceSecPerKm),
       'calories': session.caloriesKcal, // 단위: kcal
-      'cadence': 0, // 도메인 모델에 없음. 일단 0 고정
+      'cadence': session.cadenceSpm, // 도메인 모델에 없음. 일단 0 고정
       'startedAt': _formatLocalIso(session.startedAt),
       'endedAt': _formatLocalIso(session.endedAt),
       // BE 키가 nodes / lat / lng. 우리 LatLng.toJson() 은 latitude/longitude 라

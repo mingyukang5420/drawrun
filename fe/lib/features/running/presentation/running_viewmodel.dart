@@ -28,6 +28,9 @@ class RunningState {
   final double altitudeM;
   final int bpm;
 
+  // 분당 발걸음 수.
+  final int cadenceSpm;
+
   final bool isSaving;
   final ApiException? saveError;
   final DateTime? startedAt;
@@ -42,6 +45,7 @@ class RunningState {
     this.caloriesKcal = 0,
     this.altitudeM = 0.0,
     this.bpm = 0,
+    this.cadenceSpm = 0,
     this.isSaving = false,
     this.saveError,
     this.startedAt,
@@ -57,6 +61,7 @@ class RunningState {
     int? caloriesKcal,
     double? altitudeM,
     int? bpm,
+    int? cadenceSpm,
     bool? isSaving,
     ApiException? saveError,
     DateTime? startedAt,
@@ -71,6 +76,7 @@ class RunningState {
       caloriesKcal: caloriesKcal ?? this.caloriesKcal,
       altitudeM: altitudeM ?? this.altitudeM,
       bpm: bpm ?? this.bpm,
+      cadenceSpm: cadenceSpm ?? this.cadenceSpm,
       isSaving: isSaving ?? this.isSaving,
       saveError: saveError ?? this.saveError,
       startedAt: startedAt ?? this.startedAt,
@@ -109,6 +115,7 @@ class RunningState {
   String get caloriesLabel => '$caloriesKcal kcal';
   String get altitudeLabel => '${altitudeM.toStringAsFixed(0)} m';
   String get bpmLabel => '$bpm bpm';
+  String get cadenceLabel => '$cadenceSpm spm';
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -303,6 +310,7 @@ class RunningNotifier extends Notifier<RunningState> {
       caloriesKcal: s.caloriesKcal,
       altitudeM: s.altitudeM,
       bpm: s.bpm,
+      cadenceSpm: s.cadenceSpm,
     );
   }
 
