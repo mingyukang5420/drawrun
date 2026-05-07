@@ -12,50 +12,66 @@ import 'package:running/features/running/presentation/screen/running_result_scre
 // 러닝 진행 화면. isPaused 값에 따라 두 모드를 분기 렌더링한다.
 //   - false: _RunningBody (상단 메트릭 + 가운데 큰 값 + 하단 일시정지 버튼)
 //   - true : _PausedBody  (그리드 + 정지(롱프레스)/재생 + 위로 끄는 지도 시트)
-class RunningActiveScreen extends ConsumerWidget {
+class RunningActiveScreen extends ConsumerStatefulWidget {
   const RunningActiveScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // .select((s) => s.isPaused): isPaused 값이 변할 때만 이 build 가 다시 실행된다.
-    // state 통째로 watch 하면 elapsedSeconds 1초 갱신마다 분기 위젯이 통째로 다시 만들어져 비효율.
+  ConsumerState<RunningActiveScreen> createState() =>
+      _RunningActiveScreenState();
+}
+
+class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    // 라이프사이클 콜백 수신 등록. 등록 안 하면 didChangeAppLifecycleState 가 안 불린다.
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    // 위젯 사라질 때 반드시 해제 — 등록 누적되면 dead-State 호출로 오류.
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // resumed = 다시 포그라운드로 복귀.
+    // inactive / paused / hidden 등 다른 상태는 무시 — 백그라운드 동안엔 어차피 화면을 못 본다.
+    if (state == AppLifecycleState.resumed) {
+      // Notifier 의 동기화 메서드를 호출해 표시 시간을 즉시 맞춘다.
+      ref.read(runningViewModelProvider.notifier).syncFromBackground();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 기존 build 코드를 그대로 옮긴다 — isPaused 분기 / _RunningBody / _PausedBody.
     final isPaused =
     ref.watch(runningViewModelProvider.select((s) => s.isPaused));
-    // pause/resume/finish 메서드 호출 전용 → read
     final notifier = ref.read(runningViewModelProvider.notifier);
 
-    // 시스템 뒤로가기 차단: 러닝 데이터 손실 방지
     return PopScope(
       canPop: false,
       child: Scaffold(
         body: SafeArea(
           child: isPaused
               ? _PausedBody(
-            // 정지 시: finish() 후 탭으로 복귀
             onStop: () async {
-              // 1) 측정 정리 — GPS 구독 해제, 타이머 종료, endedAt 기록
               await notifier.finish();
               if (!context.mounted) return;
-
-              // 2) 결과 화면을 push.
-              //    pushReplacement 가 아니라 push 인 이유:
-              //    runningViewModelProvider 는 autoDispose. RunningActiveScreen 을 닫으면
-              //    Provider 도 같이 정리되어 state(distanceKm, points 등) 가 날아감.
-              //    push 로 쌓으면 ActiveScreen 이 뒤에 살아있어 Provider 가 유지됨.
               await Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => const RunningResultScreen(),
                 ),
               );
-              // 3) 결과 화면이 pop 으로 닫히고 돌아온 시점.
-              //    ActiveScreen 까지 함께 닫고 루트(탭)로 복귀.
               if (!context.mounted) return;
               Navigator.of(context).popUntil((r) => r.isFirst);
             },
-            // 재생 시: GPS 재구독 + 타이머 재시작
             onResume: notifier.resume,
           )
-          // 러닝 중 → 일시정지 트리거
               : _RunningBody(onPause: notifier.pause),
         ),
       ),

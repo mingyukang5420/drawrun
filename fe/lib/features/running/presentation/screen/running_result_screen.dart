@@ -279,18 +279,17 @@ class _MetricGrid extends StatelessWidget {
       children: [
         Row(
           children: [
-            // 스플릿 페이스 — 도메인에 별도 값이 없어 평균 페이스를 그대로 보여준다.
-            _MetricCell(label: '스플릿', value: state.avgPaceLabel),
             _MetricCell(label: '평균 페이스', value: state.avgPaceLabel),
             _MetricCell(label: '시간', value: state.elapsedLabel),
+            _MetricCell(label: '칼로리', value: state.caloriesLabel),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            _MetricCell(label: '칼로리', value: state.caloriesLabel),
             _MetricCell(label: '고도', value: state.altitudeLabel),
             _MetricCell(label: 'BPM', value: state.bpmLabel),
+            _MetricCell(label: '케이던스', value: state.cadenceLabel),
           ],
         ),
       ],
@@ -323,8 +322,11 @@ class _MetricCell extends StatelessWidget {
               child: Text(
                 label,
                 maxLines: 1,
-                style:
-                const TextStyle(fontSize: 9.5, color: Colors.black45),
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  color: Colors.black45,
+                  height: 1.0,
+                ),
               ),
             ),
             const SizedBox(height: 4),
@@ -335,7 +337,10 @@ class _MetricCell extends StatelessWidget {
                 value,
                 maxLines: 1,
                 style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w700),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                ),
               ),
             ),
           ],
