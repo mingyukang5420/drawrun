@@ -3,6 +3,7 @@ package com.running.app.domain.course.entity;
 import com.running.app.domain.common.BaseRDBEntity;
 import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.course.type.CourseStatus;
+import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.track.entity.Track;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,6 +16,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -27,7 +29,15 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "courses")
+@Table(
+        name = "courses",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_courses_source_record",
+                        columnNames = "source_record_id"
+                )
+        }
+)
 public class Course extends BaseRDBEntity {
 
     @Id
@@ -39,11 +49,8 @@ public class Course extends BaseRDBEntity {
     private Long memberId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "track_id", nullable = false)
-    private Track track;
-
-    @Column(name = "record_id")
-    private Long recordId;
+    @JoinColumn(name = "source_record_id", nullable = false)
+    private RunningRecord sourceRecord;
 
     @Column(name = "title", nullable = false, length = 20)
     private String title;
@@ -55,19 +62,27 @@ public class Course extends BaseRDBEntity {
     @Column(name = "completion_score", nullable = false)
     private Integer completionScore;
 
-    @Column(name = "registered_at")
-    private LocalDateTime registeredAt;
-
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    //상태 변경 메서드 엔티티에 추가
     public void changeCompletionScore(Integer completionScore) {
         this.completionScore = completionScore;
     }
 
-    // registered_at 한 컬럼에서 status 를 도출 -> registered_at 으로 에디터의 등록 여부를 판단
+    public void changeTitle(String title) {
+        this.title = title;
+    }
+
+    // sourceRecord에서 track 가져옴
+    public Track getTrack() {
+        return sourceRecord != null ? sourceRecord.getTrack() : null;
+    }
+
+    public LocalDateTime getRegisteredAt() {
+        return sourceRecord == null ? null : getCreatedAt();
+    }
+
     public CourseStatus getStatus() {
-        return registeredAt == null ? CourseStatus.READY : CourseStatus.DONE;
+        return sourceRecord == null ? CourseStatus.READY : CourseStatus.DONE;
     }
 }
