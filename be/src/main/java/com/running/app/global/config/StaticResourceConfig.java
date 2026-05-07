@@ -14,25 +14,25 @@ public class StaticResourceConfig implements WebMvcConfigurer {
     // URL 경로와 디스크 폴더 연결
 
     private final String trackImageDir;
-    private final String trackImageUrlPrefix;
+    private final String trackImagePathPrefix;
     private final String contextPath;
 
     public StaticResourceConfig(
             // 실제 저장 폴더
             @Value("${app.upload.track-image-dir}") String trackImageDir,
             // 공개 URL prefix
-            @Value("${app.upload.track-image-url-prefix}") String trackImageUrlPrefix,
+            @Value("${app.upload.track-image-path-prefix}") String trackImagePathPrefix,
             @Value("${server.servlet.context-path:}") String contextPath
     ) {
         this.trackImageDir = trackImageDir;
-        this.trackImageUrlPrefix = trackImageUrlPrefix;
+        this.trackImagePathPrefix = trackImagePathPrefix;
         this.contextPath = normalizeContextPath(contextPath);
     }
 
     // 해당 URL로 오면 폴더의 파일을 보여주도록 등록
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String handlerPattern = createHandlerPattern(trackImageUrlPrefix);
+        String handlerPattern = createHandlerPattern(trackImagePathPrefix);
         String resourceLocation = createResourceLocation(trackImageDir);
 
         registry.addResourceHandler(handlerPattern)
