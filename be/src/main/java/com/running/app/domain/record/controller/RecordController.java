@@ -42,7 +42,7 @@ public class RecordController {
                                               "courseId": null,
                                               "title": "저녁 러닝",
                                               "distance": 3.42,
-                                              "trackImageUrl": "/api/uploads/tracks/550e8400-e29b-41d4-a716-446655440000.png",
+                                              "trackImageUrl": "https://k14a103.p.ssafy.io/uploads/tracks/550e8400-e29b-41d4-a716-446655440000.png",
                                               "runningTime": 1800,
                                               "avgPace": 8.77,
                                               "calories": 240,
