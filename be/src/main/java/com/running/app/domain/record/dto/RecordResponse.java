@@ -19,6 +19,7 @@ public abstract class RecordResponse {
         private Long recordId;
         private Long trackId;
         private Long courseId;
+        private Long courseDraftId;
         private String title;
         private Double distance;
         private String trackImageUrl;
@@ -66,6 +67,7 @@ public abstract class RecordResponse {
         private Long recordId;
         private Long trackId;
         private Long courseId;
+        private Long courseDraftId;
         private String title;
         private String date;
         private String trackImageUrl;

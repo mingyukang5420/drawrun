@@ -1,14 +1,22 @@
 package com.running.app.domain.course.controller;
 
+import com.running.app.domain.course.dto.CourseRequest;
 import com.running.app.domain.course.dto.CourseResponse;
 import com.running.app.domain.course.service.CourseService;
 import com.running.app.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
-
+import jakarta.validation.Valid;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Course", description = "코스 관련 API")
 @RestController
@@ -66,6 +74,16 @@ public class CourseController {
         return ApiResponse.onSuccess(response);
     }
 
+    @Operation(summary = "기록에서 코스 생성")
+    @PostMapping("/records/{recordId}")
+    public ApiResponse<Long> createCourseFromRecord(
+            @PathVariable Long recordId
+    ) {
+        Long memberId = 1L;
+        Long courseId = courseService.createCourseFromRecord(memberId, recordId);
+        return ApiResponse.onSuccess(courseId);
+    }
+
     @Operation(
             summary = "코스 상세 조회",
             description = """
@@ -94,5 +112,16 @@ public class CourseController {
         );
 
         return ApiResponse.onSuccess(response);
+    }
+
+    @Operation(summary = "코스 제목 수정")
+    @PatchMapping("/{courseId}")
+    public ApiResponse<Void> changeCourseTitle(
+            @PathVariable Long courseId,
+            @Valid @RequestBody CourseRequest.ChangeTitleDTO request
+    ) {
+        Long memberId = 1L;
+        courseService.changeCourseTitle(memberId, courseId, request);
+        return ApiResponse.OK;
     }
 }

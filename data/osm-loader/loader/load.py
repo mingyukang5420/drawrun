@@ -99,7 +99,7 @@ def _parse_districts(rows: list[dict]) -> list[dict]:
     """CSV row → upsert_districts 입력 형식 변환."""
     return [
         {
-            "district_code": r["district_code"],
+            "district_id": r["district_id"],
             "sido": r["sido"],
             "gu": r["gu"],
             "center_wkt": r["center_wkt"],
@@ -186,7 +186,7 @@ def main() -> None:
     try:
         logger.info("district UPSERT 시작 (대상=%d)", len(districts))
         upsert_districts(conn, districts)
-        logger.info("적재 완료: district=%d", _count(conn, "district"))
+        logger.info("적재 완료: district=%d", _count(conn, "districts"))
 
         logger.info("osm_ways INSERT 시작 (대상=%d)", len(ways))
         insert_ways_batch(conn, ways)

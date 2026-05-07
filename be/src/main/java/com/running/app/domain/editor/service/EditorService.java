@@ -1,14 +1,19 @@
 package com.running.app.domain.editor.service;
 
-import com.running.app.domain.course.entity.Course;
-import com.running.app.domain.course.service.CourseService;
+import com.running.app.domain.course.type.CourseDifficulty;
+import com.running.app.domain.coursedraft.entity.CourseDraft;
+import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
+import com.running.app.domain.coursedraft.service.CourseDraftService;
+import com.running.app.domain.coursedraft.type.CourseDraftStatus;
 import com.running.app.domain.editor.converter.EditorConverter;
 import com.running.app.domain.editor.dto.EditorRequest;
 import com.running.app.domain.editor.dto.EditorResponse;
 import com.running.app.domain.member.entity.Member;
 import com.running.app.domain.member.repository.MemberRepository;
+import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.domain.track.dto.TrackRequest;
 import com.running.app.domain.track.entity.Track;
+import com.running.app.domain.track.repository.TrackRepository;
 import com.running.app.domain.track.service.TrackService;
 import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.exception.GeneralException;
@@ -32,11 +37,14 @@ public class EditorService {
 
     private final OsmService osmService;
     private final TrackService trackService;
-    private final CourseService courseService;
+    private final CourseDraftService courseDraftService;
     private final MemberRepository memberRepository;
+    private final CourseDraftRepository courseDraftRepository;
+    private final TrackRepository trackRepository;
+    private final RunningRecordRepository runningRecordRepository;
 
-    // 에디터로 그린 커스텀 코스 저장.
-    // 검증 실패 시 INVALID_ROUTE throw → 트랜잭션 롤백 (Track / Course 모두 미저장).
+    // 에디터로 그린 커스텀 코스를 임시 저장(course_drafts INSERT).
+    // 검증 실패 시 INVALID_ROUTE throw → 트랜잭션 롤백 (Track / CourseDraft 모두 미저장).
     @Transactional
     public EditorResponse.SaveResponse save(String loginId, EditorRequest.SaveRequest request) {
         // 1. JwtAuthFilter 가 principal 로 등록한 loginId 로 Member 조회 → memberId 추출
@@ -56,10 +64,69 @@ public class EditorService {
         MultiLineString geom = trackService.createMultiLineString(sortedNodes);
         Track track = trackService.createTrackFromEditor(geom);
 
-        // 5. Course 영속화 (record_id=null, registered_at=null → status=READY)
-        Course course = courseService.createFromEditor(memberId, track, request.getTitle());
+        // 5. CourseDraft 영속화 (status=DRAFT 로 시작)
+        CourseDifficulty difficulty = determineDifficulty(track.getDistance());
+        CourseDraft courseDraft = courseDraftService.createFromEditor(
+                memberId,
+                track,
+                request.getTitle(),
+                difficulty
+        );
 
-        // 6. 응답 변환
-        return EditorConverter.toSaveResponse(course);
+        // 6. 응답 변환 (DRAFT → "READY" 매핑)
+        return EditorConverter.toSaveResponse(courseDraft);
+    }
+
+    @Transactional
+    public void delete(String loginId, Long courseDraftId) {
+
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        CourseDraft courseDraft = courseDraftRepository.findById(courseDraftId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+        // 삭제를 요청한 사용자와 드래프트를 등록한 사용자가 다르면 권한 없음
+        if (!courseDraft.getMemberId().equals(member.getMemberId().longValue())) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // [임시 안전망] DONE 상태는 정식 코스 등록 가능 후보이므로 일단 차단.
+        // TODO: 본래 조건은 "draft → record → course 체인이 형성된 경우(= 정식 등록 완료)에만 차단".
+        //       다른 팀원 영역(RunningRecord.courseDraftId, Course.sourceRecordId) 합류 시 이 분기는 제거하고
+        //       아래 isDeletable 호출이 정확한 차단을 담당한다.
+        if (courseDraft.getStatus() == CourseDraftStatus.DONE) {
+            throw new GeneralException(ErrorStatus.ALREADY_REGISTERED_COURSE);
+        }
+
+        if (!courseDraftService.isDeletable(courseDraftId)) {
+            throw new GeneralException(ErrorStatus.ALREADY_REGISTERED_COURSE);
+        }
+
+        // 삭제 후엔 courseDraft 가 영속성 컨텍스트에서 사라지므로 Track ID 를 미리 캐싱
+        Long trackId = courseDraft.getTrack().getTrackId();
+
+        courseDraftRepository.deleteById(courseDraftId);
+
+        // Track 미참조 시에만 동반 삭제 — RunningRecord 가 참조 중이면 보존
+        if (!runningRecordRepository.existsByTrack_TrackId(trackId)) {
+            trackRepository.deleteById(trackId);
+        }
+    }
+
+    // 거리 기반 난이도 자동 산정.
+    // CourseService.determineDifficulty 와 동일 로직(중복) — CourseService 는 변경 금지 범위라 호출 불가.
+    // 정식 코스 등록 API 작업 시 공통 위치(CourseDifficulty enum 등)로 통합 리팩터링 예정.
+    private CourseDifficulty determineDifficulty(double distanceKm) {
+        if (distanceKm < 3.0) {
+            return CourseDifficulty.BEGINNER;
+        }
+        if (distanceKm < 5.0) {
+            return CourseDifficulty.EASY;
+        }
+        if (distanceKm < 10.0) {
+            return CourseDifficulty.NORMAL;
+        }
+        return CourseDifficulty.HARD;
     }
 }

@@ -110,7 +110,7 @@ def parse_boundary(
     element: dict,
     sido: str,
     gu: str,
-    district_code: str,
+    district_id: str,
     center_lon: float,
     center_lat: float,
 ) -> dict | None:
@@ -145,7 +145,7 @@ def parse_boundary(
 
     logger.info("[%s] boundary 조립 완료: %d points", gu, len(ring))
     return {
-        "district_code": district_code,
+        "district_id": district_id,
         "sido": sido,
         "gu": gu,
         "center_wkt": center_wkt,

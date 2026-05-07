@@ -42,7 +42,7 @@ public class RecordController {
                                               "courseId": null,
                                               "title": "저녁 러닝",
                                               "distance": 3.42,
-                                              "trackImageUrl": "https://example.com/tracks/sample-track.png",
+                                              "trackImageUrl": "/api/uploads/tracks/550e8400-e29b-41d4-a716-446655440000.png",
                                               "runningTime": 1800,
                                               "avgPace": 8.77,
                                               "calories": 240,
@@ -78,7 +78,7 @@ public class RecordController {
             )
     )
     @PostMapping("/run/end")
-    public ApiResponse<Void> createRecord(@RequestBody RecordRequest.CreateDTO request) {
+    public ApiResponse<Void> createRecord(@Valid @RequestBody RecordRequest.CreateDTO request) {
 
         //회원관련 없어서 임시로 1L로 처리
         Long memberId = 1L;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/running/presentation/running_provider.dart';
+import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 import 'package:running/shared/map/widgets/map_app_bar.dart';
 import 'package:running/shared/map/widgets/map_bottom_panel.dart';
@@ -32,8 +33,17 @@ class RunningScreen extends ConsumerWidget {
       // 하단 패널: 거리 표시 + 시작/정지 버튼
       bottomNavigationBar: MapBottomPanel(
         distance: state.distanceLabel,
-        buttonLabel: state.isRunning ? '정지' : '시작',
-        onPressed: state.isRunning ? notifier.finish : notifier.startRunning,
+        buttonLabel: '시작',
+        onPressed: () async {
+          await notifier.clear();
+          if (!context.mounted) return;
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const RunningCountdownScreen(),
+              fullscreenDialog: true,
+            ),
+          );
+        },
       ),
     );
   }

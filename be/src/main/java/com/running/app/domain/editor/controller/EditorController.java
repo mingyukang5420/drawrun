@@ -19,6 +19,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -119,5 +120,58 @@ public class EditorController {
         SaveResponse response = editorService.save(loginId, request);
 
         return ApiResponse.onSuccess(response);
+    }
+
+    @DeleteMapping
+    @Operation(
+            summary = "에디터 삭제 — 미등록 임시 코스(드래프트) 삭제",
+            description = """
+                    사용자가 에디터에서 임시 저장한(아직 정식 코스로 등록되지 않은) 드래프트를 삭제.
+
+                    삭제 대상:
+                    - status = READY 인 CourseDraft (에디터 임시 저장본)
+                    - DONE(= 정식 코스 등록 가능 후보) 상태는 삭제 불가 → 400 ALREADY_REGISTERED_COURSE
+
+                    처리 흐름:
+                    1. loginId 로 Member 조회 (없으면 404 MEMBER_NOT_FOUND)
+                    2. courseDraftId 로 CourseDraft 조회 (없으면 404 COURSE_NOT_FOUND)
+                    3. 본인 소유 검증 (다른 사용자의 드래프트면 403 FORBIDDEN)
+                    4. 상태 검증 (status == DONE 이면 400 ALREADY_REGISTERED_COURSE)
+                    5. CourseDraft 삭제
+                    6. RunningRecord 가 참조하지 않는 Track 이면 동반 삭제 (참조 중이면 보존)
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "삭제 성공 — 응답 body 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "정식 코스 등록 가능 후보(DONE) 상태 — ALREADY_REGISTERED_COURSE"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 — 토큰 없음/만료/위변조"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음 — 본인이 만든 드래프트가 아님(FORBIDDEN)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "대상 없음 — 사용자(MEMBER_NOT_FOUND) 또는 드래프트(COURSE_NOT_FOUND)"
+            )
+    })
+    public ApiResponse<Void> delete(
+            @AuthenticationPrincipal String loginId,
+
+            @Parameter(description = "삭제할 임시 코스(드래프트) ID. 본인이 만든 READY 상태 드래프트만 삭제 가능", required = true, example = "42")
+            @RequestParam Long courseDraftId
+    ) {
+
+        editorService.delete(loginId, courseDraftId);
+
+        return ApiResponse.OK;
     }
 }

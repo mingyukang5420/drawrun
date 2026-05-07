@@ -61,4 +61,7 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
             Long memberId,
             Long CourseId
     );
+
+    // Track 미참조 여부 확인 — 에디터 임시 저장본 삭제 시 Track 동반 삭제 가능 여부 판단용
+    boolean existsByTrack_TrackId(Long trackId);
 }

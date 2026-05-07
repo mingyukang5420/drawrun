@@ -1,25 +1,25 @@
 package com.running.app.domain.course.service;
 
 import com.running.app.domain.course.converter.CourseConverter;
+import com.running.app.domain.course.dto.CourseRequest;
 import com.running.app.domain.course.dto.CourseResponse;
 import com.running.app.domain.course.entity.Course;
 import com.running.app.domain.course.entity.CourseDistrict;
 import com.running.app.domain.course.repository.CourseDistrictRepository;
 import com.running.app.domain.course.repository.CourseRepository;
 import com.running.app.domain.course.type.CourseDifficulty;
+import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.domain.track.entity.Track;
+import com.running.app.global.response.exception.GeneralException;
+import com.running.app.global.response.status.ErrorStatus;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import com.running.app.global.response.exception.GeneralException;
-import com.running.app.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
-import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -67,11 +67,7 @@ public class CourseService {
         List<Course> courses = courseSlice.getContent();
 
         Map<Long, List<String>> regionMap = getRegionMap(courses);
-
-        Set<Long> completedCourseIds = getCompletedCourseIds(
-                memberId,
-                courses
-        );
+        Set<Long> completedCourseIds = getCompletedCourseIds(memberId, courses);
 
         List<CourseResponse.CourseListDTO> content = courses.stream()
                 .map(course -> CourseConverter.toListDTO(
@@ -81,10 +77,71 @@ public class CourseService {
                 ))
                 .toList();
 
-        return CourseConverter.toListResultDTO(
-                courseSlice,
-                content
+        return CourseConverter.toListResultDTO(courseSlice, content);
+    }
+    // 기록에서 코스 생성 메서드
+    @Transactional
+    public Long createCourseFromRecord(Long memberId, Long recordId) {
+        RunningRecord sourceRecord = runningRecordRepository.findByIdAndMemberId(recordId, memberId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.RECORD_NOT_FOUND));
+
+        //코스 등록 가능 여부 검증
+        validateCourseCreation(sourceRecord);
+
+        //원본 기록의 track으로 난이도 계산
+        CourseDifficulty difficulty = determineDifficulty(sourceRecord.getTrack().getDistance());
+        //코스 생성
+        Course course = CourseConverter.toCourseFromRecord(memberId, sourceRecord, difficulty);
+        //저장 후 courseId 반환
+        Course savedCourse = courseRepository.save(course);
+
+        return savedCourse.getId();
+    }
+
+    @Transactional
+    public void changeCourseTitle(
+            Long memberId,
+            Long courseId,
+            CourseRequest.ChangeTitleDTO request
+    ) {
+        Course course = courseRepository.findByIdAndMemberIdAndDeletedAtIsNull(courseId, memberId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+        course.changeTitle(request.getTitle());
+    }
+
+    @Transactional
+    public void updateCompletionScore(Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.BAD_REQUEST));
+
+        Integer totalRunCount = runningRecordRepository.countByCourseId(courseId);
+        Integer completedCount = runningRecordRepository.countByCourseIdAndIsCompletedTrue(
+                courseId);
+
+        Integer completionScore = calculateCompletionScore(
+                completedCount,
+                totalRunCount,
+                course.getDifficulty()
         );
+
+        course.changeCompletionScore(completionScore);
+    }
+
+    public CourseResponse.CourseDetailDTO getCourse(
+            Long memberId,
+            Long courseId
+    ) {
+        Course course = courseRepository.findByIdWithTrack(courseId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+        List<String> regions = getRegions(courseId);
+        Boolean isCompleted = runningRecordRepository.existsByMemberIdAndCourseIdAndIsCompletedTrue(
+                memberId,
+                courseId
+        );
+
+        return CourseConverter.toDetailDTO(course, regions, isCompleted);
     }
 
     private Slice<Course> getCourseSlice(
@@ -120,19 +177,17 @@ public class CourseService {
 
     private Sort getSort(String sort) {
         if (sort == null || sort.isBlank() || sort.equalsIgnoreCase("latest")) {
-            return Sort.by(Sort.Direction.DESC, "registeredAt");
+            return Sort.by(Sort.Direction.DESC, "createdAt");
         }
 
         if (sort.equalsIgnoreCase("completionScore")) {
             return Sort.by(Sort.Direction.DESC, "completionScore");
         }
 
-        return Sort.by(Sort.Direction.DESC, "registeredAt");
+        return Sort.by(Sort.Direction.DESC, "createdAt");
     }
 
-    private Map<Long, List<String>> getRegionMap(
-            List<Course> courses
-    ) {
+    private Map<Long, List<String>> getRegionMap(List<Course> courses) {
         List<Long> courseIds = courses.stream()
                 .map(Course::getId)
                 .toList();
@@ -141,28 +196,20 @@ public class CourseService {
             return Map.of();
         }
 
-        List<CourseDistrict> courseDistricts = courseDistrictRepository
-                .findAllByCourse_IdIn(courseIds);
-
+        List<CourseDistrict> courseDistricts = courseDistrictRepository.findAllByCourse_IdIn(courseIds);
         Map<Long, List<String>> regionMap = new HashMap<>();
 
         for (CourseDistrict courseDistrict : courseDistricts) {
             Long courseId = courseDistrict.getCourse().getId();
             String region = courseDistrict.getDistrict().getGu();
 
-            regionMap.computeIfAbsent(
-                    courseId,
-                    key -> new ArrayList<>()
-            ).add(region);
+            regionMap.computeIfAbsent(courseId, key -> new ArrayList<>()).add(region);
         }
 
         return regionMap;
     }
 
-    private Set<Long> getCompletedCourseIds(
-            Long memberId,
-            List<Course> courses
-    ) {
+    private Set<Long> getCompletedCourseIds(Long memberId, List<Course> courses) {
         List<Long> courseIds = courses.stream()
                 .map(Course::getId)
                 .toList();
@@ -171,28 +218,9 @@ public class CourseService {
             return Set.of();
         }
 
-        return new HashSet<>(
-                runningRecordRepository.findCompletedCourseIds(
-                        memberId,
-                        courseIds
-                )
-        );
+        return new HashSet<>(runningRecordRepository.findCompletedCourseIds(memberId, courseIds));
     }
 
-    // 에디터 저장 — Track 은 이미 저장된 상태로 들어옴.
-    @Transactional
-    public Course createFromEditor(Long memberId, Track track, String title) {
-        CourseDifficulty difficulty = determineDifficulty(track.getDistance());
-
-        Course course = CourseConverter.toCourseFromEditor(memberId, track, title, difficulty);
-        Course saved = courseRepository.save(course);
-
-        mapCourseDistricts(saved.getId(), track.getGeom());
-
-        return saved;
-    }
-
-    // 거리 기반 난이도 자동 산정. 추후 elevation_gain 등 다중 입력으로 고도화 예정.
     private CourseDifficulty determineDifficulty(double distanceKm) {
         if (distanceKm < 3.0) {
             return CourseDifficulty.BEGINNER;
@@ -206,76 +234,48 @@ public class CourseService {
         return CourseDifficulty.HARD;
     }
 
-    // TODO: District 의 boundary 컬럼 매핑이 추가되면 좌표 BBox 와 ST_Intersects 로 course_district 채움
-    private void mapCourseDistricts(Long courseId, MultiLineString geom) {
+    // 코스 등록 가능 여부 검증 로직
+    private void validateCourseCreation(RunningRecord sourceRecord) {
+        // 이미 다른 코스의 원본기록이면 생성 불가
+        if (courseRepository.existsBySourceRecord_Id(sourceRecord.getId())) {
+            throw new GeneralException(ErrorStatus.BAD_REQUEST);
+        }
+
+        //is_safe 가 false이면 생성 불가
+        if (!Boolean.TRUE.equals(sourceRecord.getIsSafe())) {
+            throw new GeneralException(ErrorStatus.BAD_REQUEST);
+        }
+
+        //에디터 코스일 경우, is_completed가 true여야 생성 가능
+        if (sourceRecord.getCourseDraftId() != null
+                && !Boolean.TRUE.equals(sourceRecord.getIsCompleted())) {
+            throw new GeneralException(ErrorStatus.BAD_REQUEST);
+        }
     }
 
-    //코스 점수 계산해서 업데이트
-    @Transactional
-    public void updateCompletionScore(Long courseId) {
-
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.BAD_REQUEST));
-
-        Integer totalRunCount = runningRecordRepository.countByCourseId(courseId);
-        Integer completedCount = runningRecordRepository.countByCourseIdAndIsCompletedTrue(courseId);
-
-        Integer completionScore = calculateCompletionScore(
-                completedCount,
-                totalRunCount,
-                course.getDifficulty()
-        );
-
-        course.changeCompletionScore(completionScore);
-    }
-
-    // 코스 점수 계산 로직
-    private Integer calculateCompletionScore(Integer completedCount, Integer totalRunCount, CourseDifficulty difficulty) {
-        //기본값 0
-        if(totalRunCount == null || totalRunCount == 0) {
+    private Integer calculateCompletionScore(
+            Integer completedCount,
+            Integer totalRunCount,
+            CourseDifficulty difficulty
+    ) {
+        if (totalRunCount == null || totalRunCount == 0) {
             return 0;
         }
 
         int safeCompletedCount = completedCount == null ? 0 : completedCount;
         double weight = difficulty.getWeight();
-
         double numerator = safeCompletedCount * weight;
         double denominator = totalRunCount + (safeCompletedCount * weight - safeCompletedCount);
 
-        if(denominator == 0.0){
+        if (denominator == 0.0) {
             return 0;
         }
 
         int score = (int) Math.round((numerator / denominator) * 100);
-
-        // 오차를 막기 위해 한번 더 0~100 으로 제한
         return Math.max(0, Math.min(100, score));
     }
 
-    public CourseResponse.CourseDetailDTO getCourse(
-            Long memberId,
-            Long courseId
-    ) {
-        Course course = courseRepository.findByIdWithTrack(courseId)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
-
-        List<String> regions = getRegions(courseId);
-
-        Boolean isCompleted = runningRecordRepository
-                .existsByMemberIdAndCourseIdAndIsCompletedTrue(
-                        memberId,
-                        courseId
-                );
-
-        return CourseConverter.toDetailDTO(
-                course,
-                regions,
-                isCompleted
-        );
-    }
-
     private List<String> getRegions(Long courseId) {
-
         return courseDistrictRepository.findAllByCourse_Id(courseId)
                 .stream()
                 .map(courseDistrict -> courseDistrict.getDistrict().getGu())
