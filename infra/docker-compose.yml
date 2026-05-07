@@ -11,6 +11,11 @@ services:
       - /usr/bin/docker:/usr/bin/docker
       - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   nginx:
     image: nginx:latest
@@ -23,6 +28,11 @@ services:
       - ../../certbot/conf:/etc/letsencrypt
       - ../../certbot/www:/var/www/certbot
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   webhookbridge:
     build: ./webhookBridge
@@ -39,6 +49,11 @@ services:
     environment:
       - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
       - TZ=Asia/Seoul
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   postgres:
     image: postgis/postgis:16-3.4
@@ -53,6 +68,11 @@ services:
       TZ: Asia/Seoul
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   redis:
     image: redis:alpine
@@ -65,6 +85,11 @@ services:
       TZ: Asia/Seoul
     volumes:
       - redis_data:/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   backend:
     build:
@@ -79,8 +104,65 @@ services:
     depends_on:
       - postgres
       - redis
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+  
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    restart: always
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    restart: always
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: grafana
+    restart: always
+    environment:
+      - GF_SERVER_ROOT_URL=https://k14a103.p.ssafy.io/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - TZ=Asia/Seoul
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   jenkins_home:
   postgres_data:
   redis_data:
+  loki_data:
+  grafana_data:
