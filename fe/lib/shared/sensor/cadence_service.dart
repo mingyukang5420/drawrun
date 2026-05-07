@@ -50,6 +50,7 @@ class CadenceService {
   Future<void> stopListening() async {
     await _input?.cancel();
     _input = null;
+    _window.clear();
   }
 
   // 새 누적걸음 수가 들어왔을 때.

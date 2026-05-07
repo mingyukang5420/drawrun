@@ -117,7 +117,7 @@ class RunningState {
   String get caloriesLabel => '$caloriesKcal';
   String get altitudeLabel => '${altitudeM.toStringAsFixed(0)} m';
   String get bpmLabel => '$bpm';
-  String get cadenceLabel => '$cadenceSpm';
+  String get cadenceLabel => cadenceSpm < 90 ? '--' : '$cadenceSpm';
 }
 
 // ─────────────────────────────────────────────────────────────────────

@@ -31,7 +31,7 @@ class _RunningMetricFocusState extends ConsumerState<RunningMetricFocus> {
       ('거리', state.distanceKm.toStringAsFixed(2), 'km'),
       ('페이스', state.paceLabel, ''),
       ('심박수', state.bpm.toString(), 'bpm'),
-      ('케이던스', state.cadenceSpm.toString(), 'spm'),
+      ('케이던스', state.cadenceLabel, ''),
     ];
     // 레코드 분해: 한 줄로 세 변수에 동시에 할당
     final (label, value, unit) = items[_focusIndex];
