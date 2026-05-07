@@ -144,7 +144,7 @@ services:
     container_name: grafana
     restart: always
     environment:
-      - GF_SERVER_ROOT_URL=https://k14a103.p.ssafy.io/grafana
+      - GF_SERVER_ROOT_URL=https://k14a103.p.ssafy.io/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
