@@ -69,10 +69,14 @@ class Course {
         completionScore: json['completionScore'] as int? ?? 0,
       );
 
-  // POST /v1/courses 저장 요청 시 서버로 전송할 JSON
+  // POST /api/v1/editor 저장 요청 시 서버로 전송할 JSON
+  // coordinates 의 order 는 1부터 시작하는 순서값
   Map<String, dynamic> toJson() => {
         'title': title,
-        'distance': distance,
-        'points': points.map((e) => e.toJson()).toList(),
+        'coordinates': points.asMap().entries.map((entry) => {
+              'lat': entry.value.latitude,
+              'lng': entry.value.longitude,
+              'order': entry.key + 1,
+            }).toList(),
       };
 }

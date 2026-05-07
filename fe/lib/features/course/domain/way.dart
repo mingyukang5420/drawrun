@@ -8,7 +8,7 @@ class Way {
   final String highway;
 
   // 도로 이름 (없을 수 있음)
-  final String name;
+  final String? name;
 
   // 도로 형상 정보 (GeoJSON 형식)
   final WayGeom geom;
@@ -24,7 +24,7 @@ class Way {
   factory Way.fromJson(Map<String, dynamic> json) => Way(
         osmId: json['osmId'] as int,
         highway: json['highway'] as String,
-        name: json['name'] as String,
+        name: json['name'] as String?,
         geom: WayGeom.fromJson(json['geom'] as Map<String, dynamic>),
       );
 }

@@ -19,11 +19,15 @@ class MapView extends StatefulWidget {
   // true 이면 현재 위치로 카메라를 이동하고 실시간 위치 핀을 표시한다
   final bool showCurrentLocation;
 
+  // 카메라 이동이 완전히 멈춘 후 호출된다 (스크롤·줌 조작 종료 시점)
+  final VoidCallback? onCameraIdle;
+
   const MapView({
     super.key,
     this.onMapReady,
     this.onMapTapped,
     this.showCurrentLocation = false,
+    this.onCameraIdle,
   });
 
   @override
@@ -78,14 +82,18 @@ class _MapViewState extends State<MapView> {
         ),
       ),
       onMapReady: (mapController) async {
-        // showCurrentLocation 이 true 면 위치 핀 설정을 먼저 수행한다
+        // 컨트롤러 등록을 먼저 수행해야 이후 카메라 이동으로 발생하는
+        // onCameraIdle 이벤트를 notifier 가 정상적으로 처리할 수 있다
+        widget.onMapReady?.call(mapController);
+        // 컨트롤러 등록 후 위치 이동 → 이동 완료 시 onCameraIdle 이 발생하고
+        // notifier 가 해당 시점의 도로 데이터를 로드한다
         if (widget.showCurrentLocation) {
           await _setupLocationOverlay(mapController);
         }
-        // 그 다음 도메인별 콜백(컨트롤러 등록 등)을 실행한다
-        widget.onMapReady?.call(mapController);
       },
       onMapTapped: widget.onMapTapped,
+      // 카메라가 멈추면 외부 콜백을 실행한다 (도로 데이터 갱신 등에 활용)
+      onCameraIdle: widget.onCameraIdle,
     );
   }
 }
