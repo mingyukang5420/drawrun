@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/network/api_exception.dart';
+import 'package:running/core/theme/app_text_style.dart';
 import 'package:running/features/running/presentation/running_viewmodel.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/widgets/running_result_map.dart';
@@ -144,10 +145,7 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
                 // 자동 생성된 제목이 들어있는 입력칸. 사용자가 탭하면 키보드가 올라와 수정 가능.
                 TextField(
                   controller: _titleController,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppTextStyle.suitDisplaySmall,
                   // 밑줄 / 테두리 없애 "그냥 큰 글씨" 처럼 보이게 함
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -177,15 +175,12 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
                     Text(
                       // 큰 숫자만 따로 표시 (단위는 옆에 따로)
                       state.distanceKm.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 44,
-                        fontWeight: FontWeight.w800,
-                      ),
+                      style: AppTextStyle.suitDisplayMedium,
                     ),
                     const SizedBox(width: 6),
-                    const Text('km',
-                        style: TextStyle(
-                            fontSize: 16, color: Colors.black54)),
+                    Text('km',
+                        style: AppTextStyle.suitUnit.copyWith(
+                            color: Colors.black54)),
                   ],
                 ),
 
@@ -334,8 +329,7 @@ class _MetricCell extends StatelessWidget {
               child: Text(
                 value,
                 maxLines: 1,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w700),
+                style: AppTextStyle.suitNumber,
               ),
             ),
           ],

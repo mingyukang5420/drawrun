@@ -4,6 +4,8 @@ import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/app/main_tab_screen.dart';
+import 'package:running/core/theme/app_theme.dart';
+
 import 'package:running/shared/network/token_storage.dart';
 
 // TODO: 로그인 화면 구현 전 임시 테스트용 토큰
@@ -35,10 +37,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'running-app',
-      home: MainTabScreen(),
+      theme: AppTheme.theme,
+      home: const MainTabScreen(),
     );
   }
 }
