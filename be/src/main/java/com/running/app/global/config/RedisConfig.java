@@ -1,4 +1,4 @@
-package com.running.app.global.redis.config;
+package com.running.app.global.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
