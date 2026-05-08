@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../shared/network/api_exception.dart';
+import 'package:running/shared/network/api_exception.dart';
 import 'package:running/core/theme/app_text_style.dart';
 import 'package:running/features/running/presentation/running_viewmodel.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
