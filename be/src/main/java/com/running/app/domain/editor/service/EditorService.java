@@ -94,6 +94,59 @@ public class EditorService {
         }
     }
 
+    // 에디터 수정 — 제목 + 좌표 시퀀스 갱신.
+    // 권한: 본인 소유 + status==READY 인 드래프트만 수정 가능.
+    // 좌표 변경 시: 새 Track INSERT → draft.track swap → 기존 Track 삭제(미참조 시).
+    // distance 재계산에 따라 difficulty 도 자동 재산정.
+    @Transactional
+    public EditorResponse.DraftDetailResponse update(
+            String loginId,
+            Long courseDraftId,
+            EditorRequest.SaveRequest request
+    ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
+        CourseDraft courseDraft = courseDraftRepository.findById(courseDraftId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+        if (!courseDraft.getMemberId().equals(memberId)) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // READY 만 수정 가능. DONE(검증됨) / 등록 후 상태는 수정 불가.
+        if (courseDraft.getStatus() != CourseDraftStatus.READY) {
+            throw new GeneralException(ErrorStatus.EDITOR_NOT_EDITABLE);
+        }
+
+        // 좌표 정렬 + OSM 검증 (저장 로직과 동일)
+        List<TrackRequest.NodeDTO> sortedNodes = EditorConverter.toSortedTrackNodes(
+                request.getCoordinates()
+        );
+        osmService.validateAllPointsWalkable(sortedNodes, WALKABLE_BUFFER_METERS);
+
+        // 새 Track INSERT (PostGIS ST_Length 로 distance 자동 계산)
+        MultiLineString geom = trackService.createMultiLineString(sortedNodes);
+        Track newTrack = trackService.createTrackFromEditor(geom);
+
+        // swap 후 기존 Track 삭제 위해 ID 캐싱
+        Long oldTrackId = courseDraft.getTrack().getTrackId();
+
+        // 도메인 메서드로 변경 — dirty checking 으로 UPDATE 발행
+        courseDraft.changeTitle(request.getTitle());
+        courseDraft.changeTrack(newTrack);
+        courseDraft.changeDifficulty(determineDifficulty(newTrack.getDistance()));
+
+        // 기존 Track 동반 삭제 — status==READY 라 records 미참조가 보장되지만 안전 검사
+        if (!runningRecordRepository.existsByTrack_TrackId(oldTrackId)) {
+            trackRepository.deleteById(oldTrackId);
+        }
+
+        // 응답 — status==READY 통과 케이스만 도달하므로 isRegistered=false 고정
+        return EditorConverter.toDraftDetailResponse(courseDraft, false);
+    }
+
     // 에디터 상세 조회.
     // 권한: 본인 소유 드래프트만 조회 가능. 타인 드래프트면 FORBIDDEN.
     // status: draft.status(READY/DONE) + 등록 여부(REGISTERED) 가 합쳐진 derived 값.
