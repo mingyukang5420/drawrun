@@ -27,6 +27,7 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ../../certbot/conf:/etc/letsencrypt
       - ../../certbot/www:/var/www/certbot
+      - /home/ubuntu/uploads:/uploads
     restart: always
     logging:
       driver: "json-file"
@@ -97,6 +98,8 @@ services:
       dockerfile: Dockerfile
     container_name: backend
     restart: always
+    volumes:
+      - /home/ubuntu/uploads:/home/ubuntu/uploads
     env_file:
       - .env
     environment:
