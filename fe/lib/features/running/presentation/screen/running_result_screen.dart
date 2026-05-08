@@ -138,8 +138,14 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
         courseDraftId: widget.courseDraftId,
       );
     } on ApiException {
-      // 실패해도 화면은 그대로 둔다. saveError 가 state 에 채워지면
-      // 아래 build 에서 에러 배너 + 재시도 버튼이 자동으로 보인다.
+      // ApiException 은 ViewModel 이 saveError 에 채워줌 → build 가 자동으로 배너 노출
+    } catch (e) {
+      // 그 외 모든 예외는 ApiException 이 아니라 saveError 에 안 들어감
+      // _uploadErrorMessage 와 같은 자리(배너) 에 표시되도록 임시 대용으로 재활용
+      if (!mounted) return;
+      setState(() {
+        _uploadErrorMessage = '러닝 저장 중 알 수 없는 오류: $e';
+      });
     }
   }
 
@@ -259,7 +265,24 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
                 _MetricGrid(state: state),
 
                 const SizedBox(height: 16),
-
+                // _uploadErrorMessage 가 채워지면 사용자에게 즉시 노출
+                // 업로드가 실패하면 종료 API 호출 자체가 일어나지 않으므로 이 배너가 유일한 신호다
+                if (_uploadErrorMessage != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFE8E8),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      // 콜백에서 박은 메시지를 그대로 노출
+                      // 사용자에게는 "다시 시도" 버튼(_onConfirm 분기) 으로 재시도 경로를 안내
+                      '$_uploadErrorMessage\n확인을 눌러 다시 시도할 수 있습니다.',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
                 // ── 5. 저장 실패 시 안내 배너 ────────────────────────
                 if (state.saveError != null)
                   Container(

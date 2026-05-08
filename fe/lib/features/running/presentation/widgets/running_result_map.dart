@@ -124,6 +124,7 @@ class _RunningResultMapState extends ConsumerState<RunningResultMap> {
         await Future<void>.delayed(const Duration(milliseconds: 100));
 
         await _captureAndSave(_controller!);
+        await _captureAndUpload(_controller!);
       },
     );
   }
