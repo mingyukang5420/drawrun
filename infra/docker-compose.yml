@@ -96,8 +96,10 @@ services:
     build:
       context: ../be
       dockerfile: Dockerfile
-    container_name: backend
+    container_name: backendg
     restart: always
+    volumes:
+      - /home/ubuntu/uploads:/uploads
     env_file:
       - .env
     environment:
