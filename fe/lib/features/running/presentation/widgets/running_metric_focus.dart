@@ -16,9 +16,9 @@ class RunningMetricFocus extends ConsumerStatefulWidget {
 }
 
 class _RunningMetricFocusState extends ConsumerState<RunningMetricFocus> {
-  // 0:시간 1:거리 2:페이스 3:심박수
-  // 초기값 3 (심박수).
-  int _focusIndex = 3;
+  // 0:시간 1:거리 2:페이스 3:심박수 4:케이던스
+  // 초기값 4 (케이던스).
+  int _focusIndex = 4;
 
   @override
   Widget build(BuildContext context) {
@@ -31,12 +31,13 @@ class _RunningMetricFocusState extends ConsumerState<RunningMetricFocus> {
       ('거리', state.distanceKm.toStringAsFixed(2), 'km'),
       ('페이스', state.paceLabel, ''),
       ('심박수', state.bpm.toString(), 'bpm'),
+      ('케이던스', state.cadenceLabel, ''),
     ];
     // 레코드 분해: 한 줄로 세 변수에 동시에 할당
     final (label, value, unit) = items[_focusIndex];
 
     return GestureDetector(
-      // 탭하면 다음 인덱스로 순환 (3 → 0 으로 wrap)
+      // 탭하면 다음 인덱스로 순환 (4 → 0 으로 wrap)
       onTap: () =>
           setState(() => _focusIndex = (_focusIndex + 1) % items.length),
       // 큰 텍스트 사이 빈 공간까지 탭 영역으로 인식되게 하는 트릭.
