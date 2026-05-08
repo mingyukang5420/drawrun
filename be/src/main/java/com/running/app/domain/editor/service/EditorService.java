@@ -1,5 +1,6 @@
 package com.running.app.domain.editor.service;
 
+import com.running.app.domain.course.service.DifficultyService;
 import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
@@ -46,6 +47,7 @@ public class EditorService {
     private final OsmService osmService;
     private final TrackService trackService;
     private final CourseDraftService courseDraftService;
+    private final DifficultyService difficultyService;
     private final MemberRepository memberRepository;
     private final CourseDraftRepository courseDraftRepository;
     private final TrackRepository trackRepository;
@@ -73,7 +75,7 @@ public class EditorService {
         Track track = trackService.createTrackFromEditor(geom);
 
         // 5. CourseDraft 영속화 (status=DRAFT 로 시작)
-        CourseDifficulty difficulty = determineDifficulty(track.getDistance());
+        CourseDifficulty difficulty = difficultyService.calculate(track);
         CourseDraft courseDraft = courseDraftService.createFromEditor(
                 memberId,
                 track,
@@ -148,21 +150,5 @@ public class EditorService {
                 .toList();
 
         return EditorConverter.toDraftListResultResponse(slice, content);
-    }
-
-    // 거리 기반 난이도 자동 산정.
-    // CourseService.determineDifficulty 와 동일 로직(중복) — CourseService 는 변경 금지 범위라 호출 불가.
-    // 정식 코스 등록 API 작업 시 공통 위치(CourseDifficulty enum 등)로 통합 리팩터링 예정.
-    private CourseDifficulty determineDifficulty(double distanceKm) {
-        if (distanceKm < 3.0) {
-            return CourseDifficulty.BEGINNER;
-        }
-        if (distanceKm < 5.0) {
-            return CourseDifficulty.EASY;
-        }
-        if (distanceKm < 10.0) {
-            return CourseDifficulty.NORMAL;
-        }
-        return CourseDifficulty.HARD;
     }
 }
