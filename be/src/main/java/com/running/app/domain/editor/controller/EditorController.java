@@ -3,6 +3,7 @@ package com.running.app.domain.editor.controller;
 import com.running.app.domain.coursedraft.type.CourseDraftFilterType;
 import com.running.app.domain.editor.converter.EditorConverter;
 import com.running.app.domain.editor.dto.EditorRequest;
+import com.running.app.domain.editor.dto.EditorResponse.DraftDetailResponse;
 import com.running.app.domain.editor.dto.EditorResponse.DraftListResultResponse;
 import com.running.app.domain.editor.dto.EditorResponse.SaveResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
@@ -23,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -114,6 +116,52 @@ public class EditorController {
         return ApiResponse.onSuccess(response);
     }
 
+    @GetMapping("/{courseDraftId}")
+    @Operation(
+            summary = "에디터 상세 조회 — 본인 드래프트 상세",
+            description = """
+                    본인이 만든 특정 드래프트의 상세 정보를 조회.
+
+                    응답 status:
+                    - READY      : 작성중 (아직 뛰지 않음)
+                    - DONE       : 검증됨 (뛰어봤으나 정식 등록 전)
+                    - REGISTERED : 등록됨 (이 드래프트 기반 record 가 정식 코스로 등록됨)
+                      → 백엔드 내부에서는 draft.status(READY/DONE) + courses 매핑 여부의 derived 값.
+
+                    coordinates: 경로 좌표 시퀀스 [{lat, lng}, ...]
+
+                    권한: 본인 소유 드래프트만 조회 가능. 타인 드래프트면 403 FORBIDDEN.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 — 토큰 없음/만료/위변조"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음 — 본인이 만든 드래프트가 아님(FORBIDDEN)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "대상 없음 — 사용자(MEMBER_NOT_FOUND) 또는 드래프트(COURSE_NOT_FOUND)"
+            )
+    })
+    public ApiResponse<DraftDetailResponse> getDraftDetail(
+            @AuthenticationPrincipal String loginId,
+
+            @Parameter(description = "조회할 드래프트 ID", required = true, example = "1")
+            @PathVariable Long courseDraftId
+    ) {
+        DraftDetailResponse response = editorService.getDraftDetail(loginId, courseDraftId);
+
+        return ApiResponse.onSuccess(response);
+    }
+
     @PostMapping
     @Operation(
             summary = "에디터 저장 — 사용자 커스텀 코스 등록",
@@ -136,9 +184,9 @@ public class EditorController {
                                             {
                                               "title": "한강 러닝 코스",
                                               "coordinates": [
-                                                { "lat": 37.5500, "lng": 126.9200, "order": 1 },
-                                                { "lat": 37.5510, "lng": 126.9210, "order": 2 },
-                                                { "lat": 37.5520, "lng": 126.9220, "order": 3 }
+                                                { "lat": 37.5480598, "lng": 126.9177061, "order": 1 },
+                                                { "lat": 37.5479675, "lng": 126.9181941, "order": 2 },
+                                                { "lat": 37.54793, "lng": 126.91838, "order": 3 }
                                               ]
                                             }
                                             """

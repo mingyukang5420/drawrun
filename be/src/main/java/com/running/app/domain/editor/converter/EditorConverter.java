@@ -3,12 +3,14 @@ package com.running.app.domain.editor.converter;
 import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.editor.dto.EditorRequest;
+import com.running.app.domain.editor.dto.EditorResponse.DraftDetailResponse;
 import com.running.app.domain.editor.dto.EditorResponse.DraftListResponse;
 import com.running.app.domain.editor.dto.EditorResponse.DraftListResultResponse;
 import com.running.app.domain.editor.dto.EditorResponse.Geom;
 import com.running.app.domain.editor.dto.EditorResponse.SaveResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayInnerResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
+import com.running.app.domain.track.converter.TrackConverter;
 import com.running.app.domain.track.dto.TrackRequest;
 import com.running.app.global.osm.entity.OsmSplit;
 import java.time.LocalDateTime;
@@ -112,6 +114,24 @@ public abstract class EditorConverter {
                 .page(slice.getNumber())
                 .size(slice.getSize())
                 .hasNext(slice.hasNext())
+                .build();
+    }
+
+    // 에디터 상세 조회 응답 변환.
+    // status 는 등록 여부에 따라 derived: 등록되어 있으면 "REGISTERED",
+    // 아니면 draft 자체 상태(READY/DONE) 의 .name() 을 그대로 노출.
+    // coordinates 는 Track 의 MultiLineString 좌표를 NodeDTO 시퀀스로 풀어서 노출.
+    public static DraftDetailResponse toDraftDetailResponse(
+            CourseDraft draft,
+            boolean isRegistered
+    ) {
+        String status = isRegistered ? "REGISTERED" : draft.getStatus().name();
+
+        return DraftDetailResponse.builder()
+                .courseDraftId(draft.getId())
+                .title(draft.getTitle())
+                .status(status)
+                .coordinates(TrackConverter.toNodeDTOList(draft.getTrack()))
                 .build();
     }
 

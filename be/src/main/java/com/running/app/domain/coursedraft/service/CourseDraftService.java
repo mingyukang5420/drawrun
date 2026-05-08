@@ -55,4 +55,10 @@ public class CourseDraftService {
     public boolean isDeletable(Long courseDraftId) {
         return true;
     }
+
+    // 드래프트가 정식 코스로 등록되어 있는지 검사. 상세 조회의 status derived 용.
+    // soft delete 되지 않은 코스만 카운트.
+    public boolean isRegistered(Long courseDraftId) {
+        return courseDraftRepository.existsRegisteredCourseByDraftId(courseDraftId);
+    }
 }
