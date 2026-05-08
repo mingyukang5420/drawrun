@@ -18,6 +18,11 @@
     <!-- 화면이 꺼진 상태에서도 CPU 가 잠들지 않도록 살짝 깨워 두는 권한.
          GPS 콜백이 정상적으로 들어오게 하는 보조 장치. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- Android 10 (API 29) 부터 step counter 사용 시 사용자 동의가 필요한 런타임 권한.
+     이 권한이 없으면 pedometer 가 stream 을 열어도 곧장 PERMISSION_DENIED 로 닫힌다. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />

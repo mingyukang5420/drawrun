@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 public class District {
 
     @Id
-    @Column(name = "district_id", length = 5)
+    @Column(name = "district_id", columnDefinition = "char(5)")
     private String id;
 
     @Column(name = "sido", nullable = false, length = 50)

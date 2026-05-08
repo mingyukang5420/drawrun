@@ -35,6 +35,7 @@ public class CourseService {
     private final CourseRepository courseRepository;
     private final CourseDistrictRepository courseDistrictRepository;
     private final RunningRecordRepository runningRecordRepository;
+    private final DifficultyService difficultyService;
 
     public CourseResponse.CourseListResultDTO getCourseList(
             Long memberId,
@@ -89,7 +90,7 @@ public class CourseService {
         validateCourseCreation(sourceRecord);
 
         //원본 기록의 track으로 난이도 계산
-        CourseDifficulty difficulty = determineDifficulty(sourceRecord.getTrack().getDistance());
+        CourseDifficulty difficulty = difficultyService.calculate(sourceRecord.getTrack());
         //코스 생성
         Course course = CourseConverter.toCourseFromRecord(memberId, sourceRecord, difficulty);
         //저장 후 courseId 반환
@@ -219,19 +220,6 @@ public class CourseService {
         }
 
         return new HashSet<>(runningRecordRepository.findCompletedCourseIds(memberId, courseIds));
-    }
-
-    private CourseDifficulty determineDifficulty(double distanceKm) {
-        if (distanceKm < 3.0) {
-            return CourseDifficulty.BEGINNER;
-        }
-        if (distanceKm < 5.0) {
-            return CourseDifficulty.EASY;
-        }
-        if (distanceKm < 10.0) {
-            return CourseDifficulty.NORMAL;
-        }
-        return CourseDifficulty.HARD;
     }
 
     // 코스 등록 가능 여부 검증 로직
