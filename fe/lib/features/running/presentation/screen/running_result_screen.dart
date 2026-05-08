@@ -222,7 +222,15 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
                   aspectRatio: 16 / 9,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: const RunningResultMap(),
+                    child: RunningResultMap(
+                      // 업로드 재시도용으로 위젯을 다시 mount 시키기 위한 키
+                      // _retryUpload 가 _mapKey 를 새 UniqueKey 로 갈아끼우면 위젯이 새 인스턴스로 만들어진다
+                      key: _mapKey,
+                      // 업로드 성공 시 trackImageUrl 을 받아 _trackImageUrl 에 보관 후 _autoSave 트리거
+                      onUploaded: _onUploaded,
+                      // 업로드 실패 시 사용자에게 노출할 에러 메시지를 _uploadErrorMessage 에 보관
+                      onUploadFailed: _onUploadFailed,
+                    ),
                   ),
                 ),
 
