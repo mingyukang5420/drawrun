@@ -13,15 +13,17 @@ class RunningRepositoryImpl implements RunningRepository {
   Future<void> save({
     required RunningSession session,
     required String title,
+    required String trackImageUrl,
     int? courseId,
-    String trackImageUrl = 'tempValue',
+    int? courseDraftId,
   }) async {
     // 매개변수로 받은 메타데이터를 _toJson 에 함께 넘긴다.
     final body = _toJson(
       session: session,
       title: title,
-      courseId: courseId,
       trackImageUrl: trackImageUrl,
+      courseId: courseId,
+      courseDraftId: courseDraftId,
     );
     await _remote.postSession(body);
   }
@@ -30,14 +32,16 @@ class RunningRepositoryImpl implements RunningRepository {
   Map<String, dynamic> _toJson({
     required RunningSession session, // 측정 데이터
     required String title,
-    int? courseId,
     required String trackImageUrl,
+    int? courseId,
+    int? courseDraftId,
   }) {
     return {
       'courseId': courseId, // null 가능 (자유 러닝)
+      'courseDraftId': courseDraftId, // null 가능
       'title': title,
       'distance': session.distanceKm, // 단위: km (도메인과 동일)
-      'trackImageUrl': trackImageUrl, // 현재 'tempValue' 고정
+      'trackImageUrl': trackImageUrl,
       'runningTime': session.elapsed.inSeconds, // 단위: 초
       'avgPace': _toMinPerKm(session.avgPaceSecPerKm),
       'calories': session.caloriesKcal, // 단위: kcal

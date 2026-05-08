@@ -363,19 +363,23 @@ class RunningNotifier extends Notifier<RunningState> {
   // saveError 가 채워져 UI 에서 재시도 버튼을 띄울 수 있다.
   Future<void> saveCurrentSession({
     required String title,
+    required String trackImageUrl,
     int? courseId,
+    int? courseDraftId,
   }) async {
     state = state.copyWith(isSaving: true, saveError: null);
     try {
       await _repository.save(
         session: buildSession(),
         title: title,
+        trackImageUrl: trackImageUrl,
         courseId: courseId,
+        courseDraftId: courseDraftId,
       );
       state = state.copyWith(isSaving: false);
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e);
-      rethrow;  // 호출부에서 추가 UI 처리 가능하게 다시 던짐
+      rethrow;
     }
   }
 }
