@@ -38,6 +38,7 @@ public class EditorDraftSaver {
     private final OsmService osmService;
     private final TrackService trackService;
     private final CourseDraftService courseDraftService;
+    private final DifficultyService difficultyService;
 
     @Transactional
     public EditorResponse.SaveResponse save(
@@ -63,7 +64,7 @@ public class EditorDraftSaver {
         Track track = trackService.createTrackFromEditor(geom, trackImageUrl);
 
         // 5. CourseDraft 영속화 (status=READY 로 시작)
-        CourseDifficulty difficulty = determineDifficulty(track.getDistance());
+        CourseDifficulty difficulty = difficultyService.calculate(track);
         CourseDraft courseDraft = courseDraftService.createFromEditor(
                 memberId,
                 track,
@@ -72,21 +73,5 @@ public class EditorDraftSaver {
         );
 
         return EditorConverter.toSaveResponse(courseDraft);
-    }
-
-    // 거리 기반 난이도 자동 산정.
-    // CourseService.determineDifficulty 와 동일 로직(중복) — CourseService 는 변경 금지 범위라 호출 불가.
-    // 정식 코스 등록 API 작업 시 공통 위치(CourseDifficulty enum 등)로 통합 리팩터링 예정.
-    private CourseDifficulty determineDifficulty(double distanceKm) {
-        if (distanceKm < 3.0) {
-            return CourseDifficulty.BEGINNER;
-        }
-        if (distanceKm < 5.0) {
-            return CourseDifficulty.EASY;
-        }
-        if (distanceKm < 10.0) {
-            return CourseDifficulty.NORMAL;
-        }
-        return CourseDifficulty.HARD;
-    }
+    }    
 }
