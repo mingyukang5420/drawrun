@@ -96,7 +96,7 @@ services:
     build:
       context: ../be
       dockerfile: Dockerfile
-    container_name: backendg
+    container_name: backend
     restart: always
     volumes:
       - /home/ubuntu/uploads:/uploads
