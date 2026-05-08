@@ -6,7 +6,6 @@ import 'package:running/core/theme/app_text_style.dart';
 import 'package:running/features/running/presentation/running_viewmodel.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/widgets/running_result_map.dart';
-import '../running_provider.dart';
 
 // 러닝 완료 결과 화면 (거리·시간·페이스 요약)
 // - 지도에는 사용자가 뛴 경로(폴리라인)만 그려진다
@@ -17,7 +16,15 @@ class RunningResultScreen extends ConsumerStatefulWidget {
   // 자유 러닝이면 null.
   final int? courseId;
 
-  const RunningResultScreen({super.key, this.courseId});
+  // 에디터에서 만든 코스 드래프트로 진입했다면 라우터가 courseDraftId 를 넘겨줌
+  // 자유러닝이면 둘 다 null
+  final int? courseDraftId;
+
+  const RunningResultScreen({
+    super.key,
+    this.courseId,
+    this.courseDraftId,
+  });
 
   @override
   ConsumerState<RunningResultScreen> createState() => _RunningResultScreenState();
@@ -27,6 +34,17 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
   // 러닝 제목을 보관하는 컨트롤러.
   // 초기값은 startedAt 으로 만든 자동 제목.
   late final TextEditingController _titleController;
+
+  // 업로드가 끝난 뒤 받은 공개 URL 을 잠시 들고 있는다
+  // 종료 API 호출 시 인자로 넘기고, 화면이 닫히면 같이 사라짐
+  String? _trackImageUrl;
+
+  // 업로드 실패 시 사용자에게 노출할 메시지 (재시도 트리거 분기에 활용)
+  String? _uploadErrorMessage;
+
+  // RunningResultMap 을 강제로 다시 mount 하기 위한 키
+  // 업로드 재시도 시 이 키를 갈아끼우면 위젯이 새로 만들어져 onMapReady 부터 다시 흐른다
+  Key _mapKey = UniqueKey();
 
   @override
   void initState() {
@@ -49,6 +67,34 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
   void dispose() {
     _titleController.dispose();
     super.dispose();
+  }
+
+  // 업로드 성공 콜백
+  // 업로드 결과 URL 을 보관한 뒤 곧장 종료 API 를 시작한다
+  void _onUploaded(String url) {
+    setState(() {
+      _trackImageUrl = url;
+      _uploadErrorMessage = null;
+    });
+    _autoSave(); // 이제서야 trackImageUrl 이 있어 안전하게 호출 가능
+  }
+
+  // 업로드 실패 콜백
+  // 종료 API 호출은 보류하고 사용자에게 메시지만 노출
+  // 사용자가 "다시 시도" 누르면 _retryUpload 가 호출됨
+  void _onUploadFailed(Object error) {
+    setState(() {
+      _uploadErrorMessage = '경로 이미지 업로드 실패: $error';
+    });
+  }
+
+  // 사용자가 "다시 시도" 를 누르면 mapKey 를 새로 만들어 위젯을 다시 mount
+  // RunningResultMap 의 _snapshotTriggered 가 false 인 새 인스턴스가 생성되어 처음부터 다시 흐름
+  void _retryUpload() {
+    setState(() {
+      _uploadErrorMessage = null;
+      _mapKey = UniqueKey();
+    });
   }
 
   // 시작 시각을 받아 "화요일 오후 러닝" 같은 자동 제목을 만든다.
@@ -80,14 +126,16 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
   // 본 저장은 서버에 러닝 결과(거리, 시간, 경로 등) 를 전송한다.
   // 이 시점에서 trackImageUrl 자리는 'tempValue' 로 보낸다 — 이미지 업로드 로직 미구현이므로.
   Future<void> _autoSave() async {
+    final url = _trackImageUrl;
+    if (url == null) return;
     try {
       await ref.read(runningViewModelProvider.notifier).saveCurrentSession(
         title: _titleController.text.trim().isEmpty
-            ? _buildAutoTitle(
-          ref.read(runningViewModelProvider).startedAt,
-        )
+            ? _buildAutoTitle(ref.read(runningViewModelProvider).startedAt)
             : _titleController.text.trim(),
+        trackImageUrl: url,
         courseId: widget.courseId,
+        courseDraftId: widget.courseDraftId,
       );
     } on ApiException {
       // 실패해도 화면은 그대로 둔다. saveError 가 state 에 채워지면
@@ -99,6 +147,10 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
   //   - 정상 케이스라면 이미 저장이 끝났을 것이므로 그냥 메인 탭으로 복귀
   //   - 저장 실패 상태라면 다시 시도
   Future<void> _onConfirm() async {
+    if (_uploadErrorMessage != null) {
+      _retryUpload();
+      return;
+    }
     final state = ref.read(runningViewModelProvider);
     if (state.saveError != null) {
       await _autoSave();
@@ -106,6 +158,15 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     }
     if (!mounted) return;
     Navigator.of(context).popUntil((r) => r.isFirst);
+  }
+
+  // key 를 갈아끼우면 위젯이 새 인스턴스로 만들어져 캡처 + 업로드가 처음부터 다시 흐른다
+  Widget _buildMap() {
+    return RunningResultMap(
+      key: _mapKey,
+      onUploaded: _onUploaded,
+      onUploadFailed: _onUploadFailed,
+    );
   }
 
   @override
