@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.locationtech.jts.geom.Point;
 
 @Entity
 @Getter
@@ -27,4 +28,7 @@ public class District {
 
     @Column(name = "gu", nullable = false, length = 50)
     private String gu;
+
+    @Column(name = "center_point", columnDefinition = "geometry(Point, 4326)")
+    private Point centerPoint;
 }
