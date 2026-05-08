@@ -121,13 +121,19 @@ public class EditorController {
                     사용자가 에디터에서 그린 커스텀 러닝 코스를 저장.
 
                     처리 흐름:
-                    1. 좌표가 도보 가능한 길(osm_ways_split) buffer 내에 있는지 검증 (실패 시 400 INVALID_ROUTE)
-                    2. Track 생성 (거리는 PostGIS ST_Length 로 자동 계산)
-                    3. Course 생성 (검증런 전이므로 status=READY, completionScore=0)
+                    1. 썸네일(base64) 을 디스크에 저장하고 공개 URL 확보 (트랜잭션 밖)
+                    2. 좌표가 도보 가능한 길(osm_ways_split) buffer 내에 있는지 검증 (실패 시 400 INVALID_ROUTE)
+                    3. Track 생성 (거리는 PostGIS ST_Length 로 자동 계산, trackImageUrl = 1단계에서 받은 URL)
+                    4. CourseDraft 생성 (검증런 전이므로 status=READY)
+                    5. 2~4 단계 중 어느 하나라도 실패하면 1단계에서 만든 디스크 파일을 보상 삭제
+
+                    thumbnailBase64 형식:
+                    - "data:image/png;base64,...." 또는 "data:image/jpeg;base64,...." (data URI 형식)
+                    - 다른 mime 또는 prefix 누락 시 400 INVALID_IMAGE_FILE
                     """,
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
-                    description = "에디터 저장 요청 바디 — 제목과 사용자가 그린 좌표 시퀀스(order 기준 정렬)",
+                    description = "에디터 저장 요청 바디 — 제목, 사용자가 그린 좌표 시퀀스(order 기준 정렬), 썸네일 base64",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
@@ -139,7 +145,8 @@ public class EditorController {
                                                 { "lat": 37.5500, "lng": 126.9200, "order": 1 },
                                                 { "lat": 37.5510, "lng": 126.9210, "order": 2 },
                                                 { "lat": 37.5520, "lng": 126.9220, "order": 3 }
-                                              ]
+                                              ],
+                                              "thumbnailBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
                                             }
                                             """
                             )
@@ -153,11 +160,25 @@ public class EditorController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "검증 실패 — 뛸 수 없는 길 포함(INVALID_ROUTE) 또는 입력 형식 오류(title 길이/좌표 개수/order 누락 등)"
+                    description = """
+                            검증 실패. 사유 코드:
+                            - INVALID_ROUTE : 뛸 수 없는 길 포함
+                            - INVALID_IMAGE_FILE : thumbnailBase64 가 PNG/JPEG data URI 가 아님 / base64 디코딩 실패 / 본문 빔
+                            - INVALID_TRACK_IMAGE_URL : 저장된 이미지 URL 형식 이상 (서버 설정 불일치 등)
+                            - 입력 형식 오류 (title 길이/좌표 개수/order 누락/thumbnailBase64 누락 등)
+                            """
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "401",
                     description = "인증 실패 — 토큰 없음/만료/위변조"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자 없음 — MEMBER_NOT_FOUND"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "썸네일 디스크 쓰기 실패 — FILE_UPLOAD_FAILED"
             )
     })
     public ApiResponse<SaveResponse> save(

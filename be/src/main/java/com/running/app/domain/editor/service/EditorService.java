@@ -1,6 +1,5 @@
 package com.running.app.domain.editor.service;
 
-import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
@@ -13,17 +12,13 @@ import com.running.app.domain.editor.dto.EditorResponse;
 import com.running.app.domain.member.entity.Member;
 import com.running.app.domain.member.repository.MemberRepository;
 import com.running.app.domain.record.repository.RunningRecordRepository;
-import com.running.app.domain.track.dto.TrackRequest;
-import com.running.app.domain.track.entity.Track;
 import com.running.app.domain.track.repository.TrackRepository;
-import com.running.app.domain.track.service.TrackService;
-import com.running.app.global.osm.service.OsmService;
+import com.running.app.domain.track.service.TrackImageStorageService;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -33,56 +28,33 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class EditorService {
-
-    // 좌표 검증 시 OsmSplit buffer 허용 오차(미터).
-    // 부동소수점 직렬화/역직렬화 오차 흡수용 안전망. 도로 폭보다 훨씬 작아 오인 매칭 위험 X.
-    private static final double WALKABLE_BUFFER_METERS = 1.0;
 
     // 에디터 목록 페이지 크기. 무한스크롤 1회 페치 단위.
     private static final int DRAFT_LIST_PAGE_SIZE = 10;
 
-    private final OsmService osmService;
-    private final TrackService trackService;
-    private final CourseDraftService courseDraftService;
     private final MemberRepository memberRepository;
     private final CourseDraftRepository courseDraftRepository;
+    private final CourseDraftService courseDraftService;
     private final TrackRepository trackRepository;
     private final RunningRecordRepository runningRecordRepository;
+    private final TrackImageStorageService trackImageStorageService;
+    private final EditorDraftSaver editorDraftSaver;
 
-    // 에디터로 그린 커스텀 코스를 임시 저장(course_drafts INSERT).
-    // 검증 실패 시 INVALID_ROUTE throw → 트랜잭션 롤백 (Track / CourseDraft 모두 미저장).
-    @Transactional
+    // 에디터 저장 흐름 — 트랜잭션 밖에서 동작.
+    // 1) 디스크 IO 로 썸네일 저장 (트랜잭션 밖에서 끝내야 DB 커넥션이 IO 시간 동안 묶이지 않음)
+    // 2) 별도 클래스의 메서드 호출로 내부 호출 문제 해결
+    // 3) DB 작업 실패 시 디스크에 남은 고아 파일까지 같이 삭제함
     public EditorResponse.SaveResponse save(String loginId, EditorRequest.SaveRequest request) {
-        // 1. JwtAuthFilter 가 principal 로 등록한 loginId 로 Member 조회 → memberId 추출
-        Member member = memberRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
-        Long memberId = member.getMemberId().longValue();
+        String trackImageUrl = trackImageStorageService.storeFromBase64(
+                request.getThumbnailBase64());
 
-        // 2. order 정렬 + Track 입력 모델(TrackRequest.NodeDTO)로 변환
-        List<TrackRequest.NodeDTO> sortedNodes = EditorConverter.toSortedTrackNodes(
-                request.getCoordinates()
-        );
-
-        // 3. 좌표 검증 (osm_ways_split 위에 모두 있는지)
-        osmService.validateAllPointsWalkable(sortedNodes, WALKABLE_BUFFER_METERS);
-
-        // 4. MultiLineString 생성 + Track 영속화 (거리는 PostGIS ST_Length 자동 계산)
-        MultiLineString geom = trackService.createMultiLineString(sortedNodes);
-        Track track = trackService.createTrackFromEditor(geom);
-
-        // 5. CourseDraft 영속화 (status=DRAFT 로 시작)
-        CourseDifficulty difficulty = determineDifficulty(track.getDistance());
-        CourseDraft courseDraft = courseDraftService.createFromEditor(
-                memberId,
-                track,
-                request.getTitle(),
-                difficulty
-        );
-
-        // 6. 응답 변환 (DRAFT → "READY" 매핑)
-        return EditorConverter.toSaveResponse(courseDraft);
+        try {
+            return editorDraftSaver.save(loginId, request, trackImageUrl);
+        } catch (RuntimeException e) {
+            trackImageStorageService.deleteByUrl(trackImageUrl);
+            throw e;
+        }
     }
 
     @Transactional
@@ -124,6 +96,7 @@ public class EditorService {
 
     // 에디터 목록 조회 — filter 별로 Repository 분기.
     // 정렬은 각 쿼리 안에 created_at DESC 로 명시되어 있어 Pageable 의 Sort 는 사용하지 않는다.
+    @Transactional(readOnly = true)
     public EditorResponse.DraftListResultResponse getDraftList(
             String loginId,
             CourseDraftFilterType filter,
@@ -148,21 +121,5 @@ public class EditorService {
                 .toList();
 
         return EditorConverter.toDraftListResultResponse(slice, content);
-    }
-
-    // 거리 기반 난이도 자동 산정.
-    // CourseService.determineDifficulty 와 동일 로직(중복) — CourseService 는 변경 금지 범위라 호출 불가.
-    // 정식 코스 등록 API 작업 시 공통 위치(CourseDifficulty enum 등)로 통합 리팩터링 예정.
-    private CourseDifficulty determineDifficulty(double distanceKm) {
-        if (distanceKm < 3.0) {
-            return CourseDifficulty.BEGINNER;
-        }
-        if (distanceKm < 5.0) {
-            return CourseDifficulty.EASY;
-        }
-        if (distanceKm < 10.0) {
-            return CourseDifficulty.NORMAL;
-        }
-        return CourseDifficulty.HARD;
     }
 }
