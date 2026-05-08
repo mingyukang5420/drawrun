@@ -76,14 +76,14 @@ public class EditorController {
             summary = "에디터 목록 조회 — 사용자 드래프트 목록",
             description = """
                     로그인 사용자가 에디터에서 저장한 드래프트(course_drafts) 목록을 filter 기준으로 조회.
-
+                    
                     filter:
                     - ALL        : 전체 (상태·등록 여부 무관)
                     - READY      : 작성중 (에디터 저장만, 아직 뛰지 않음 → status=READY)
                     - DONE       : 검증됨 (뛰어봤으나 아직 정식 등록 전 → status=DONE && 미등록)
                     - REGISTERED : 등록됨 (해당 드래프트로 뛴 record 가 정식 코스로 등록됨)
                     DONE 과 REGISTERED 는 disjoint.
-
+                    
                     페이지네이션: page (0-based), size 10 고정. created_at DESC 정렬.
                     응답: { content, page, size, hasNext }
                     """
@@ -121,15 +121,15 @@ public class EditorController {
             summary = "에디터 상세 조회 — 본인 드래프트 상세",
             description = """
                     본인이 만든 특정 드래프트의 상세 정보를 조회.
-
+                    
                     응답 status:
                     - READY      : 작성중 (아직 뛰지 않음)
                     - DONE       : 검증됨 (뛰어봤으나 정식 등록 전)
                     - REGISTERED : 등록됨 (이 드래프트 기반 record 가 정식 코스로 등록됨)
                       → 백엔드 내부에서는 draft.status(READY/DONE) + courses 매핑 여부의 derived 값.
-
+                    
                     coordinates: 경로 좌표 시퀀스 [{lat, lng}, ...]
-
+                    
                     권한: 본인 소유 드래프트만 조회 가능. 타인 드래프트면 403 FORBIDDEN.
                     """
     )
@@ -167,15 +167,21 @@ public class EditorController {
             summary = "에디터 저장 — 사용자 커스텀 코스 등록",
             description = """
                     사용자가 에디터에서 그린 커스텀 러닝 코스를 저장.
-
+                    
                     처리 흐름:
-                    1. 좌표가 도보 가능한 길(osm_ways_split) buffer 내에 있는지 검증 (실패 시 400 INVALID_ROUTE)
-                    2. Track 생성 (거리는 PostGIS ST_Length 로 자동 계산)
-                    3. Course 생성 (검증런 전이므로 status=READY, completionScore=0)
+                    1. 썸네일(base64) 을 디스크에 저장하고 공개 URL 확보 (트랜잭션 밖)
+                    2. 좌표가 도보 가능한 길(osm_ways_split) buffer 내에 있는지 검증 (실패 시 400 INVALID_ROUTE)
+                    3. Track 생성 (거리는 PostGIS ST_Length 로 자동 계산, trackImageUrl = 1단계에서 받은 URL)
+                    4. CourseDraft 생성 (검증런 전이므로 status=READY)
+                    5. 2~4 단계 중 어느 하나라도 실패하면 1단계에서 만든 디스크 파일을 보상 삭제
+                    
+                    thumbnailBase64 형식:
+                    - "data:image/png;base64,...." 또는 "data:image/jpeg;base64,...." (data URI 형식)
+                    - 다른 mime 또는 prefix 누락 시 400 INVALID_IMAGE_FILE
                     """,
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
-                    description = "에디터 저장 요청 바디 — 제목과 사용자가 그린 좌표 시퀀스(order 기준 정렬)",
+                    description = "에디터 저장 요청 바디 — 제목, 사용자가 그린 좌표 시퀀스(order 기준 정렬), 썸네일 base64",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
@@ -187,7 +193,9 @@ public class EditorController {
                                                 { "lat": 37.5480598, "lng": 126.9177061, "order": 1 },
                                                 { "lat": 37.5479675, "lng": 126.9181941, "order": 2 },
                                                 { "lat": 37.54793, "lng": 126.91838, "order": 3 }
-                                              ]
+                                            
+                                              ],
+                                              "thumbnailBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
                                             }
                                             """
                             )
@@ -201,11 +209,25 @@ public class EditorController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "검증 실패 — 뛸 수 없는 길 포함(INVALID_ROUTE) 또는 입력 형식 오류(title 길이/좌표 개수/order 누락 등)"
+                    description = """
+                            검증 실패. 사유 코드:
+                            - INVALID_ROUTE : 뛸 수 없는 길 포함
+                            - INVALID_IMAGE_FILE : thumbnailBase64 가 PNG/JPEG data URI 가 아님 / base64 디코딩 실패 / 본문 빔
+                            - INVALID_TRACK_IMAGE_URL : 저장된 이미지 URL 형식 이상 (서버 설정 불일치 등)
+                            - 입력 형식 오류 (title 길이/좌표 개수/order 누락/thumbnailBase64 누락 등)
+                            """
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "401",
                     description = "인증 실패 — 토큰 없음/만료/위변조"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자 없음 — MEMBER_NOT_FOUND"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "썸네일 디스크 쓰기 실패 — FILE_UPLOAD_FAILED"
             )
     })
     public ApiResponse<SaveResponse> save(
@@ -222,11 +244,11 @@ public class EditorController {
             summary = "에디터 삭제 — 미등록 임시 코스(드래프트) 삭제",
             description = """
                     사용자가 에디터에서 임시 저장한(아직 정식 코스로 등록되지 않은) 드래프트를 삭제.
-
+                    
                     삭제 대상:
                     - status = READY 인 CourseDraft (에디터 임시 저장본)
                     - DONE(= 정식 코스 등록 가능 후보) 상태는 삭제 불가 → 400 ALREADY_REGISTERED_COURSE
-
+                    
                     처리 흐름:
                     1. loginId 로 Member 조회 (없으면 404 MEMBER_NOT_FOUND)
                     2. courseDraftId 로 CourseDraft 조회 (없으면 404 COURSE_NOT_FOUND)

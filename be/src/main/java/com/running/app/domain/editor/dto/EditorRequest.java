@@ -53,6 +53,10 @@ public abstract class EditorRequest {
         @Valid
         private List<NodeDTO> coordinates;
 
+        // data URI 형식 — "data:image/png;base64,..." 또는 "data:image/jpeg;base64,..."
+        @NotBlank(message = "썸네일은 빈 값일 수 없습니다.")
+        private String thumbnailBase64;
+
         @Getter
         @NoArgsConstructor
         @AllArgsConstructor
