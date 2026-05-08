@@ -1,5 +1,6 @@
 package com.running.app.domain.editor.service;
 
+import com.running.app.domain.course.service.DifficultyService;
 import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.service.CourseDraftService;
@@ -73,5 +74,5 @@ public class EditorDraftSaver {
         );
 
         return EditorConverter.toSaveResponse(courseDraft);
-    }    
+    }
 }
