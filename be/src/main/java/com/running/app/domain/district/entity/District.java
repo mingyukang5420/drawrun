@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.locationtech.jts.geom.Polygon;
 
 @Entity
 @Getter
@@ -27,4 +28,7 @@ public class District {
 
     @Column(name = "gu", nullable = false, length = 50)
     private String gu;
+
+    @Column(name = "boundary", nullable = false, columnDefinition = "geometry(POLYGON, 4326)")
+    private Polygon boundary;
 }
