@@ -62,3 +62,29 @@
 - 백엔드 개발 태스크 시작
 
 ---
+
+### 📘 0508 · Fri
+
+#### 오늘 한 일 (What I did)
+- 프로젝트 백엔드 구조 파악 (Domain-driven Feature Slice, abstract DTO, static Converter 패턴)
+- 날씨 기능 전체 플로우 확인 (region → districts DB → 위경도 → 기상청 격자 변환 → API → Redis)
+- `District.java`에 `center_point` 필드 추가 (PostGIS Point, hibernate-spatial 매핑), `findBySidoAndGu()` 추가
+
+#### 배운 것 (What I learned)
+- 기상청 단기예보 API는 base_time이 하루 8개 고정 시각으로 제한됨 (5, 8, 11, ...)
+- Spring Batch Job → Step → Scheduler 구조로 정해진 시각마다 전체 구 날씨 데이터를 Redis에 미리 채워두는 방식
+- `redisTemplate`(문자열/JWT)과 `redisObjectTemplate`(객체/날씨)을 분리하는 이유
+
+#### 문제 & 해결 (Problem & Solution)
+- **문제:** Spring Boot에서 이미지 저장 시 EC2 `uploads/tracks` 경로에 저장 안 됨
+- **현재 상태:** 미해결, 다음에 이어서 확인 예정
+
+#### 인사이트 (Insight)
+- TTL 기반 캐싱보다 Batch로 정해진 시각에 선제적으로 채워두는 게 기상청 API 특성상 더 맞는 설계
+
+#### 다음 할 것 (What's Next)
+- `SkyCondition` enum 및 `WeatherResponse.java` DTO 작성
+- `WeatherApiClient.java` 작성 (기상청 API 호출)
+- EC2 이미지 저장 경로 문제 해결
+
+---
