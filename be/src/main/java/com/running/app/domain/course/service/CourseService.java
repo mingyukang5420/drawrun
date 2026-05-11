@@ -159,6 +159,43 @@ public class CourseService {
         return CourseConverter.toDetailDTO(course, regions, isCompleted);
     }
 
+    public CourseResponse.CourseListResultDTO serchCourse(
+            Long memberId,
+            String keyword,
+            Integer page,
+            Integer size
+    ) {
+        if (keyword == null || keyword.isBlank()) {
+            throw new GeneralException(ErrorStatus.BAD_REQUEST);
+        }
+
+        // 기본 최신순 정렬
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
+        Slice<Course> courseSlice = courseRepository.searchCourseSlice(
+                keyword.trim(),
+                pageable
+        );
+
+        List<Course> courses = courseSlice.getContent();
+        Map<Long, List<String>> regionMap = getRegionMap(courses);
+        Set<Long> completedCourseIds = getCompletedCourseIds(memberId, courses);
+
+        List<CourseResponse.CourseListDTO> content = courses.stream()
+                .map(course -> CourseConverter.toListDTO(
+                        course,
+                        regionMap.getOrDefault(course.getId(), List.of()),
+                        completedCourseIds.contains(course.getId())
+                ))
+                .toList();
+
+        return CourseConverter.toListResultDTO(courseSlice, content);
+    }
+
     private Slice<Course> getCourseSlice(
             Long memberId,
             CourseDifficulty difficulty,
