@@ -41,36 +41,31 @@ class IntroScreen extends StatelessWidget {
               const SizedBox(height: 22),
 
               // 로그인 이동
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-
-                children: [
-                  const Text(
-                    '이미 계정이 있나요?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF8E8E93),
-                    ),
-                  ),
-
-                  TextButton(
-                    onPressed: () {
-                      // 로그인 화면 이동
-                      context.pushNamed(RouteNames.login);
-                    },
-
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF1C1C1E),
-                    ),
-
-                    child: const Text(
-                      '로그인',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
+              GestureDetector(
+                onTap: () => context.pushNamed(RouteNames.login),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '이미 계정이 있으신가요? ',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF8E8E93),
+                        ),
                       ),
-                    ),
+                      Text(
+                        '로그인',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF1C1C1E),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
 
               const SizedBox(height: 52),

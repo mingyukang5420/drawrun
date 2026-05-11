@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:running/routes/route_names.dart';
+
 class SignupScreen extends StatelessWidget {
   const SignupScreen({super.key});
 
@@ -10,48 +12,44 @@ class SignupScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFFDFDFD),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(28, 12, 28, 32),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => context.pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    alignment: Alignment.centerLeft,
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    '회원가입',
-                    style: TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.2,
-                      color: Color(0xFF1C1C1E),
-                    ),
-                  ),
-                ],
+              GestureDetector(
+                onTap: () => context.pop(),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 22,
+                  color: Color(0xFF1C1C1E),
+                ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 20),
+
+              const Text(
+                '회원가입',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.0,
+                  color: Color(0xFF1C1C1E),
+                ),
+              ),
+
+              const SizedBox(height: 6),
 
               const Text(
                 '사용자 정보를 입력해주세요',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Color(0xFF9CA3AF),
-                ),
+                style: TextStyle(fontSize: 15, color: Color(0xFF9CA3AF)),
               ),
 
               const SizedBox(height: 32),
 
               _InputWithAction(
                 label: '아이디',
-                hintText: '아이디 입력',
-                actionText: '중복 확인',
+                hintText: '아이디를 입력하세요',
+                actionText: '중복확인',
                 helperText: '사용 가능한 아이디입니다',
               ),
 
@@ -59,14 +57,14 @@ class SignupScreen extends StatelessWidget {
 
               const _AuthInput(
                 label: '닉네임',
-                hintText: '닉네임 입력',
+                hintText: '닉네임을 입력하세요',
               ),
 
               const SizedBox(height: 16),
 
               const _AuthInput(
                 label: '이메일',
-                hintText: '이메일 입력',
+                hintText: '이메일을 입력하세요',
                 keyboardType: TextInputType.emailAddress,
               ),
 
@@ -74,7 +72,7 @@ class SignupScreen extends StatelessWidget {
 
               const _AuthInput(
                 label: '비밀번호',
-                hintText: '비밀번호 입력',
+                hintText: '비밀번호를 입력하세요',
                 obscureText: true,
               ),
 
@@ -82,7 +80,7 @@ class SignupScreen extends StatelessWidget {
 
               const _AuthInput(
                 label: '비밀번호 확인',
-                hintText: '비밀번호 재입력',
+                hintText: '비밀번호를 다시 입력하세요',
                 obscureText: true,
               ),
 
@@ -150,6 +148,32 @@ class SignupScreen extends StatelessWidget {
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
                     ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              GestureDetector(
+                onTap: () => context.pushNamed(RouteNames.login),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '이미 계정이 있으신가요? ',
+                        style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+                      ),
+                      Text(
+                        '로그인',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF1C1C1E),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

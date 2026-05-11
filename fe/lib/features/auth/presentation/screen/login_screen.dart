@@ -28,12 +28,12 @@ class _LoginBody extends StatefulWidget {
 }
 
 class _LoginBodyState extends State<_LoginBody> {
-  final _emailController = TextEditingController();
+  final _idController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _idController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -44,56 +44,51 @@ class _LoginBodyState extends State<_LoginBody> {
       backgroundColor: const Color(0xFFFDFDFD),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(28, 12, 28, 32),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => context.pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    alignment: Alignment.centerLeft,
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    '로그인',
-                    style: TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.2,
-                      color: Color(0xFF1C1C1E),
-                    ),
-                  ),
-                ],
+              GestureDetector(
+                onTap: () => context.pop(),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 22,
+                  color: Color(0xFF1C1C1E),
+                ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 20),
 
               const Text(
-                '계정 정보를 입력해주세요',
+                '로그인',
                 style: TextStyle(
-                  fontSize: 15,
-                  color: Color(0xFF9CA3AF),
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.0,
+                  color: Color(0xFF1C1C1E),
                 ),
+              ),
+
+              const SizedBox(height: 6),
+
+              const Text(
+                '계속하려면 로그인하세요',
+                style: TextStyle(fontSize: 15, color: Color(0xFF9CA3AF)),
               ),
 
               const SizedBox(height: 32),
 
               _buildInput(
-                label: '이메일',
-                hintText: '이메일 입력',
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
+                label: '아이디',
+                hintText: '아이디를 입력하세요',
+                controller: _idController,
               ),
 
               const SizedBox(height: 16),
 
               _buildInput(
                 label: '비밀번호',
-                hintText: '비밀번호 입력',
+                hintText: '비밀번호를 입력하세요',
                 controller: _passwordController,
                 obscureText: true,
               ),
@@ -105,10 +100,7 @@ class _LoginBodyState extends State<_LoginBody> {
                 child: widget.state.errorMessage != null
                     ? Text(
                         widget.state.errorMessage!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.red,
-                        ),
+                        style: const TextStyle(fontSize: 12, color: Colors.red),
                       )
                     : null,
               ),
@@ -122,7 +114,7 @@ class _LoginBodyState extends State<_LoginBody> {
                   onPressed: widget.state.isLoading
                       ? null
                       : () => widget.notifier.login(
-                            email: _emailController.text.trim(),
+                            email: _idController.text.trim(),
                             password: _passwordController.text,
                           ),
                   style: ElevatedButton.styleFrom(
@@ -154,27 +146,46 @@ class _LoginBodyState extends State<_LoginBody> {
 
               const SizedBox(height: 20),
 
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      '계정이 없으신가요? ',
-                      style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () {},
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      child: Text(
+                        '아이디 찾기',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                      ),
                     ),
-                    GestureDetector(
-                      onTap: () => context.pushNamed(RouteNames.signup),
-                      child: const Text(
+                  ),
+                  const Text('|', style: TextStyle(fontSize: 13, color: Color(0xFFD1D5DB))),
+                  GestureDetector(
+                    onTap: () {},
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      child: Text(
+                        '비밀번호 찾기',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                      ),
+                    ),
+                  ),
+                  const Text('|', style: TextStyle(fontSize: 13, color: Color(0xFFD1D5DB))),
+                  GestureDetector(
+                    onTap: () => context.pushNamed(RouteNames.signup),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      child: Text(
                         '회원가입',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: Color(0xFF1C1C1E),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
