@@ -5,6 +5,8 @@ import com.running.app.domain.course.repository.CourseRepository;
 import com.running.app.domain.course.service.CourseService;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
+import com.running.app.domain.member.entity.Member;
+import com.running.app.domain.member.repository.MemberRepository;
 import com.running.app.domain.record.converter.RecordConverter;
 import com.running.app.domain.record.dto.RecordRequest;
 import com.running.app.domain.record.dto.RecordResponse;
@@ -55,12 +57,17 @@ public class RecordService {
     private final CourseService courseService;
     private final CourseRepository courseRepository;
     private final OsmService osmService;
+    private final MemberRepository memberRepository;
     //작성
     @Transactional
     public void createRecord(
-            Long memberId,
+            String loginId,
             RecordRequest.CreateDTO request
     ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         validateRecordSource(request);
 
         Track track = trackService.createTrack(
@@ -102,10 +109,15 @@ public class RecordService {
     }
 
     public RecordResponse.ListResultDTO getRecordList(
-            Long memberId,
+            String loginId,
             Integer page,
             Integer size
     ) {
+
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         Pageable pageable = PageRequest.of(page, size);
 
         Slice<RunningRecord> recordSlice = runningRecordRepository
@@ -125,9 +137,13 @@ public class RecordService {
     }
 
     public RecordResponse.DetailDTO getRecordDetail(
-            Long memberId,
+            String loginId,
             Long recordId
     ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         RunningRecord runningRecord = runningRecordRepository.findByIdAndMemberId(
                 recordId,
                 memberId
@@ -140,10 +156,14 @@ public class RecordService {
     //save() 할 필요 없음 -> dirty checking
     @Transactional
     public void changeRecordTitle(
-            Long memberId,
+            String loginId,
             Long recordId,
             RecordRequest.ChangeTitleDTO request
     ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         RunningRecord runningRecord = runningRecordRepository.findByIdAndMemberId(
                 recordId,
                 memberId
@@ -173,9 +193,13 @@ public class RecordService {
     }
 
     public RecordResponse.StatsDTO getRecordStats(
-            Long memberId,
+            String loginId,
             String period
     ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         RecordStatsPeriod statsPeriod = RecordStatsPeriod.from(period);
         LocalDate today = LocalDate.now();
 
