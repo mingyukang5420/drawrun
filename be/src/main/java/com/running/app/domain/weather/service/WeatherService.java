@@ -1,5 +1,7 @@
 package com.running.app.domain.weather.service;
 
+import com.running.app.domain.district.entity.District;
+import com.running.app.domain.district.repository.DistrictRepository;
 import com.running.app.domain.weather.dto.WeatherCacheDto;
 import com.running.app.domain.weather.dto.WeatherResponse;
 import com.running.app.domain.weather.type.PrecipitationType;
@@ -12,9 +14,14 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class WeatherService {
 
+    private final DistrictRepository districtRepository;
     private final RedisTemplate<String, Object> redisObjectTemplate;
 
-    public WeatherResponse.Result getWeather(String gu) {
+    public WeatherResponse.Result getWeather(String sido, String gu) {
+
+        // sido, gu로 구 존재 여부 확인
+        districtRepository.findBySidoAndGu(sido, gu)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 구입니다: " + sido + " " + gu));
 
         // Redis에서 "weather:송파구" 키로 조회
         String redisKey = "weather:" + gu;
@@ -22,7 +29,7 @@ public class WeatherService {
                 .opsForValue()
                 .get(redisKey);
 
-        // Redis에 데이터 없으면 예외 (스케줄러가 아직 안 돌았거나 잘못된 구 이름)
+        // Redis에 데이터 없으면 예외
         if (cached == null) {
             throw new IllegalArgumentException("날씨 데이터가 없습니다: " + gu);
         }
