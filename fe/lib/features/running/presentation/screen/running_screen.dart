@@ -21,8 +21,8 @@ class RunningScreen extends ConsumerWidget {
           children: [
             _TopBar(),
             _Greeting(),
-            _BookmarkedCourses(),
-            // 지도는 남은 공간을 모두 차지
+            _WeeklyStats(),            // 이번 주 활동 요약
+            _BookmarkedCourses(),       // 북마크 코스 캐러셀
             const Expanded(child: RunningMapView()),
             _FreeRunButton(
               onPressed: () async {
@@ -54,13 +54,11 @@ class _TopBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // 프로필 아바타 (TODO: 실제 프로필 이미지로 교체)
           const CircleAvatar(
             radius: 20,
             backgroundColor: Color(0xFFE5E7EB),
             child: Icon(Icons.person, color: Color(0xFF9CA3AF), size: 22),
           ),
-          // 빠른 경로(북마크) 이동 버튼
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -99,7 +97,6 @@ class _Greeting extends StatelessWidget {
             ),
           ),
           SizedBox(height: 4),
-          // TODO: 위치·날씨 API 연동 후 동적 데이터로 교체
           Text(
             '서울특별시 송파구 18°C 맑음 ☀️',
             style: TextStyle(
@@ -110,6 +107,104 @@ class _Greeting extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── 이번 주 활동 요약 스트립 ─────────────────────────────────────────
+// TODO: 러닝 기록 API 연동 후 실제 데이터로 교체
+class _WeeklyStats extends StatelessWidget {
+  const _WeeklyStats();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F4F6),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            _StatCell(value: '28.4', unit: 'km', label: '이번 주 거리'),
+            const _VerticalDivider(),
+            _StatCell(value: '5', unit: '회', label: '러닝 횟수'),
+            const _VerticalDivider(),
+            _StatCell(value: '3', unit: '일', label: '연속 달성'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  final String value;
+  final String unit;
+  final String label;
+
+  const _StatCell({
+    required this.value,
+    required this.unit,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                    fontFamily: 'SUIT',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1C1C1E),
+                  ),
+                ),
+                TextSpan(
+                  text: ' $unit',
+                  style: const TextStyle(
+                    fontFamily: 'SUIT',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 11,
+              color: Color(0xFF9CA3AF),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerticalDivider extends StatelessWidget {
+  const _VerticalDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      color: const Color(0xFFE5E7EB),
     );
   }
 }
@@ -126,25 +221,25 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
   // TODO: 북마크 API 연동 후 서버 데이터로 교체
   static const _items = [
     _CourseItem(
-      badge: '추천',
-      badgeColor: Color(0xFF3B82F6),
-      name: '한강공원 코스',
-      distance: '5.2km',
-      time: '32분',
+      title: '한강 러닝코스',
+      difficulty: 'EASY',
+      distance: 3.5,
+      regions: ['성동구', '관악구'],
+      completionScore: 65,
     ),
     _CourseItem(
-      badge: '인기',
-      badgeColor: Color(0xFFF59E0B),
-      name: '석촌호수 코스',
-      distance: '3.8km',
-      time: '24분',
+      title: '석촌호수 코스',
+      difficulty: 'NORMAL',
+      distance: 3.8,
+      regions: ['송파구'],
+      completionScore: 0,
     ),
     _CourseItem(
-      badge: '신규',
-      badgeColor: Color(0xFF6B7280),
-      name: '서울숲 코스',
-      distance: '4.6km',
-      time: '28분',
+      title: '서울숲 코스',
+      difficulty: 'HARD',
+      distance: 6.2,
+      regions: ['성동구'],
+      completionScore: 100,
     ),
   ];
 
@@ -154,8 +249,7 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
   @override
   void initState() {
     super.initState();
-    // viewportFraction < 1 → 옆 카드가 살짝 보이는 캐러셀 효과
-    _controller = PageController(viewportFraction: 0.82);
+    _controller = PageController(viewportFraction: 0.88);
     _controller.addListener(() {
       final page = _controller.page?.round() ?? 0;
       if (page != _currentPage) setState(() => _currentPage = page);
@@ -173,7 +267,6 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 섹션 헤더
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 12, 12),
           child: Row(
@@ -184,14 +277,12 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
             ],
           ),
         ),
-        // 캐러셀 PageView
         SizedBox(
-          height: 185,
+          height: 205,
           child: PageView.builder(
             controller: _controller,
             itemCount: _items.length,
             itemBuilder: (_, i) => Padding(
-              // 카드 간격: 좌우 6px
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: _CourseCard(item: _items[i]),
             ),
@@ -224,20 +315,22 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
   }
 }
 
-// ── 코스 카드 데이터 ───────────────────────────────────────────────
+// ── 코스 카드 데이터 (Course 도메인 필드 반영) ─────────────────────
 class _CourseItem {
-  final String badge;
-  final Color badgeColor;
-  final String name;
-  final String distance;
-  final String time;
+  final String title;
+  final String difficulty;      // 'EASY' | 'NORMAL' | 'HARD'
+  final double distance;         // km
+  final List<String> regions;
+  final String? thumbnailUrl;
+  final int completionScore;    // 0~100
 
   const _CourseItem({
-    required this.badge,
-    required this.badgeColor,
-    required this.name,
+    required this.title,
+    required this.difficulty,
     required this.distance,
-    required this.time,
+    required this.regions,
+    this.thumbnailUrl,
+    this.completionScore = 0,
   });
 }
 
@@ -247,92 +340,181 @@ class _CourseCard extends StatelessWidget {
 
   const _CourseCard({required this.item});
 
+  // 난이도별 색상 및 한글 라벨
+  static const _difficultyColor = {
+    'EASY': Color(0xFF27AE60),
+    'NORMAL': Color(0xFFE67E22),
+    'HARD': Color(0xFFE74C3C),
+  };
+  static const _difficultyLabel = {
+    'EASY': '쉬움',
+    'NORMAL': '보통',
+    'HARD': '어려움',
+  };
+
   @override
   Widget build(BuildContext context) {
+    final diffColor =
+        _difficultyColor[item.difficulty] ?? const Color(0xFF6B7280);
+    final diffLabel = _difficultyLabel[item.difficulty] ?? item.difficulty;
+    final hasProgress = item.completionScore > 0 && item.completionScore < 100;
+    final isCompleted = item.completionScore >= 100;
+
     return Container(
-      // 너비는 PageView의 viewportFraction이 결정 — 명시적 width 불필요
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.07),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 이미지 영역 + 배지 오버레이
+          // ── 이미지 영역 ──
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
             child: Stack(
               children: [
-                // TODO: 실제 코스 이미지로 교체
-                Container(
-                  height: 115,
-                  color: const Color(0xFFE5E7EB),
-                  child: const Icon(
-                    Icons.landscape,
-                    color: Color(0xFFD1D5DB),
-                    size: 36,
+                // 썸네일 이미지 or 플레이스홀더
+                _Thumbnail(url: item.thumbnailUrl),
+                // 하단 그라데이션 (텍스트 가독성)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.18),
+                        ],
+                        stops: const [0.5, 1.0],
+                      ),
+                    ),
                   ),
                 ),
-                // 배지 (추천·인기·신규)
+                // 난이도 배지 (좌상단)
                 Positioned(
-                  top: 8,
-                  left: 8,
+                  top: 10,
+                  left: 10,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                        horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
-                      color: item.badgeColor,
-                      borderRadius: BorderRadius.circular(6),
+                      color: diffColor,
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      item.badge,
+                      diffLabel,
                       style: const TextStyle(
                         fontFamily: 'Pretendard',
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
                     ),
                   ),
                 ),
+                // 완주 or 진행 중 배지 (우상단)
+                if (isCompleted || hasProgress)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isCompleted
+                            ? const Color(0xFF1C1C1E)
+                            : Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        isCompleted
+                            ? '완주 ✓'
+                            : '${item.completionScore}%',
+                        style: TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isCompleted
+                              ? Colors.white
+                              : const Color(0xFF1C1C1E),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-          // 코스명 + 거리·시간
+
+          // ── 텍스트 정보 영역 ──
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 코스 이름
                 Text(
-                  item.name,
+                  item.title,
                   style: const TextStyle(
                     fontFamily: 'Pretendard',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                     color: Color(0xFF1C1C1E),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '${item.distance} · ${item.time}',
-                  style: const TextStyle(
-                    fontFamily: 'Pretendard',
-                    fontSize: 12,
-                    color: Color(0xFF9CA3AF),
-                  ),
+                const SizedBox(height: 6),
+                // 지역 + 거리 한 줄
+                Row(
+                  children: [
+                    const Icon(Icons.place_outlined,
+                        size: 13, color: Color(0xFF9CA3AF)),
+                    const SizedBox(width: 2),
+                    Text(
+                      item.regions.join(' · '),
+                      style: const TextStyle(
+                        fontFamily: 'Pretendard',
+                        fontSize: 12,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.straighten_outlined,
+                        size: 13, color: Color(0xFF9CA3AF)),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${item.distance.toStringAsFixed(1)} km',
+                      style: const TextStyle(
+                        fontFamily: 'SUIT',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
                 ),
+                // 진행 중인 코스만 프로그레스 바 표시
+                if (hasProgress) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: item.completionScore / 100,
+                      minHeight: 4,
+                      backgroundColor: const Color(0xFFE5E7EB),
+                      valueColor: AlwaysStoppedAnimation<Color>(diffColor),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -342,7 +524,35 @@ class _CourseCard extends StatelessWidget {
   }
 }
 
-// ── 자유 러닝 시작 버튼 ─────────────────────────────────────────────
+// 썸네일 이미지: URL 있으면 네트워크, 없으면 플레이스홀더
+class _Thumbnail extends StatelessWidget {
+  final String? url;
+
+  const _Thumbnail({this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    if (url != null) {
+      return Image.network(
+        url!,
+        width: double.infinity,
+        height: 130,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _placeholder(),
+      );
+    }
+    return _placeholder();
+  }
+
+  Widget _placeholder() => Container(
+        width: double.infinity,
+        height: 130,
+        color: const Color(0xFFE5E7EB),
+        child: const Icon(Icons.landscape, color: Color(0xFFD1D5DB), size: 40),
+      );
+}
+
+// ── 바로 달리기 시작 버튼 ────────────────────────────────────────────
 class _FreeRunButton extends StatelessWidget {
   final VoidCallback onPressed;
 
@@ -364,19 +574,14 @@ class _FreeRunButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Text(
-                '바로 달리기 시작',
-                style: TextStyle(
-                  fontFamily: 'SUIT',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ],
+          child: const Text(
+            '바로 달리기 시작',
+            style: TextStyle(
+              fontFamily: 'SUIT',
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
         ),
       ),
