@@ -114,7 +114,7 @@ class _LoginBodyState extends State<_LoginBody> {
                   onPressed: widget.state.isLoading
                       ? null
                       : () => widget.notifier.login(
-                            email: _idController.text.trim(),
+                            loginId: _idController.text.trim(),
                             password: _passwordController.text,
                           ),
                   style: ElevatedButton.styleFrom(
