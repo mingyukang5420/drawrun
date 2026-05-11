@@ -9,7 +9,7 @@ import 'package:running/shared/model/lat_lng.dart' as shared;
 import 'package:running/shared/network/api_exception.dart';
 
 // 코스 화면이 구독하는 불변 상태 클래스
-// 목록 화면(CourseScreen)과 편집 화면(CourseEditorScreen) 이
+// 목록 화면(CourseSearchScreen)과 편집 화면(CourseEditorScreen) 이
 // 각각 별도 Provider 인스턴스를 통해 공유한다
 class CourseState {
   // ── 목록 상태 ──────────────────────────────────
