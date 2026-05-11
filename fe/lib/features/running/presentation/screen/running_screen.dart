@@ -21,13 +21,9 @@ class RunningScreen extends ConsumerWidget {
           children: [
             _Header(),
             _BookmarkedCourses(),
-            // 지도: 상하좌우 가장자리를 배경색(흰색)으로 자연스럽게 페이드
             Expanded(
               child: Stack(
-                children: [
-                  const RunningMapView(),
-                  const _MapVignette(),
-                ],
+                children: [const RunningMapView(), const _MapVignette()],
               ),
             ),
             _FreeRunButton(
@@ -76,7 +72,7 @@ class _Header extends StatelessWidget {
                   '오늘도 달리기 좋은 날씨예요! ☀️',
                   style: TextStyle(
                     fontFamily: 'Pretendard',
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1C1C1E),
                     letterSpacing: -0.3,
@@ -85,7 +81,7 @@ class _Header extends StatelessWidget {
                 SizedBox(height: 3),
                 // TODO: 위치·날씨 API 연동 후 동적 데이터로 교체
                 Text(
-                  '서울특별시 18°C 맑음',
+                  '서울특별시 강남구 18°C 맑음',
                   style: TextStyle(
                     fontFamily: 'Pretendard',
                     fontSize: 13,
@@ -135,13 +131,15 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
     ),
   ];
 
+  static const _viewportFraction = 0.78;
+
   late final PageController _controller;
   int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = PageController(viewportFraction: 0.88);
+    _controller = PageController(viewportFraction: _viewportFraction);
     _controller.addListener(() {
       final page = _controller.page?.round() ?? 0;
       if (page != _currentPage) setState(() => _currentPage = page);
@@ -160,24 +158,77 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 12, 12),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
           child: Row(
             children: [
-              Text('북마크한 코스', style: AppTextStyle.titleMedium),
+              Text('북마크한 코스', style: AppTextStyle.button),
               const Spacer(),
-              const Icon(Icons.chevron_right, color: Color(0xFF6B7280), size: 22),
+              const Icon(
+                Icons.chevron_right,
+                color: Color(0xFF6B7280),
+                size: 24,
+              ),
             ],
           ),
         ),
         SizedBox(
-          height: 100,
+          height: 96,
           child: PageView.builder(
+            clipBehavior: Clip.none,
+            padEnds: false,
             controller: _controller,
-            itemCount: _items.length,
-            itemBuilder: (_, i) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: _CourseCard(item: _items[i]),
+            physics: _BoundedPageScrollPhysics(
+              maxPage: _items.length - 1,
+              viewportFraction: _viewportFraction,
             ),
+            itemCount: _items.length + 1,
+            itemBuilder: (_, i) {
+              if (i == _items.length) {
+                return Padding(
+                  padding: const EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 4,
+                    bottom: 4,
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () {},
+                      child: Container(
+                        width:
+                            MediaQuery.of(context).size.width *
+                                (1 - _viewportFraction) -
+                            40,
+                        height:
+                            MediaQuery.of(context).size.width *
+                                (1 - _viewportFraction) -
+                            40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color.fromARGB(255, 243, 243, 243),
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          color: Color(0xFF9CA3AF),
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(
+                  left: 20,
+                  right: 4,
+                  top: 4,
+                  bottom: 4,
+                ),
+                child: _CourseCard(item: _items[i]),
+              );
+            },
           ),
         ),
         // 페이지 인디케이터
@@ -195,7 +246,7 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
                 decoration: BoxDecoration(
                   color: active
                       ? const Color(0xFF1C1C1E)
-                      : const Color(0xFFD1D5DB),
+                      : const Color(0xFF9CA3AF),
                   borderRadius: BorderRadius.circular(3),
                 ),
               );
@@ -210,11 +261,11 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
 // ── 코스 카드 데이터 (Course 도메인 필드 반영) ─────────────────────
 class _CourseItem {
   final String title;
-  final String difficulty;      // 'EASY' | 'NORMAL' | 'HARD'
-  final double distance;         // km
+  final String difficulty; // 'EASY' | 'NORMAL' | 'HARD'
+  final double distance; // km
   final List<String> regions;
   final String? thumbnailUrl;
-  final int completionScore;    // 0~100
+  final int completionScore; // 0~100
 
   const _CourseItem({
     required this.title,
@@ -238,11 +289,7 @@ class _CourseCard extends StatelessWidget {
     'NORMAL': Color(0xFFE67E22),
     'HARD': Color(0xFFE74C3C),
   };
-  static const _difficultyLabel = {
-    'EASY': '쉬움',
-    'NORMAL': '보통',
-    'HARD': '어려움',
-  };
+  static const _difficultyLabel = {'EASY': '쉬움', 'NORMAL': '보통', 'HARD': '어려움'};
 
   @override
   Widget build(BuildContext context) {
@@ -253,6 +300,7 @@ class _CourseCard extends StatelessWidget {
     final isCompleted = item.completionScore >= 100;
 
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -268,8 +316,9 @@ class _CourseCard extends StatelessWidget {
         children: [
           // ── 소형 썸네일 (좌측 정사각형) ──
           ClipRRect(
-            borderRadius:
-                const BorderRadius.horizontal(left: Radius.circular(16)),
+            borderRadius: const BorderRadius.horizontal(
+              left: Radius.circular(16),
+            ),
             child: _Thumbnail(url: item.thumbnailUrl),
           ),
           // ── 텍스트 정보 (우측) ──
@@ -296,13 +345,15 @@ class _CourseCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 3),
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: diffColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           diffLabel,
@@ -319,8 +370,11 @@ class _CourseCard extends StatelessWidget {
                   // 지역 + 거리
                   Row(
                     children: [
-                      const Icon(Icons.place_outlined,
-                          size: 12, color: Color(0xFF9CA3AF)),
+                      const Icon(
+                        Icons.place_outlined,
+                        size: 12,
+                        color: Color(0xFF9CA3AF),
+                      ),
                       const SizedBox(width: 2),
                       Expanded(
                         child: Text(
@@ -397,15 +451,16 @@ class _Thumbnail extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        width: 88,
-        height: 88,
-        color: const Color(0xFFE5E7EB),
-        child: const Icon(Icons.landscape, color: Color(0xFFD1D5DB), size: 32),
-      );
+    width: 88,
+    height: 88,
+    color: const Color(0xFFE5E7EB),
+    child: const Icon(Icons.landscape, color: Color(0xFFD1D5DB), size: 32),
+  );
 }
 
-// ── 지도 가장자리 페이드 비네팅 ─────────────────────────────────────
-// 상하좌우에서 흰색 → 투명 그라데이션을 올려 배경과 자연스럽게 섞이게 한다.
+// ── 지도 원형 비네팅 ────────────────────────────────────────────────
+// 지도 중앙(= 사용자 위치)을 중심으로 원형으로 흰색이 자연스럽게 페이드인.
+// CustomPainter 로 직접 캔버스에 그려 위젯 크기 문제를 회피한다.
 // IgnorePointer 로 감싸 지도 터치 이벤트는 그대로 통과시킨다.
 class _MapVignette extends StatelessWidget {
   const _MapVignette();
@@ -413,21 +468,74 @@ class _MapVignette extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
-      child: SizedBox.expand(
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            // 중앙 투명 → 바깥쪽 흰색으로 퍼지는 원형 그라데이션
-            // radius 를 1.4 로 키우면 코너까지 충분히 덮인다
-            gradient: RadialGradient(
-              center: Alignment.center,
-              radius: 1.4,
-              colors: [Color(0x00FFFFFF), Colors.white],
-              stops: [0.45, 1.0],
-            ),
-          ),
-        ),
+      child: CustomPaint(
+        painter: _VignettePainter(),
+        child: const SizedBox.expand(),
       ),
     );
+  }
+}
+
+class _VignettePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.longestSide * 0.6;
+
+    final shader =
+        RadialGradient(
+          colors: const [Color(0x00FFFFFF), Colors.white],
+          stops: const [0.15, 0.7],
+        ).createShader(
+          Rect.fromCenter(
+            center: center,
+            width: radius * 2,
+            height: radius * 2,
+          ),
+        );
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..shader = shader,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ── 커스텀 스크롤 물리: maxPage 이후 스냅 방지 ─────────────────────────
+class _BoundedPageScrollPhysics extends PageScrollPhysics {
+  final int maxPage;
+  final double viewportFraction;
+
+  const _BoundedPageScrollPhysics({
+    required this.maxPage,
+    required this.viewportFraction,
+    super.parent,
+  });
+
+  @override
+  _BoundedPageScrollPhysics applyTo(ScrollPhysics? ancestor) =>
+      _BoundedPageScrollPhysics(
+        maxPage: maxPage,
+        viewportFraction: viewportFraction,
+        parent: buildParent(ancestor),
+      );
+
+  double _maxExtent(ScrollMetrics pos) =>
+      maxPage * viewportFraction * pos.viewportDimension;
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    final maxExtent = _maxExtent(position);
+    if (value > maxExtent && position.pixels < maxExtent) {
+      return value - maxExtent;
+    }
+    if (value > maxExtent && position.pixels >= maxExtent) {
+      return value - position.pixels;
+    }
+    return super.applyBoundaryConditions(position, value);
   }
 }
 
@@ -440,7 +548,7 @@ class _FreeRunButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: SizedBox(
         width: double.infinity,
         height: 60,
@@ -466,8 +574,11 @@ class _FreeRunButton extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 6),
-              Icon(Icons.play_arrow_rounded,
-                  color: Color(0xFFFFD60A), size: 22),
+              Icon(
+                Icons.play_arrow_rounded,
+                color: Color(0xFFFFD60A),
+                size: 22,
+              ),
             ],
           ),
         ),
