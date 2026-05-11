@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:running/shared/network/api_exception.dart';
 import 'package:running/features/record/domain/record_detail.dart';
 import 'package:running/features/record/presentation/screen/record_route_screen.dart';
 import 'package:running/features/record/presentation/record_detail_viewmodel.dart';
@@ -127,12 +128,33 @@ class _RecordDetailScreenState extends ConsumerState<RecordDetailScreen> {
                 const SizedBox(height: 6),
 
                 // 제목.
-                Text(
-                  data.title,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
+                // 제목 + 펜 아이콘.
+                // Row 안에 Text 와 IconButton 두 개를 둔다.
+                // Text 가 길어지면 ellipsis 로 잘리도록 Expanded 로 감싸 — 펜 버튼이 잘리지 않도록.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        data.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    // IconButton 의 기본 패딩(8) 이 시각적으로 거슬리지 않으므로
+                    // visualDensity 만 살짝 줄여 제목과 자연스럽게 어울리게 한다.
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 20),
+                      color: Colors.black54,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: '제목 수정',
+                      onPressed: () => _showEditTitleDialog(context, data.title),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
 
@@ -188,6 +210,36 @@ class _RecordDetailScreenState extends ConsumerState<RecordDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 제목 수정 다이얼로그.
+  // 사용자가 펜 아이콘을 탭하면 호출된다.
+  //
+  // 펜 아이콘 onPressed 에서 호출.
+  // 다이얼로그 자체는 _EditTitleDialog 가 다 책임지고,
+  // 이 메서드는 "어떻게 저장할지" 콜백만 주입한다.
+  Future<void> _showEditTitleDialog(
+      BuildContext context,
+      String initialTitle,
+      ) {
+    return showDialog<void>(
+      context: context,
+      // 저장 중 dismiss 차단은 _EditTitleDialog 의 onPressed null 처리로 충분.
+      // 여기서는 일반적인 동작(바깥 탭으로 닫기 가능) 을 그대로 둔다.
+      builder: (dialogContext) => _EditTitleDialog(
+        initialTitle: initialTitle,
+        onSave: (newTitle) async {
+          // Notifier 호출 → 성공 시 상세 화면 제목 즉시 갱신.
+          await ref
+              .read(recordDetailViewModelProvider.notifier)
+              .updateTitle(newTitle);
+
+          // 히스토리 목록의 제목도 새로고침되도록 무효화.
+          // 살아있는 listener (히스토리 화면) 가 있으면 즉시 재로딩.
+          ref.invalidate(historyViewModelProvider);
+        },
       ),
     );
   }
@@ -347,6 +399,140 @@ class _MetricCell extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// 제목 수정 다이얼로그.
+//
+// 컨트롤러를 State 가 소유 → dispose 시점이 위젯 제거 이후로 보장된다.
+// 함수 지역 변수로 컨트롤러를 만들고 await 뒤에 dispose 하면
+// FocusNode 의 비동기 알림과 시점이 충돌해 "used after dispose" 에러가 난다.
+class _EditTitleDialog extends StatefulWidget {
+  // 초기 제목 — TextField 의 시작 값으로 사용.
+  // "변경 없음" 판정에도 다시 비교할 기준값.
+  final String initialTitle;
+
+  // 저장 버튼 동작. 비동기 호출 + 예외 던지기를 그대로 전달.
+  // 다이얼로그는 이 함수의 성공/실패만 알고, 어떤 Notifier 가 무슨 일을 하는지는 몰라도 된다.
+  final Future<void> Function(String newTitle) onSave;
+
+  const _EditTitleDialog({
+    required this.initialTitle,
+    required this.onSave,
+  });
+
+  @override
+  State<_EditTitleDialog> createState() => _EditTitleDialogState();
+}
+
+class _EditTitleDialogState extends State<_EditTitleDialog> {
+  // late final: initState 에서 한 번만 초기화하고 그 뒤로 바꾸지 않는다.
+  late final TextEditingController _controller;
+
+  // 저장 진행 중 플래그 — 버튼/배경 탭 차단에 사용.
+  bool _isSaving = false;
+
+  // 빨간 헬퍼 텍스트로 표시할 에러 메시지. null 이면 정상.
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // 초기값 = 현재 제목. 사용자가 부분 수정하기 편하다.
+    _controller = TextEditingController(text: widget.initialTitle);
+  }
+
+  @override
+  void dispose() {
+    // 위젯이 트리에서 빠진 뒤 호출 → FocusNode 알림은 이미 모두 끝남.
+    // 안전하게 컨트롤러 해제.
+    _controller.dispose();
+    super.dispose();
+  }
+
+  // 저장 버튼 핸들러.
+  // BE 검증 규칙을 미리 흉내내고, 통과하면 onSave 콜백 호출.
+  Future<void> _handleSave() async {
+    final newTitle = _controller.text.trim();
+
+    // 1) 빈 입력 거부 (BE @NotBlank).
+    if (newTitle.isEmpty) {
+      setState(() => _errorMessage = '제목을 입력해주세요');
+      return;
+    }
+
+    // 2) 변경 없음 → BE 호출 없이 그냥 닫기.
+    if (newTitle == widget.initialTitle) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    // 3) BE 호출.
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.onSave(newTitle);
+      // 비동기 후 화면이 여전히 살아있는지 mounted 로 확인. 그렇지 않으면 pop 호출이 위험.
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _errorMessage = e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _errorMessage = '알 수 없는 오류: $e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('제목 수정'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        // BE 의 @Size(max = 20) 규칙을 입력 단계에서 강제.
+        // 카운터(현재/최대) 가 자동으로 우측 하단에 표시된다.
+        maxLength: 20,
+        decoration: InputDecoration(
+          hintText: '러닝 제목',
+          // errorMessage 가 채워지면 빨간 헬퍼 텍스트로 표시.
+          errorText: _errorMessage,
+        ),
+        // 사용자가 다시 타이핑하기 시작하면 에러를 자연스럽게 지운다.
+        onChanged: (_) {
+          if (_errorMessage != null) {
+            setState(() => _errorMessage = null);
+          }
+        },
+      ),
+      actions: [
+        TextButton(
+          // 저장 중에는 취소도 막아 상태 꼬임 방지.
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        TextButton(
+          onPressed: _isSaving ? null : _handleSave,
+          child: _isSaving
+              ? const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+              : const Text('저장'),
+        ),
+      ],
     );
   }
 }

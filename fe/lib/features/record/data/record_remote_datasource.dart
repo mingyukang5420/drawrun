@@ -69,4 +69,19 @@ class RecordRemoteDataSource {
       throw ApiException.fromDioException(e);
     }
   }
+
+  // PATCH /api/v1/record/{recordId} — 기록 제목 수정
+  //
+  // BE 응답 result 는 Void(=null) 이므로 별도 반환값이 없다.
+  // 호출 성공 = 200 OK 받았다는 의미. 실패 시 DioException → ApiException 로 던진다.
+  Future<void> patchTitle(int recordId, String title) async {
+    try {
+      await _dio.patch(
+        '/api/v1/record/$recordId',
+        data: {'title': title},
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
 }

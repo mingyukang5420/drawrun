@@ -36,4 +36,9 @@ class RecordRepositoryImpl implements RecordRepository {
   Future<RecordStats> getStats(String period) {
     return _datasource.fetchStats(period);
   }
+
+  @override
+  Future<void> changeTitle(int recordId, String title) {
+    return _datasource.patchTitle(recordId, title);
+  }
 }

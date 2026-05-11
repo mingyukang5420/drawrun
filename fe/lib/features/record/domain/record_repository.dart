@@ -21,4 +21,7 @@ abstract class RecordRepository {
   // 기간 단위 통계를 조회한다.
   // period 는 BE 가 받는 문자열( week/month/year/all ) 그대로.
   Future<RecordStats> getStats(String period);
+
+  // 기록 제목 수정.
+  Future<void> changeTitle(int recordId, String title);
 }

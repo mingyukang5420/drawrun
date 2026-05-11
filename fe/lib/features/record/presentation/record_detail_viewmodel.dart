@@ -88,4 +88,43 @@ class RecordDetailNotifier extends Notifier<RecordDetailState> {
     if (id == null) return;
     await load(id);
   }
+
+  // 제목 수정 진입점.
+  //
+  // 흐름:
+  //   1) 새 제목으로 BE PATCH 호출.
+  //   2) 성공 시 state.data 의 title 만 즉시 갱신 (다른 필드는 그대로 유지).
+  //      - BE 응답이 Void 라 새 데이터를 재조회할 수도 있지만, 받은 응답에 신뢰할 수 있는
+  //        새 정보가 없으므로 우리가 보낸 title 을 그대로 쓰는 게 효율적이다.
+  //   3) 호출 측이 try/catch 로 ApiException 을 받을 수 있도록 그대로 throw.
+  //      → 화면이 다이얼로그 안에서 에러 메시지를 표시할 수 있다.
+  Future<void> updateTitle(String newTitle) async {
+    final id = _currentRecordId;
+    final current = state.data;
+    if (id == null || current == null) return;
+
+    await _repository.changeTitle(id, newTitle);
+
+    // 성공 시: 로컬 상태의 title 만 새 값으로 교체.
+    // copyWith 가 RecordDetail 에 없으므로 동일 필드를 모두 채워 새 인스턴스를 만든다.
+    state = state.copyWith(
+      data: RecordDetail(
+        recordId: current.recordId,
+        trackId: current.trackId,
+        courseId: current.courseId,
+        courseDraftId: current.courseDraftId,
+        title: newTitle,
+        date: current.date,
+        trackImageUrl: current.trackImageUrl,
+        distance: current.distance,
+        avgPace: current.avgPace,
+        runningTime: current.runningTime,
+        calories: current.calories,
+        cadence: current.cadence,
+        isCompleted: current.isCompleted,
+        isSafe: current.isSafe,
+        nodes: current.nodes,
+      ),
+    );
+  }
 }
