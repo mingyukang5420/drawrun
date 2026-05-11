@@ -71,7 +71,7 @@ public abstract class EditorConverter {
     // isValidRoute 는 검증 통과 후에만 응답이 만들어지므로 항상 true.
     public static SaveResponse toSaveResponse(CourseDraft courseDraft) {
         return SaveResponse.builder()
-                .editorId(courseDraft.getId())
+                .courseDraftId(courseDraft.getId())
                 .title(courseDraft.getTitle())
                 .status(courseDraft.getStatus().name())
                 .isValidRoute(true)
