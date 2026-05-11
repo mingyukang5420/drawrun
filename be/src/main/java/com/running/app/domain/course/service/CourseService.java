@@ -10,9 +10,10 @@ import com.running.app.domain.course.repository.CourseRepository;
 import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.district.entity.District;
 import com.running.app.domain.district.repository.DistrictRepository;
+import com.running.app.domain.member.entity.Member;
+import com.running.app.domain.member.repository.MemberRepository;
 import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.record.repository.RunningRecordRepository;
-import com.running.app.domain.track.entity.Track;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
 import java.util.ArrayList;
@@ -39,9 +40,10 @@ public class CourseService {
     private final RunningRecordRepository runningRecordRepository;
     private final DifficultyService difficultyService;
     private final DistrictRepository districtRepository;
+    private final MemberRepository memberRepository;
 
     public CourseResponse.CourseListResultDTO getCourseList(
-            Long memberId,
+            String loginId,
             Integer page,
             Integer size,
             String difficulty,
@@ -51,6 +53,10 @@ public class CourseService {
             Boolean isCompleted,
             String sort
     ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         CourseDifficulty courseDifficulty = CourseDifficulty.from(difficulty);
         Pageable pageable = PageRequest.of(
                 page,
@@ -85,7 +91,12 @@ public class CourseService {
     }
     // 기록에서 코스 생성 메서드
     @Transactional
-    public Long createCourseFromRecord(Long memberId, Long recordId) {
+    public Long createCourseFromRecord(String loginId, Long recordId) {
+
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         RunningRecord sourceRecord = runningRecordRepository.findByIdAndMemberId(recordId, memberId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.RECORD_NOT_FOUND));
 
@@ -115,10 +126,14 @@ public class CourseService {
 
     @Transactional
     public void changeCourseTitle(
-            Long memberId,
+            String loginId,
             Long courseId,
             CourseRequest.ChangeTitleDTO request
     ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         Course course = courseRepository.findByIdAndMemberIdAndDeletedAtIsNull(courseId, memberId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
 
@@ -144,9 +159,13 @@ public class CourseService {
     }
 
     public CourseResponse.CourseDetailDTO getCourse(
-            Long memberId,
+            String loginId,
             Long courseId
     ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         Course course = courseRepository.findByIdWithTrack(courseId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
 
@@ -160,11 +179,15 @@ public class CourseService {
     }
 
     public CourseResponse.CourseListResultDTO searchCourse(
-            Long memberId,
+            String loginId,
             String keyword,
             Integer page,
             Integer size
     ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
         if (keyword == null || keyword.isBlank()) {
             throw new GeneralException(ErrorStatus.BAD_REQUEST);
         }

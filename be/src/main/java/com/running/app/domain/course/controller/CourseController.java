@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,6 +49,7 @@ public class CourseController {
     )
     @GetMapping
     public ApiResponse<CourseResponse.CourseListResultDTO> getCourseList(
+            @AuthenticationPrincipal String loginId,
             @RequestParam(name = "page", defaultValue = "0") Integer page,
             @RequestParam(name = "size", defaultValue = "10") Integer size,
             @RequestParam(name = "difficulty", required = false) String difficulty,
@@ -57,10 +59,9 @@ public class CourseController {
             @RequestParam(name = "isCompleted", required = false) Boolean isCompleted,
             @RequestParam(name = "sort", defaultValue = "latest") String sort
     ) {
-        Long memberId = 1L;
 
         CourseResponse.CourseListResultDTO response = courseService.getCourseList(
-                memberId,
+                loginId,
                 page,
                 size,
                 difficulty,
@@ -77,10 +78,10 @@ public class CourseController {
     @Operation(summary = "기록에서 코스 생성")
     @PostMapping("/records/{recordId}")
     public ApiResponse<Long> createCourseFromRecord(
+            @AuthenticationPrincipal String loginId,
             @PathVariable Long recordId
     ) {
-        Long memberId = 1L;
-        Long courseId = courseService.createCourseFromRecord(memberId, recordId);
+        Long courseId = courseService.createCourseFromRecord(loginId, recordId);
         return ApiResponse.onSuccess(courseId);
     }
 
@@ -102,12 +103,12 @@ public class CourseController {
     )
     @GetMapping("/{courseId}")
     public ApiResponse<CourseResponse.CourseDetailDTO> getCourse(
+            @AuthenticationPrincipal String loginId,
             @PathVariable(name = "courseId") Long courseId
     ) {
-        Long memberId = 1L;
 
         CourseResponse.CourseDetailDTO response = courseService.getCourse(
-                memberId,
+                loginId,
                 courseId
         );
 
@@ -117,25 +118,25 @@ public class CourseController {
     @Operation(summary = "코스 제목 수정")
     @PatchMapping("/{courseId}")
     public ApiResponse<Void> changeCourseTitle(
+            @AuthenticationPrincipal String loginId,
             @PathVariable Long courseId,
             @Valid @RequestBody CourseRequest.ChangeTitleDTO request
     ) {
-        Long memberId = 1L;
-        courseService.changeCourseTitle(memberId, courseId, request);
+        courseService.changeCourseTitle(loginId, courseId, request);
         return ApiResponse.OK;
     }
 
     @Operation(summary = "코스 키워드 검색")
     @GetMapping("/search")
     public ApiResponse<CourseResponse.CourseListResultDTO> searchCourses(
+            @AuthenticationPrincipal String loginId,
             @RequestParam(name = "keyword") String keyword,
             @RequestParam(name = "page", defaultValue = "0") Integer page,
             @RequestParam(name = "size", defaultValue = "10") Integer size
     ) {
-        Long memberId = 1L;
 
         CourseResponse.CourseListResultDTO response = courseService.searchCourse(
-                memberId,
+                loginId,
                 keyword,
                 page,
                 size
