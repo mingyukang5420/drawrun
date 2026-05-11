@@ -11,6 +11,9 @@ public abstract class WeatherResponse {
     @AllArgsConstructor
     public static class Result {
 
+        // 시/도 이름 (예: "서울시")
+        private String sido;
+
         // 구 이름 (예: "송파구")
         private String gu;
 

@@ -19,12 +19,12 @@ public class WeatherController {
 
     private final WeatherService weatherService;
 
-    @Operation(summary = "날씨 조회", description = "시도와 구를 입력받아 현재 날씨를 반환합니다.")
+    @Operation(summary = "날씨 조회", description = "위경도를 입력받아 현재 날씨를 반환합니다.")
     @GetMapping("/weather")
     public ApiResponse<WeatherResponse.Result> getWeather(
-            @RequestParam String sido,
-            @RequestParam String gu
+            @RequestParam Double lat,
+            @RequestParam Double lng
     ) {
-        return ApiResponse.onSuccess(weatherService.getWeather(sido, gu));
+        return ApiResponse.onSuccess(weatherService.getWeather(lat, lng));
     }
 }

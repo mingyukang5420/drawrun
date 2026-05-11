@@ -6,6 +6,7 @@ import com.running.app.domain.weather.dto.WeatherCacheDto;
 import com.running.app.domain.weather.dto.WeatherResponse;
 import com.running.app.domain.weather.type.PrecipitationType;
 import com.running.app.domain.weather.type.SkyCondition;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -17,29 +18,41 @@ public class WeatherService {
     private final DistrictRepository districtRepository;
     private final RedisTemplate<String, Object> redisObjectTemplate;
 
-    public WeatherResponse.Result getWeather(String sido, String gu) {
+    public WeatherResponse.Result getWeather(Double lat, Double lng) {
 
-        // sido, gu로 구 존재 여부 확인
-        districtRepository.findBySidoAndGu(sido, gu)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 구입니다: " + sido + " " + gu));
+        // 1. 위경도 → WKT 포맷으로 변환
+        // WKT = Well-Known Text, 공간 데이터 표현 방식
+        // 경도(lng) 먼저, 위도(lat) 나중 (PostGIS 표준)
+        String wkt = String.format("POINT(%f %f)", lng, lat);
 
-        // Redis에서 "weather:송파구" 키로 조회
+        // 2. 해당 좌표가 포함된 구 찾기
+        List<District> districts = districtRepository.findDistrictsByGeomIntersects(wkt);
+
+        if (districts.isEmpty()) {
+            throw new IllegalArgumentException("해당 위치의 구를 찾을 수 없습니다.");
+        }
+
+        // 첫 번째 결과 사용
+        District district = districts.getFirst();
+        String gu = district.getGu();
+
+        // 3. Redis에서 "weather:송파구" 키로 조회
         String redisKey = "weather:" + gu;
         WeatherCacheDto cached = (WeatherCacheDto) redisObjectTemplate
                 .opsForValue()
                 .get(redisKey);
 
-        // Redis에 데이터 없으면 예외
         if (cached == null) {
             throw new IllegalArgumentException("날씨 데이터가 없습니다: " + gu);
         }
 
-        // 숫자 코드 → 텍스트 변환
+        // 4. 숫자 코드 → 텍스트 변환
         SkyCondition sky = SkyCondition.fromCode(cached.getSkyCondition());
         PrecipitationType pty = PrecipitationType.fromCode(cached.getPrecipitationType());
 
-        // WeatherResponse.Result 만들어서 반환
+        // 5. WeatherResponse.Result 만들어서 반환
         return WeatherResponse.Result.builder()
+                .sido(district.getSido())
                 .gu(gu)
                 .weather(sky.getLabel())
                 .precipitation(pty.getLabel())
