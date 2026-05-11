@@ -21,7 +21,15 @@ class RunningScreen extends ConsumerWidget {
           children: [
             _Header(),
             _BookmarkedCourses(),
-            const Expanded(child: RunningMapView()),
+            // 지도: 상하좌우 가장자리를 배경색(흰색)으로 자연스럽게 페이드
+            Expanded(
+              child: Stack(
+                children: [
+                  const RunningMapView(),
+                  const _MapVignette(),
+                ],
+              ),
+            ),
             _FreeRunButton(
               onPressed: () async {
                 await notifier.clear();
@@ -396,7 +404,59 @@ class _Thumbnail extends StatelessWidget {
       );
 }
 
-// ── 바로 달리기 시작 버튼 ────────────────────────────────────────────
+// ── 지도 가장자리 페이드 비네팅 ─────────────────────────────────────
+// 상하좌우에서 흰색 → 투명 그라데이션을 올려 배경과 자연스럽게 섞이게 한다.
+// IgnorePointer 로 감싸 지도 터치 이벤트는 그대로 통과시킨다.
+class _MapVignette extends StatelessWidget {
+  const _MapVignette();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Colors.white;
+    const fade = [color, Colors.transparent];
+
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          // 상단 페이드
+          Positioned(
+            top: 0, left: 0, right: 0, height: 56,
+            child: _gradient(Alignment.topCenter, Alignment.bottomCenter, fade),
+          ),
+          // 하단 페이드
+          Positioned(
+            bottom: 0, left: 0, right: 0, height: 72,
+            child: _gradient(Alignment.bottomCenter, Alignment.topCenter, fade),
+          ),
+          // 좌측 페이드
+          Positioned(
+            top: 0, bottom: 0, left: 0, width: 48,
+            child: _gradient(Alignment.centerLeft, Alignment.centerRight, fade),
+          ),
+          // 우측 페이드
+          Positioned(
+            top: 0, bottom: 0, right: 0, width: 48,
+            child: _gradient(Alignment.centerRight, Alignment.centerLeft, fade),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _gradient(
+    AlignmentGeometry begin,
+    AlignmentGeometry end,
+    List<Color> colors,
+  ) =>
+      DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(begin: begin, end: end, colors: colors),
+        ),
+        child: const SizedBox.expand(),
+      );
+}
+
+// ── 자유 러닝 시작 버튼 ──────────────────────────────────────────────
 class _FreeRunButton extends StatelessWidget {
   final VoidCallback onPressed;
 
@@ -418,14 +478,22 @@ class _FreeRunButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-          child: const Text(
-            '바로 달리기 시작',
-            style: TextStyle(
-              fontFamily: 'SUIT',
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text(
+                '자유 러닝',
+                style: TextStyle(
+                  fontFamily: 'SUIT',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFFFD60A),
+                ),
+              ),
+              SizedBox(width: 6),
+              Icon(Icons.play_arrow_rounded,
+                  color: Color(0xFFFFD60A), size: 22),
+            ],
           ),
         ),
       ),

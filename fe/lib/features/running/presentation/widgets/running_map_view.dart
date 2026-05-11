@@ -23,36 +23,93 @@ class RunningMapView extends ConsumerStatefulWidget {
 }
 
 class _RunningMapViewState extends ConsumerState<RunningMapView> {
-  // initState 에서 한 번 잡아두고 dispose 에서 안전하게 사용.
-  // late final: 처음 한 번만 할당, 그 후 불변.
   late final RunningNotifier _notifier;
+
+  // 위치를 가져오지 못했을 때 true → 안내 오버레이 표시
+  bool _locationError = false;
 
   @override
   void initState() {
     super.initState();
-    // initState 시점엔 ref 사용 안전.
-    // .notifier 를 잡아두면 dispose 시점에 ref 없이도 호출 가능.
     _notifier = ref.read(runningViewModelProvider.notifier);
   }
 
   @override
   void dispose() {
-    // ref 대신 미리 보관해둔 _notifier 사용 → 안전
     _notifier.clearMapController();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MapView(
-      showCurrentLocation: true,
-      onMapReady: (mapController) {
-        if (widget.trackRoute) {
-          ref
-              .read(runningViewModelProvider.notifier)
-              .setMapController(mapController);
-        }
-      },
+    return Stack(
+      children: [
+        MapView(
+          showCurrentLocation: true,
+          onMapReady: (mapController) {
+            if (widget.trackRoute) {
+              ref
+                  .read(runningViewModelProvider.notifier)
+                  .setMapController(mapController);
+            }
+          },
+          // 위치 실패 → 에러 상태 갱신
+          onLocationError: () {
+            if (mounted) setState(() => _locationError = true);
+          },
+        ),
+        // 위치 실패 시 재시도 안내 오버레이
+        if (_locationError)
+          Positioned(
+            top: 12,
+            left: 16,
+            right: 16,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C1E).withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_off_outlined,
+                        color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        '위치를 가져올 수 없습니다.\n위치 권한을 확인해 주세요.',
+                        style: TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 12,
+                          color: Colors.white,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                    // 재시도 버튼: 에러 플래그 초기화 → MapView 가 다시 위치 요청
+                    GestureDetector(
+                      onTap: () => setState(() => _locationError = false),
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: Text(
+                          '재시도',
+                          style: TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF60A5FA),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
