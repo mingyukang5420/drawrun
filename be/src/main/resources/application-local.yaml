@@ -27,6 +27,11 @@ spring:
         show_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+jwt:
+  secret: ${JWTSECRET}
+  access-token-expiration: 2592000000   # 30일 (ms)
+  refresh-token-expiration: 2592000000 # 30일 (ms)
+
 logging:
   level:
     root: INFO

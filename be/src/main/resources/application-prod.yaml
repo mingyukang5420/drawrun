@@ -10,3 +10,8 @@ logging:
   level:
     root: WARN
     com.running.app: INFO
+
+jwt:
+  secret: ${JWTSECRET}
+  access-token-expiration: 1800000   # 30분 (ms)
+  refresh-token-expiration: 2592000000 # 30일 (ms)
