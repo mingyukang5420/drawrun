@@ -276,16 +276,6 @@ public class CourseService {
         return CourseConverter.toDetailDTO(course, regions, isCompleted);
     }
 
-    // 마이코스 제목 수정
-    @Transactional
-    public void changeMyCourseTitle(
-            String loginId,
-            Long courseId,
-            CourseRequest.ChangeTitleDTO request
-    ) {
-        changeCourseTitle(loginId, courseId, request);
-    }
-
     private Slice<Course> getCourseSlice(
             Long memberId,
             CourseDifficulty difficulty,
