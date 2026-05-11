@@ -9,7 +9,8 @@ abstract class RunningRepository {
   Future<void> save({
     required RunningSession session,
     required String title,
+    required String trackImageUrl,
     int? courseId,
-    String trackImageUrl = 'tempValue',  // TODO: 이미지 UUID 전송 로직 반영
+    int? courseDraftId,
   });
 }

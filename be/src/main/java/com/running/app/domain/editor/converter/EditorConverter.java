@@ -12,6 +12,7 @@ import com.running.app.domain.editor.dto.EditorResponse.WayInnerResponse;
 import com.running.app.domain.editor.dto.EditorResponse.WayResponse;
 import com.running.app.domain.track.converter.TrackConverter;
 import com.running.app.domain.track.dto.TrackRequest;
+import com.running.app.domain.track.entity.Track;
 import com.running.app.global.osm.entity.OsmSplit;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -22,6 +23,36 @@ import org.locationtech.jts.geom.LineString;
 import org.springframework.data.domain.Slice;
 
 public abstract class EditorConverter {
+
+    // 좌표 동일성 비교용 허용 오차(도, degree).
+    // 부동소수점 직렬화/역직렬화 round-trip 으로 마지막 자릿수가 흔들리는 케이스 흡수.
+    // 1e-9 도 ≈ 적도 기준 0.1mm — 사람이 그릴 수 있는 정밀도보다 훨씬 작아 오인 위험 X.
+    private static final double COORD_EPSILON_DEG = 1e-9;
+
+    // 기존 Track 의 좌표 시퀀스와 요청 좌표 시퀀스가 동일한지 비교.
+    // - 요청 좌표는 order 기준으로 정렬한 뒤 비교 (FE 가 순서 섞어 보낼 가능성 대응)
+    // - 길이 다르면 즉시 false
+    // - lat/lng 차이가 epsilon 안에 들어오면 동일로 판정
+    public static boolean coordinatesEqual(
+            Track existingTrack,
+            List<EditorRequest.SaveRequest.NodeDTO> requestCoordinates
+    ) {
+        List<TrackRequest.NodeDTO> existing = TrackConverter.toNodeDTOList(existingTrack);
+        List<TrackRequest.NodeDTO> sorted = toSortedTrackNodes(requestCoordinates);
+
+        if (existing.size() != sorted.size()) {
+            return false;
+        }
+        for (int i = 0; i < existing.size(); i++) {
+            if (Math.abs(existing.get(i).getLat() - sorted.get(i).getLat()) > COORD_EPSILON_DEG) {
+                return false;
+            }
+            if (Math.abs(existing.get(i).getLng() - sorted.get(i).getLng()) > COORD_EPSILON_DEG) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     // EditorRequest 의 NodeDTO 들을 order 기준 오름차순 정렬한 후
     // 하위 서비스(OsmService, TrackService) 가 받는 TrackRequest.NodeDTO 로 변환.
