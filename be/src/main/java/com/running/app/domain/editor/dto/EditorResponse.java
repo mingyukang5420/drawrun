@@ -51,7 +51,7 @@ public abstract class EditorResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     public static class SaveResponse {
 
-        private Long editorId;     // course_draft_id
+        private Long courseDraftId;
         private String title;
         private String status;     // READY / DONE (내부 enum DRAFT/VERIFIED 와 매핑)
         private Boolean isValidRoute;
