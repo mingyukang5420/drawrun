@@ -124,4 +124,23 @@ public class CourseController {
         courseService.changeCourseTitle(memberId, courseId, request);
         return ApiResponse.OK;
     }
+
+    @Operation(summary = "코스 키워드 검색")
+    @GetMapping("/search")
+    public ApiResponse<CourseResponse.CourseListResultDTO> searchCourses(
+            @RequestParam(name = "keyword") String keyword,
+            @RequestParam(name = "page", defaultValue = "0") Integer page,
+            @RequestParam(name = "size", defaultValue = "10") Integer size
+    ) {
+        Long memberId = 1L;
+
+        CourseResponse.CourseListResultDTO response = courseService.serchCourse(
+                memberId,
+                keyword,
+                page,
+                size
+        );
+
+        return ApiResponse.onSuccess(response);
+    }
 }
