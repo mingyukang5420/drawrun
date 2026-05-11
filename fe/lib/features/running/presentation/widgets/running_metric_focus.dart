@@ -16,7 +16,7 @@ class RunningMetricFocus extends ConsumerStatefulWidget {
 }
 
 class _RunningMetricFocusState extends ConsumerState<RunningMetricFocus> {
-  // 0:시간 1:거리 2:페이스 3:심박수 4:케이던스
+  // 0:시간 1:거리 2:페이스 3:심박수 4:케이던스 5:칼로리
   // 초기값 4 (케이던스).
   int _focusIndex = 4;
 
@@ -32,6 +32,7 @@ class _RunningMetricFocusState extends ConsumerState<RunningMetricFocus> {
       ('페이스', state.paceLabel, ''),
       ('심박수', state.bpm.toString(), 'bpm'),
       ('케이던스', state.cadenceLabel, ''),
+      ('칼로리', state.caloriesLabel, 'kcal'),
     ];
     // 레코드 분해: 한 줄로 세 변수에 동시에 할당
     final (label, value, unit) = items[_focusIndex];
