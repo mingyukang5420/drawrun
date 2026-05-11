@@ -114,10 +114,15 @@ class _Greeting extends StatelessWidget {
   }
 }
 
-// ── 북마크한 코스 섹션: 제목 + 가로 스크롤 카드 목록 ──────────────
-class _BookmarkedCourses extends StatelessWidget {
+// ── 북마크한 코스 캐러셀: PageView + 인디케이터 ────────────────────
+class _BookmarkedCourses extends StatefulWidget {
   const _BookmarkedCourses();
 
+  @override
+  State<_BookmarkedCourses> createState() => _BookmarkedCoursesState();
+}
+
+class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
   // TODO: 북마크 API 연동 후 서버 데이터로 교체
   static const _items = [
     _CourseItem(
@@ -143,6 +148,26 @@ class _BookmarkedCourses extends StatelessWidget {
     ),
   ];
 
+  late final PageController _controller;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // viewportFraction < 1 → 옆 카드가 살짝 보이는 캐러셀 효과
+    _controller = PageController(viewportFraction: 0.82);
+    _controller.addListener(() {
+      final page = _controller.page?.round() ?? 0;
+      if (page != _currentPage) setState(() => _currentPage = page);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -159,15 +184,39 @@ class _BookmarkedCourses extends StatelessWidget {
             ],
           ),
         ),
-        // 가로 스크롤 카드 목록
+        // 캐러셀 PageView
         SizedBox(
-          height: 170,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            scrollDirection: Axis.horizontal,
+          height: 185,
+          child: PageView.builder(
+            controller: _controller,
             itemCount: _items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, i) => _CourseCard(item: _items[i]),
+            itemBuilder: (_, i) => Padding(
+              // 카드 간격: 좌우 6px
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: _CourseCard(item: _items[i]),
+            ),
+          ),
+        ),
+        // 페이지 인디케이터
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_items.length, (i) {
+              final active = i == _currentPage;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: active ? 18 : 6,
+                height: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: active
+                      ? const Color(0xFF1C1C1E)
+                      : const Color(0xFFD1D5DB),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
           ),
         ),
       ],
@@ -201,7 +250,7 @@ class _CourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 150,
+      // 너비는 PageView의 viewportFraction이 결정 — 명시적 width 불필요
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -223,8 +272,7 @@ class _CourseCard extends StatelessWidget {
               children: [
                 // TODO: 실제 코스 이미지로 교체
                 Container(
-                  width: 150,
-                  height: 105,
+                  height: 115,
                   color: const Color(0xFFE5E7EB),
                   child: const Icon(
                     Icons.landscape,
@@ -320,19 +368,13 @@ class _FreeRunButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
               Text(
-                '자유 러닝',
+                '바로 달리기 시작',
                 style: TextStyle(
                   fontFamily: 'SUIT',
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFFFFD60A),
+                  color: Colors.white,
                 ),
-              ),
-              SizedBox(width: 6),
-              Icon(
-                Icons.play_arrow_rounded,
-                color: Color(0xFFFFD60A),
-                size: 22,
               ),
             ],
           ),
