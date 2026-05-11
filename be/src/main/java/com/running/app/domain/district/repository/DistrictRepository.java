@@ -17,5 +17,8 @@ public interface DistrictRepository extends JpaRepository<District, String> {
     )
     List<District> findDistrictsByGeomIntersects(@Param("wkt") String wkt);
 
-    Optional<District> findByGu(String gu);
+    // sido(시도)와 gu(구) 두 조건으로 구 하나를 찾는 메서드
+    // 예: findBySidoAndGu("서울시", "송파구")
+    // → SELECT * FROM districts WHERE sido = '서울시' AND gu = '송파구'
+    Optional<District> findBySidoAndGu(String sido, String gu);
 }
