@@ -19,8 +19,7 @@ class RunningScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _TopBar(),
-            _Greeting(),
+            _Header(),
             _WeeklyStats(),            // 이번 주 활동 요약
             _BookmarkedCourses(),       // 북마크 코스 캐러셀
             const Expanded(child: RunningMapView()),
@@ -43,66 +42,50 @@ class RunningScreen extends ConsumerWidget {
   }
 }
 
-// ── 상단 바: 프로필 아바타(좌) + 북마크 아이콘(우) ─────────────────
-class _TopBar extends StatelessWidget {
-  const _TopBar();
+// ── 헤더: 프로필 아바타(좌) + 인사·날씨(우) 한 줄 ─────────────────
+class _Header extends StatelessWidget {
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // 프로필 아바타 (TODO: 실제 프로필 이미지로 교체)
           const CircleAvatar(
-            radius: 20,
+            radius: 24,
             backgroundColor: Color(0xFFE5E7EB),
-            child: Icon(Icons.person, color: Color(0xFF9CA3AF), size: 22),
+            child: Icon(Icons.person, color: Color(0xFF9CA3AF), size: 26),
           ),
-          IconButton(
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            icon: const Icon(
-              Icons.bookmark_border_rounded,
-              size: 26,
-              color: Color(0xFF1C1C1E),
-            ),
-            onPressed: () {},
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── 인사 문구 + 날씨 ─────────────────────────────────────────────────
-class _Greeting extends StatelessWidget {
-  const _Greeting();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(20, 4, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '오늘도 달리기 좋은 날씨예요!',
-            style: TextStyle(
-              fontFamily: 'Pretendard',
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C1C1E),
-              letterSpacing: -0.5,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            '서울특별시 송파구 18°C 맑음 ☀️',
-            style: TextStyle(
-              fontFamily: 'Pretendard',
-              fontSize: 14,
-              color: Color(0xFF9CA3AF),
+          const SizedBox(width: 14),
+          // 인사 + 날씨
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '오늘도 달리기 좋은 날씨예요! ☀️',
+                  style: TextStyle(
+                    fontFamily: 'Pretendard',
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1C1C1E),
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                SizedBox(height: 3),
+                // TODO: 위치·날씨 API 연동 후 동적 데이터로 교체
+                Text(
+                  '서울특별시 18°C 맑음',
+                  style: TextStyle(
+                    fontFamily: 'Pretendard',
+                    fontSize: 13,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
