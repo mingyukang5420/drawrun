@@ -33,14 +33,60 @@ class ApiException implements Exception {
     final statusCode = e.response?.statusCode ?? 0;
     final data = e.response?.data;
 
-    // 서버 응답 본문에 'message' 키가 있으면 그 값을 우선 사용
-    // 없으면 Dio 자체 메시지, 그것도 없으면 기본 문구로 대체
-    final message = (data is Map ? data['message'] as String? : null) ??
-        e.message ??
-        '알 수 없는 오류 발생';
-
-    return ApiException(statusCode: statusCode, message: message);
+    // 네트워크·타임아웃 계열 오류는 서버 응답이 없으므로 유형별로 한국어 메시지 반환
+    // (e.message 는 Dio 내부 영문 디버그 문자열이므로 사용자에게 노출하지 않는다)
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return const ApiException(
+          statusCode: 0,
+          message: '서버에 연결하지 못했습니다. 네트워크를 확인해 주세요.',
+        );
+      case DioExceptionType.sendTimeout:
+        return const ApiException(
+          statusCode: 0,
+          message: '요청 전송이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.',
+        );
+      case DioExceptionType.receiveTimeout:
+        return const ApiException(
+          statusCode: 0,
+          message: '서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.',
+        );
+      case DioExceptionType.connectionError:
+        return const ApiException(
+          statusCode: 0,
+          message: '네트워크 연결을 확인해 주세요.',
+        );
+      case DioExceptionType.cancel:
+        return const ApiException(
+          statusCode: 0,
+          message: '요청이 취소되었습니다.',
+        );
+      case DioExceptionType.badResponse:
+        // 서버가 응답을 돌려준 경우 — 본문 message 키 또는 상태 코드 기반 메시지 사용
+        final serverMessage =
+            (data is Map ? data['message'] as String? : null);
+        return ApiException(
+          statusCode: statusCode,
+          message: serverMessage ?? _messageForStatus(statusCode),
+        );
+      default:
+        return const ApiException(
+          statusCode: 0,
+          message: '알 수 없는 오류가 발생했습니다.',
+        );
+    }
   }
+
+  // HTTP 상태 코드 → 사용자 안내 문구
+  static String _messageForStatus(int code) => switch (code) {
+        400 => '잘못된 요청입니다.',
+        401 => '인증이 필요합니다. 다시 로그인해 주세요.',
+        403 => '접근 권한이 없습니다.',
+        404 => '요청한 정보를 찾을 수 없습니다.',
+        409 => '이미 존재하는 데이터입니다.',
+        500 => '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+        _ => '오류가 발생했습니다. (HTTP $code)',
+      };
 
   // 로그나 디버그 콘솔에서 오류 내용 확인용 문자열 반환
   @override
