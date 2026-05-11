@@ -415,30 +415,30 @@ class _MapVignette extends StatelessWidget {
     const color = Colors.white;
     const fade = [color, Colors.transparent];
 
+    // SizedBox.expand 으로 감싸야 Stack이 부모 전체를 채운다
+    // (Positioned 만으로는 Stack 자체의 크기가 0이 되어 렌더링되지 않음)
     return IgnorePointer(
-      child: Stack(
-        children: [
-          // 상단 페이드
-          Positioned(
-            top: 0, left: 0, right: 0, height: 56,
-            child: _gradient(Alignment.topCenter, Alignment.bottomCenter, fade),
-          ),
-          // 하단 페이드
-          Positioned(
-            bottom: 0, left: 0, right: 0, height: 72,
-            child: _gradient(Alignment.bottomCenter, Alignment.topCenter, fade),
-          ),
-          // 좌측 페이드
-          Positioned(
-            top: 0, bottom: 0, left: 0, width: 48,
-            child: _gradient(Alignment.centerLeft, Alignment.centerRight, fade),
-          ),
-          // 우측 페이드
-          Positioned(
-            top: 0, bottom: 0, right: 0, width: 48,
-            child: _gradient(Alignment.centerRight, Alignment.centerLeft, fade),
-          ),
-        ],
+      child: SizedBox.expand(
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0, left: 0, right: 0, height: 56,
+              child: _gradient(Alignment.topCenter, Alignment.bottomCenter, fade),
+            ),
+            Positioned(
+              bottom: 0, left: 0, right: 0, height: 72,
+              child: _gradient(Alignment.bottomCenter, Alignment.topCenter, fade),
+            ),
+            Positioned(
+              top: 0, bottom: 0, left: 0, width: 48,
+              child: _gradient(Alignment.centerLeft, Alignment.centerRight, fade),
+            ),
+            Positioned(
+              top: 0, bottom: 0, right: 0, width: 48,
+              child: _gradient(Alignment.centerRight, Alignment.centerLeft, fade),
+            ),
+          ],
+        ),
       ),
     );
   }
