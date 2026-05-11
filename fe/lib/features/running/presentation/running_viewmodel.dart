@@ -249,10 +249,17 @@ class RunningNotifier extends Notifier<RunningState> {
 
     await _cadence.stopListening();
 
+    // ── 고도 정리 (티켓 1, C3) 가 들어가 있다면 그대로 유지 ──
+
+    // ticker 는 1초 주기로만 state.elapsedSeconds 를 갱신한다.
+    // 종료 시점이 tick 사이에 끼면 마지막 ~0.999초가 state 에 반영되지 않은 상태로
+    // finish 가 끝나 평균 페이스 / 결과 화면 시간이 미세하게 어긋난다.
+    // stopwatch 의 정확한 값을 여기서 한 번 더 박아 그 lag 을 제거한다.
     state = state.copyWith(
       isRunning: false,
       isPaused: false,
       endedAt: DateTime.now(),
+      elapsedSeconds: _stopwatch.elapsed.inSeconds,
     );
   }
 
