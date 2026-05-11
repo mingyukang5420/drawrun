@@ -21,7 +21,7 @@ class TokenStorage {
 
   // DioClient 의 인터셉터가 요청마다 읽어가는 토큰 반환
   // 로그인 전이면 null 반환
-  static String? get() => _token;
+  static String? read() => _token;
 
   // 로그아웃 시 토큰 삭제
   static void clear() => _token = null;
