@@ -6,6 +6,7 @@ import 'package:running/features/record/domain/record_repository.dart';
 import 'package:running/shared/network/dio_client.dart';
 import 'package:running/shared/network/dio_provider.dart';
 import 'package:running/features/record/presentation/record_history_viewmodel.dart';
+import 'package:running/features/record/presentation/record_stats_viewmodel.dart';
 
 // 기록 feature 의 Riverpod Provider 모음.
 //
@@ -43,3 +44,10 @@ final historyViewModelProvider = NotifierProvider.autoDispose<
 RecordRepository _recordRepositoryFor() {
   return RecordRepositoryImpl(RecordRemoteDataSource(DioClient.create()));
 }
+
+// 통계 화면용 Notifier Provider.
+// autoDispose: 탭/화면 떠나면 자동 해제 → 다시 들어오면 첫 진입과 같은 동작.
+final statsViewModelProvider = NotifierProvider.autoDispose<
+    RecordStatsNotifier, RecordStatsState>(
+      () => RecordStatsNotifier(_recordRepositoryFor()),
+);
