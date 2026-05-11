@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -235,6 +236,78 @@ public class EditorController {
             @Valid @RequestBody EditorRequest.SaveRequest request
     ) {
         SaveResponse response = editorService.save(loginId, request);
+
+        return ApiResponse.onSuccess(response);
+    }
+
+    @PatchMapping("/{courseDraftId}")
+    @Operation(
+            summary = "에디터 수정 — 드래프트 제목/경로 부분 갱신",
+            description = """
+                    반드시 도보 가능한 좌표를 확인한 후 해당 좌표를 요청 body에 넣어야 작동함
+                    
+                    READY 상태의 본인 드래프트를 수정.
+                    
+                    요청 contract (FE/BE 협의 결과):
+                    - title / coordinates 는 변경 여부와 무관하게 매 요청에 현재 값 그대로 포함해서 전송
+                    - thumbnailBase64 는 좌표가 바뀐 경우에만 포함 (data:image/png;base64,... 또는 data:image/jpeg;base64,...)
+                    - 좌표가 바뀌지 않은 PATCH 면 썸네일은 생략(null) 또는 빈 문자열
+                    
+                    처리 흐름:
+                    1. 권한/상태 검증 + 좌표 변경 여부 판정 (read-only)
+                    2. 좌표가 바뀐 경우에만 새 썸네일을 디스크에 저장
+                    3. DB 트랜잭션 안에서 좌표 비교 재확인 후
+                       - 좌표 변경: OSM 검증 → 새 Track INSERT → swap → 난이도 재산정 → 옛 Track 삭제
+                       - 제목 변경: title UPDATE
+                    4. 커밋 성공 후 옛 썸네일 디스크 삭제
+                    
+                    수정 가능 조건:
+                    - 본인 소유 드래프트 (타인 → 403 FORBIDDEN)
+                    - status = READY (DONE → 400 EDITOR_NOT_EDITABLE)
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "수정 성공 — 갱신된 드래프트 상세 응답"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = """
+                            검증 실패. 사유 코드:
+                            - INVALID_ROUTE : 좌표가 도보 가능한 길 위에 있지 않음
+                            - INVALID_IMAGE_FILE : 좌표 변경 시 썸네일 누락 / 형식 오류 / base64 디코딩 실패
+                            - INVALID_TRACK_IMAGE_URL : 저장된 이미지 URL 형식 이상
+                            - EDITOR_NOT_EDITABLE : 드래프트가 READY 상태가 아님
+                            - 입력 형식 오류 (title 길이/좌표 개수/order 누락 등)
+                            """
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 — 토큰 없음/만료/위변조"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음 — 본인이 만든 드래프트가 아님(FORBIDDEN)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "대상 없음 — 사용자(MEMBER_NOT_FOUND) 또는 드래프트(COURSE_NOT_FOUND)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "썸네일 디스크 쓰기 실패 — FILE_UPLOAD_FAILED"
+            )
+    })
+    public ApiResponse<DraftDetailResponse> update(
+            @AuthenticationPrincipal String loginId,
+
+            @Parameter(description = "수정할 드래프트 ID. 본인이 만든 READY 상태 드래프트만 수정 가능", required = true, example = "42")
+            @PathVariable Long courseDraftId,
+
+            @Valid @RequestBody EditorRequest.UpdateRequest request
+    ) {
+        DraftDetailResponse response = editorService.update(loginId, courseDraftId, request);
 
         return ApiResponse.onSuccess(response);
     }

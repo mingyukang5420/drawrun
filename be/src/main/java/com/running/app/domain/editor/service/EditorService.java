@@ -57,6 +57,59 @@ public class EditorService {
         }
     }
 
+    // 에디터 PATCH 흐름 — 선비교-후저장.
+    // 1) precheck (read-only TX): 권한/상태 검증 + 좌표 변경 여부 판정
+    //    - 권한/상태 실패면 즉시 throw → 디스크 IO 발생 X
+    // 2) 좌표가 바뀌었을 때만 새 썸네일을 디스크에 저장 (좌표 미변경 PATCH 의 디스크 IO 는 0)
+    // 3) update (write TX): 트랜잭션 안에서 좌표 비교를 다시 (TOCTOU 안전망) 한 후 본 작업
+    //    - 트랜잭션 실패 시 새로 저장한 디스크 파일을 보상 삭제
+    // 4) 커밋 성공 후 디스크 정리
+    //    - 좌표가 진짜로 바뀐 경우: 옛 썸네일을 디스크에서 삭제 (고아 파일 방지)
+    //    - precheck 와 update 의 비교 결과가 어긋난 경우(TOCTOU): 새로 저장된 안 쓰는 파일 정리
+    public EditorResponse.DraftDetailResponse update(
+            String loginId,
+            Long courseDraftId,
+            EditorRequest.UpdateRequest request
+    ) {
+        // 좌표가 변경되었는지 여부를 확인하는 메서드를 호출하며, 사용자 권한, 에디터가 변경 가능한 상태인지 체크
+        boolean coordinatesChanged = editorDraftSaver.precheckUpdate(
+                loginId, courseDraftId, request
+        );
+
+        String newTrackImageUrl = null;
+        // 좌표가 변경되었다면 요청으로 받은 새 썸네일 저장 이때, 디스크 I/O -> 트랜잭션 분리
+        if (coordinatesChanged) {
+            String thumbnailBase64 = request.getThumbnailBase64();
+            if (thumbnailBase64 == null || thumbnailBase64.isBlank()) {
+                throw new GeneralException(
+                        ErrorStatus.INVALID_IMAGE_FILE,
+                        "좌표 변경 시 썸네일이 필요합니다."
+                );
+            }
+            newTrackImageUrl = trackImageStorageService.storeFromBase64(thumbnailBase64);
+        }
+
+        EditorDraftSaver.UpdateOutcome outcome;
+        // 업데이트 로직 호출(트랜잭션 메서드)
+        try {
+            outcome = editorDraftSaver.update(loginId, courseDraftId, request, newTrackImageUrl);
+        } catch (RuntimeException e) {
+            if (newTrackImageUrl != null) {
+                trackImageStorageService.deleteByUrl(newTrackImageUrl);
+            }
+            throw e;
+        }
+
+        if (outcome.coordinatesChanged()) {
+            trackImageStorageService.deleteByUrl(outcome.oldTrackImageUrl());
+        } else if (newTrackImageUrl != null) {
+            // precheck 시점엔 변경됐었지만 update 시점엔 미변경으로 판정된 TOCTOU 케이스 정리
+            trackImageStorageService.deleteByUrl(newTrackImageUrl);
+        }
+
+        return outcome.response();
+    }
+
     @Transactional
     public void delete(String loginId, Long courseDraftId) {
 
