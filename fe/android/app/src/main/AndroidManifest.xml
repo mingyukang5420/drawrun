@@ -23,9 +23,6 @@
      이 권한이 없으면 pedometer 가 stream 을 열어도 곧장 PERMISSION_DENIED 로 닫힌다. -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
 
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
     <application
         android:label="running"
         android:name="${applicationName}"
