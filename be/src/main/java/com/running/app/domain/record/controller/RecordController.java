@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Record", description = "기록 관련 API")
@@ -78,13 +79,13 @@ public class RecordController {
             )
     )
     @PostMapping("/run/end")
-    public ApiResponse<Void> createRecord(@Valid @RequestBody RecordRequest.CreateDTO request) {
+    public ApiResponse<Void> createRecord(
+            @AuthenticationPrincipal String loginId,
+            @Valid @RequestBody RecordRequest.CreateDTO request
 
-        //회원관련 없어서 임시로 1L로 처리
-        Long memberId = 1L;
-
+    ) {
         recordService.createRecord(
-                memberId,
+                loginId,
                 request
         );
 
@@ -103,14 +104,13 @@ public class RecordController {
     )
     @GetMapping("/record")
     public ApiResponse<RecordResponse.ListResultDTO> getRecordList(
+            @AuthenticationPrincipal String loginId,
             @RequestParam(name = "page", defaultValue = "0") Integer page,
             @RequestParam(name = "size", defaultValue = "10") Integer size
     ) {
-        // 임시 아이디 1
-        Long memberId = 1L;
 
         RecordResponse.ListResultDTO response = recordService.getRecordList(
-                memberId,
+                loginId,
                 page,
                 size
         );
@@ -134,12 +134,12 @@ public class RecordController {
     )
     @GetMapping("/record/stats")
     public ApiResponse<RecordResponse.StatsDTO> getRecordStats(
+            @AuthenticationPrincipal String loginId,
             @RequestParam(name = "period", defaultValue = "all") String period
     ) {
-        Long memberId = 1L;
 
         RecordResponse.StatsDTO response = recordService.getRecordStats(
-                memberId,
+                loginId,
                 period
         );
 
@@ -155,13 +155,12 @@ public class RecordController {
     )
     @GetMapping("/record/{recordId}")
     public ApiResponse<RecordResponse.DetailDTO> getRecordDetail(
+            @AuthenticationPrincipal String loginId,
             @PathVariable(name = "recordId") Long recordId
     ) {
-        // 임시 아이디 1
-        Long memberId = 1L;
 
         RecordResponse.DetailDTO response = recordService.getRecordDetail(
-                memberId, recordId
+                loginId, recordId
         );
 
         return ApiResponse.onSuccess(response);
@@ -175,13 +174,13 @@ public class RecordController {
     )
     @PatchMapping("/record/{recordId}")
     public ApiResponse<Void> changeRecordTitle(
+            @AuthenticationPrincipal String loginId,
             @PathVariable(name = "recordId") Long recordId,
             @Valid @RequestBody RecordRequest.ChangeTitleDTO request
     ) {
-        Long memberId = 1L;
 
         recordService.changeRecordTitle(
-                memberId,
+                loginId,
                 recordId,
                 request
         );

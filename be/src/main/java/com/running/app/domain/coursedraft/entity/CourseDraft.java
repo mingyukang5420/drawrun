@@ -57,4 +57,20 @@ public class CourseDraft extends BaseRDBEntity {
     public void verify() {
         this.status = CourseDraftStatus.DONE;
     }
+
+    // 에디터 PATCH 흐름 — 제목만 변경. JPA dirty checking 으로 UPDATE 자동 발행.
+    public void changeTitle(String title) {
+        this.title = title;
+    }
+
+    // 에디터 PATCH 흐름 — 좌표가 바뀌면 Track 자체를 새로 만들어 갈아끼움.
+    // ManyToOne 참조만 바꾸면 되고, 옛 Track 의 삭제는 호출자(영속화 책임 빈) 가 결정.
+    public void changeTrack(Track track) {
+        this.track = track;
+    }
+
+    // 에디터 PATCH 흐름 — Track 이 바뀌면 거리/고도 기반 난이도도 재산정해서 반영.
+    public void changeDifficulty(CourseDifficulty difficulty) {
+        this.difficulty = difficulty;
+    }
 }
