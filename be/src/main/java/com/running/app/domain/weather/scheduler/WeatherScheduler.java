@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Point;
@@ -91,6 +93,12 @@ public class WeatherScheduler {
 
         log.info("날씨 스케줄러 완료: {}", LocalDateTime.now());
     }
+
+//    // 스프링 시작할 때 한번 실행 (테스트용)
+//    @PostConstruct
+//    public void init() {
+//        updateWeather();
+//    }
 
     // 기상청 JSON 응답 파싱
     private WeatherCacheDto parseWeatherResponse(String response, String baseTime) {
