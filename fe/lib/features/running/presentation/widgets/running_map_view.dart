@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/running/presentation/running_provider.dart';
+import 'package:running/features/running/presentation/running_viewmodel.dart';
 import 'package:running/shared/map/widgets/map_view.dart';
-
-import '../running_viewmodel.dart';
 
 // 러닝 도메인의 지도 위젯.
 //
