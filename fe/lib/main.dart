@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/app/main_tab_screen.dart';
 import 'package:running/core/theme/app_theme.dart';
-import 'package:running/features/auth/presentation/screen/Intro_screen.dart';
+import 'package:running/features/auth/presentation/screen/intro_screen.dart';
 import 'package:running/shared/network/token_storage.dart';
 
 void main() async {

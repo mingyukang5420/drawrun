@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:running/features/auth/presentation/widgets/auth_button.dart';
 import 'package:running/features/auth/presentation/widgets/auth_logo.dart';
-import 'package:running/features/auth/presentation/screen/login_screen.dart';
 
 class IntroScreen extends StatelessWidget {
   const IntroScreen({super.key});
