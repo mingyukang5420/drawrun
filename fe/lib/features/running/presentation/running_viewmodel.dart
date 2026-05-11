@@ -13,6 +13,7 @@ import 'package:running/shared/network/api_exception.dart';
 import 'package:running/features/running/domain/running_repository.dart';
 import 'package:running/shared/sensor/cadence_service.dart';
 import 'package:running/shared/sensor/altitude_service.dart';
+import 'package:running/shared/calculator/calories_calculator.dart';
 
 // 러닝 화면이 구독하는 불변 상태 클래스
 // state = state.copyWith(...) 로 새 객체를 만들어야 Riverpod 이 UI 를 다시 그린다
@@ -26,7 +27,6 @@ class RunningState {
   final int elapsedSeconds;
 
   // 임시값 (데이터 소스 미연결)
-  final int caloriesKcal;
   final double altitudeM;
   final int bpm;
 
@@ -44,7 +44,6 @@ class RunningState {
     this.distanceKm = 0.0,
     this.points = const [],
     this.elapsedSeconds = 0,
-    this.caloriesKcal = 0,
     this.altitudeM = 0.0,
     this.bpm = 0,
     this.cadenceSpm = 0,
@@ -60,7 +59,6 @@ class RunningState {
     double? distanceKm,
     List<LatLng>? points,
     int? elapsedSeconds,
-    int? caloriesKcal,
     double? altitudeM,
     int? bpm,
     int? cadenceSpm,
@@ -75,7 +73,6 @@ class RunningState {
       distanceKm: distanceKm ?? this.distanceKm,
       points: points ?? this.points,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
-      caloriesKcal: caloriesKcal ?? this.caloriesKcal,
       altitudeM: altitudeM ?? this.altitudeM,
       bpm: bpm ?? this.bpm,
       cadenceSpm: cadenceSpm ?? this.cadenceSpm,
@@ -114,6 +111,15 @@ class RunningState {
   }
 
   String get avgPaceLabel => paceLabel;
+
+  // 누적 칼로리 — distance / elapsedSeconds 의 함수.
+  // 매 호출마다 다시 계산되지만 곱셈 몇 번이라 비용 무시 가능.
+  // TODO: 사용자 성별 도입 후 gender 매개변수 함께 전달.
+  int get caloriesKcal => CaloriesCalculator.compute(
+    distanceKm: distanceKm,
+    elapsedSeconds: elapsedSeconds,
+  );
+
   String get caloriesLabel => '$caloriesKcal';
   String get altitudeLabel => '${altitudeM.toStringAsFixed(0)} m';
   String get bpmLabel => '$bpm';
