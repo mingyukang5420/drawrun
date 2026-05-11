@@ -412,8 +412,9 @@ class _MapVignette extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const color = Colors.white;
-    const fade = [color, Colors.transparent];
+    // Colors.transparent = 0x00000000(투명 검정) → 흰색과 보간하면 검정 섀도우처럼 보임
+    // 0x00FFFFFF = 투명 흰색 → 흰색끼리 알파만 변하므로 자연스러운 페이드
+    const fade = [Colors.white, Color(0x00FFFFFF)];
 
     // SizedBox.expand 으로 감싸야 Stack이 부모 전체를 채운다
     // (Positioned 만으로는 Stack 자체의 크기가 0이 되어 렌더링되지 않음)
