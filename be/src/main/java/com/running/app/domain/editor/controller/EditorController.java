@@ -264,7 +264,44 @@ public class EditorController {
                     수정 가능 조건:
                     - 본인 소유 드래프트 (타인 → 403 FORBIDDEN)
                     - status = READY (DONE → 400 EDITOR_NOT_EDITABLE)
-                    """
+                    """,
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "에디터 수정 요청 바디 — 제목/좌표는 매 요청 풀바디 동봉, 썸네일은 좌표 변경 시에만 동봉",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "좌표 변경 — 썸네일 포함",
+                                            value = """
+                                                    {
+                                                      "title": "한강 러닝 코스 수정함",
+                                                      "coordinates": [
+                                                        { "lat": 37.5480598, "lng": 126.9177061, "order": 1 },
+                                                        { "lat": 37.5479675, "lng": 126.9181941, "order": 2 },
+                                                        { "lat": 37.5475100, "lng": 126.9190000, "order": 3 }
+                                                      ],
+                                                      "thumbnailBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "좌표 미변경 — 제목만 수정 (썸네일 생략)",
+                                            value = """
+                                                    {
+                                                      "title": "한강 러닝 코스 — 제목만 수정",
+                                                      "coordinates": [
+                                                        { "lat": 37.5480598, "lng": 126.9177061, "order": 1 },
+                                                        { "lat": 37.5479675, "lng": 126.9181941, "order": 2 },
+                                                        { "lat": 37.54793, "lng": 126.91838, "order": 3 }
+                                                      ],
+                                                      "thumbnailBase64": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
