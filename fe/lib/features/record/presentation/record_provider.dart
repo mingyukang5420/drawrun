@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:running/features/record/data/record_remote_datasource.dart';
 import 'package:running/features/record/data/record_repository_impl.dart';
 import 'package:running/features/record/domain/record_repository.dart';
+import 'package:running/shared/network/dio_client.dart';
 import 'package:running/shared/network/dio_provider.dart';
+import 'package:running/features/record/presentation/record_history_viewmodel.dart';
 
 // 기록 feature 의 Riverpod Provider 모음.
 //
@@ -28,3 +30,16 @@ final recordRemoteDataSourceProvider = Provider<RecordRemoteDataSource>(
 final recordRepositoryProvider = Provider<RecordRepository>(
       (ref) => RecordRepositoryImpl(ref.watch(recordRemoteDataSourceProvider)),
 );
+
+// 히스토리 화면용 Notifier Provider.
+// autoDispose: 탭 전환 시 자동 해제 — 다시 진입하면 첫 페이지부터 새로 로드된다.
+final historyViewModelProvider = NotifierProvider.autoDispose<
+    RecordHistoryNotifier, RecordHistoryState>(
+      () => RecordHistoryNotifier(_recordRepositoryFor()),
+);
+
+// Notifier 팩토리가 ref 를 받지 못하므로, recordRepositoryProvider 를 직접 조립한다.
+// 다른 feature 의 _buildRunningNotifier() 패턴과 동일.
+RecordRepository _recordRepositoryFor() {
+  return RecordRepositoryImpl(RecordRemoteDataSource(DioClient.create()));
+}
