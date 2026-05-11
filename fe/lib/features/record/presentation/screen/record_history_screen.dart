@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/record/domain/record_summary.dart';
-import 'package:running/features/record/presentation/record_history_viewmodel.dart';
+import 'package:running/features/record/presentation/screen/record_detail_screen.dart';
 import 'package:running/features/record/presentation/record_provider.dart';
 
 // 기록 > 히스토리 화면.
@@ -79,7 +79,8 @@ class _RecordHistoryScreenState extends ConsumerState<RecordHistoryScreen> {
         controller: _scrollController,
         // 모든 카드 + (필요 시) 맨 아래 추가 로딩 인디케이터 한 칸.
         // 추가 로딩 중이거나 에러가 발생했을 때만 마지막 슬롯이 살아 있다.
-        itemCount: state.items.length +
+        itemCount:
+            state.items.length +
             (state.isLoadingMore || state.errorMessage != null ? 1 : 0),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         itemBuilder: (context, index) {
@@ -100,7 +101,20 @@ class _RecordHistoryScreenState extends ConsumerState<RecordHistoryScreen> {
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _RecordCard(summary: state.items[index]),
+            child: _RecordCard(
+              summary: state.items[index],
+              // 탭 시 상세 화면으로 push.
+              // recordId 를 인자로 넘겨 상세 화면이 자체적으로 데이터를 가져오게 한다.
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => RecordDetailScreen(
+                      recordId: state.items[index].recordId,
+                    ),
+                  ),
+                );
+              },
+            ),
           );
         },
       ),
@@ -115,64 +129,73 @@ class _RecordHistoryScreenState extends ConsumerState<RecordHistoryScreen> {
 class _RecordCard extends StatelessWidget {
   final RecordSummary summary;
 
-  const _RecordCard({required this.summary});
+  // 외부에서 탭 동작을 주입받는다. null 이면 탭이 비활성.
+  final VoidCallback? onTap;
+
+  const _RecordCard({required this.summary, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // 카드 전체 배경 — 부드러운 회색 톤 (디자인 시안 참고)
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFEFEF),
+    // Material → InkWell → 외곽 Container 순서로 감싸는 이유:
+    //  - InkWell 의 ripple(파동) 효과를 Material 위에서만 정상적으로 그려진다.
+    //  - 클리핑(둥근 모서리) 도 InkWell 의 borderRadius 옵션으로 동기화.
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // 트랙 썸네일 — 60x60 정사각.
-          _Thumbnail(url: summary.trackImageUrl),
-          const SizedBox(width: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFEFEF),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 트랙 썸네일 — 60x60 정사각.
+              _Thumbnail(url: summary.trackImageUrl),
+              const SizedBox(width: 12),
 
-          // 가운데 텍스트 영역
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  summary.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                // "5.2km   28:34   5'30''/km" 한 줄 표시.
-                // 글자 간격을 ' · ' 대신 공백 + 길이로 구분 — 디자인 시안과 동일.
-                Text(
-                  '${summary.distance.toStringAsFixed(1)}km'
+              // 가운데 텍스트 영역
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      summary.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // "5.2km   28:34   5'30''/km" 한 줄 표시.
+                    // 글자 간격을 ' · ' 대신 공백 + 길이로 구분 — 디자인 시안과 동일.
+                    Text(
+                      '${summary.distance.toStringAsFixed(1)}km'
                       '   ${summary.runningTime}'
                       '   ${summary.avgPace}/km',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.black54,
-                  ),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
-          // 오른쪽 날짜 — "04.27" 등 짧은 형태로 잘라서 보인다.
-          // BE 가 "2026. 4. 27." 로 주므로 끝의 점/공백을 다듬어 "04.27" 로 만든다.
-          Text(
-            _shortDate(summary.date),
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.black45,
-            ),
+              // 오른쪽 날짜 — "04.27" 등 짧은 형태로 잘라서 보인다.
+              // BE 가 "2026. 4. 27." 로 주므로 끝의 점/공백을 다듬어 "04.27" 로 만든다.
+              Text(
+                _shortDate(summary.date),
+                style: const TextStyle(fontSize: 12, color: Colors.black45),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -212,17 +235,17 @@ class _Thumbnail extends StatelessWidget {
         child: url.isEmpty
             ? const _ThumbnailPlaceholder()
             : Image.network(
-          url,
-          fit: BoxFit.cover,
-          // 이미지 로드 실패 시 폴백.
-          // 네트워크 끊김 / 잘못된 URL 등 모든 케이스 일괄 처리.
-          errorBuilder: (_, __, ___) => const _ThumbnailPlaceholder(),
-          // 로딩 중에도 같은 자리에서 회색 칸이 보이도록 빈 컨테이너 표기.
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return const _ThumbnailPlaceholder();
-          },
-        ),
+                url,
+                fit: BoxFit.cover,
+                // 이미지 로드 실패 시 폴백.
+                // 네트워크 끊김 / 잘못된 URL 등 모든 케이스 일괄 처리.
+                errorBuilder: (_, __, ___) => const _ThumbnailPlaceholder(),
+                // 로딩 중에도 같은 자리에서 회색 칸이 보이도록 빈 컨테이너 표기.
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const _ThumbnailPlaceholder();
+                },
+              ),
       ),
     );
   }
