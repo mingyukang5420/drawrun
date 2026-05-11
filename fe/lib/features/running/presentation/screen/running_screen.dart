@@ -20,8 +20,7 @@ class RunningScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _Header(),
-            _WeeklyStats(),            // 이번 주 활동 요약
-            _BookmarkedCourses(),       // 북마크 코스 캐러셀
+            _BookmarkedCourses(),
             const Expanded(child: RunningMapView()),
             _FreeRunButton(
               onPressed: () async {
@@ -90,104 +89,6 @@ class _Header extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-// ── 이번 주 활동 요약 스트립 ─────────────────────────────────────────
-// TODO: 러닝 기록 API 연동 후 실제 데이터로 교체
-class _WeeklyStats extends StatelessWidget {
-  const _WeeklyStats();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F4F6),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            _StatCell(value: '28.4', unit: 'km', label: '이번 주 거리'),
-            const _VerticalDivider(),
-            _StatCell(value: '5', unit: '회', label: '러닝 횟수'),
-            const _VerticalDivider(),
-            _StatCell(value: '3', unit: '일', label: '연속 달성'),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatCell extends StatelessWidget {
-  final String value;
-  final String unit;
-  final String label;
-
-  const _StatCell({
-    required this.value,
-    required this.unit,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: value,
-                  style: const TextStyle(
-                    fontFamily: 'SUIT',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
-                  ),
-                ),
-                TextSpan(
-                  text: ' $unit',
-                  style: const TextStyle(
-                    fontFamily: 'SUIT',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Pretendard',
-              fontSize: 11,
-              color: Color(0xFF9CA3AF),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VerticalDivider extends StatelessWidget {
-  const _VerticalDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      color: const Color(0xFFE5E7EB),
     );
   }
 }
@@ -261,7 +162,7 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
           ),
         ),
         SizedBox(
-          height: 205,
+          height: 100,
           child: PageView.builder(
             controller: _controller,
             itemCount: _items.length,
@@ -349,156 +250,116 @@ class _CourseCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.07),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // ── 이미지 영역 ──
+          // ── 소형 썸네일 (좌측 정사각형) ──
           ClipRRect(
             borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Stack(
-              children: [
-                // 썸네일 이미지 or 플레이스홀더
-                _Thumbnail(url: item.thumbnailUrl),
-                // 하단 그라데이션 (텍스트 가독성)
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.18),
-                        ],
-                        stops: const [0.5, 1.0],
+                const BorderRadius.horizontal(left: Radius.circular(16)),
+            child: _Thumbnail(url: item.thumbnailUrl),
+          ),
+          // ── 텍스트 정보 (우측) ──
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // 코스명 + 난이도 배지
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          style: const TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1C1C1E),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: diffColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          diffLabel,
+                          style: TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: diffColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // 지역 + 거리
+                  Row(
+                    children: [
+                      const Icon(Icons.place_outlined,
+                          size: 12, color: Color(0xFF9CA3AF)),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          item.regions.join(' · '),
+                          style: const TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 12,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '${item.distance.toStringAsFixed(1)} km',
+                        style: const TextStyle(
+                          fontFamily: 'SUIT',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // 진행률 바 (진행 중인 코스만)
+                  if (hasProgress)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: item.completionScore / 100,
+                        minHeight: 4,
+                        backgroundColor: const Color(0xFFE5E7EB),
+                        valueColor: AlwaysStoppedAnimation<Color>(diffColor),
                       ),
                     ),
-                  ),
-                ),
-                // 난이도 배지 (좌상단)
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: diffColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      diffLabel,
-                      style: const TextStyle(
+                  // 완주 텍스트
+                  if (isCompleted)
+                    const Text(
+                      '완주 ✓',
+                      style: TextStyle(
                         fontFamily: 'Pretendard',
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        color: Color(0xFF27AE60),
                       ),
                     ),
-                  ),
-                ),
-                // 완주 or 진행 중 배지 (우상단)
-                if (isCompleted || hasProgress)
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isCompleted
-                            ? const Color(0xFF1C1C1E)
-                            : Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        isCompleted
-                            ? '완주 ✓'
-                            : '${item.completionScore}%',
-                        style: TextStyle(
-                          fontFamily: 'Pretendard',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: isCompleted
-                              ? Colors.white
-                              : const Color(0xFF1C1C1E),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // ── 텍스트 정보 영역 ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 코스 이름
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    fontFamily: 'Pretendard',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 6),
-                // 지역 + 거리 한 줄
-                Row(
-                  children: [
-                    const Icon(Icons.place_outlined,
-                        size: 13, color: Color(0xFF9CA3AF)),
-                    const SizedBox(width: 2),
-                    Text(
-                      item.regions.join(' · '),
-                      style: const TextStyle(
-                        fontFamily: 'Pretendard',
-                        fontSize: 12,
-                        color: Color(0xFF9CA3AF),
-                      ),
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.straighten_outlined,
-                        size: 13, color: Color(0xFF9CA3AF)),
-                    const SizedBox(width: 2),
-                    Text(
-                      '${item.distance.toStringAsFixed(1)} km',
-                      style: const TextStyle(
-                        fontFamily: 'SUIT',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
-                // 진행 중인 코스만 프로그레스 바 표시
-                if (hasProgress) ...[
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: item.completionScore / 100,
-                      minHeight: 4,
-                      backgroundColor: const Color(0xFFE5E7EB),
-                      valueColor: AlwaysStoppedAnimation<Color>(diffColor),
-                    ),
-                  ),
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -518,8 +379,8 @@ class _Thumbnail extends StatelessWidget {
     if (url != null) {
       return Image.network(
         url!,
-        width: double.infinity,
-        height: 130,
+        width: 88,
+        height: 88,
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => _placeholder(),
       );
@@ -528,10 +389,10 @@ class _Thumbnail extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        width: double.infinity,
-        height: 130,
+        width: 88,
+        height: 88,
         color: const Color(0xFFE5E7EB),
-        child: const Icon(Icons.landscape, color: Color(0xFFD1D5DB), size: 40),
+        child: const Icon(Icons.landscape, color: Color(0xFFD1D5DB), size: 32),
       );
 }
 
