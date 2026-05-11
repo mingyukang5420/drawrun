@@ -412,49 +412,23 @@ class _MapVignette extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Colors.transparent = 0x00000000(투명 검정) → 흰색과 보간하면 검정 섀도우처럼 보임
-    // 0x00FFFFFF = 투명 흰색 → 흰색끼리 알파만 변하므로 자연스러운 페이드
-    const fade = [Colors.white, Color(0x00FFFFFF)];
-
-    // SizedBox.expand 으로 감싸야 Stack이 부모 전체를 채운다
-    // (Positioned 만으로는 Stack 자체의 크기가 0이 되어 렌더링되지 않음)
     return IgnorePointer(
       child: SizedBox.expand(
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0, left: 0, right: 0, height: 56,
-              child: _gradient(Alignment.topCenter, Alignment.bottomCenter, fade),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            // 중앙 투명 → 바깥쪽 흰색으로 퍼지는 원형 그라데이션
+            // radius 를 1.4 로 키우면 코너까지 충분히 덮인다
+            gradient: RadialGradient(
+              center: Alignment.center,
+              radius: 1.4,
+              colors: [Color(0x00FFFFFF), Colors.white],
+              stops: [0.45, 1.0],
             ),
-            Positioned(
-              bottom: 0, left: 0, right: 0, height: 72,
-              child: _gradient(Alignment.bottomCenter, Alignment.topCenter, fade),
-            ),
-            Positioned(
-              top: 0, bottom: 0, left: 0, width: 48,
-              child: _gradient(Alignment.centerLeft, Alignment.centerRight, fade),
-            ),
-            Positioned(
-              top: 0, bottom: 0, right: 0, width: 48,
-              child: _gradient(Alignment.centerRight, Alignment.centerLeft, fade),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
-
-  Widget _gradient(
-    AlignmentGeometry begin,
-    AlignmentGeometry end,
-    List<Color> colors,
-  ) =>
-      DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(begin: begin, end: end, colors: colors),
-        ),
-        child: const SizedBox.expand(),
-      );
 }
 
 // ── 자유 러닝 시작 버튼 ──────────────────────────────────────────────
