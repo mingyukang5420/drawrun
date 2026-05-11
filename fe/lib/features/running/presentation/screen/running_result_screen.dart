@@ -31,6 +31,12 @@ class RunningResultScreen extends ConsumerStatefulWidget {
 }
 
 class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
+
+  // GPS 노이즈만으로도 나올 수 있는 미세 거리 — 실제 러닝으로 보기 어려운 하한선.
+  // 이 값 미만이면 측정된 러닝이 없다고 간주하고 서버 저장을 건너뛴다.
+  // distanceLabel 의 마스킹 임계값(0.05 km) 과 일치시켜 표시/저장 정책을 통일.
+  static const double _minSaveableDistanceKm = 0.01;
+
   // 러닝 제목을 보관하는 컨트롤러.
   // 초기값은 startedAt 으로 만든 자동 제목.
   late final TextEditingController _titleController;
@@ -41,6 +47,11 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
 
   // 업로드 실패 시 사용자에게 노출할 메시지 (재시도 트리거 분기에 활용)
   String? _uploadErrorMessage;
+
+  // 측정된 거리가 너무 짧아(임계값 미만) 서버 저장을 건너뛴 케이스의 안내 메시지.
+  // 이 값이 채워지면 saveCurrentSession 자체가 호출되지 않고 사용자에겐 빨간 배너로 안내.
+  // null 이면 "이 상황 아님" 으로 해석되어 평소 흐름.
+  String? _noDataMessage;
 
   // RunningResultMap 을 강제로 다시 mount 하기 위한 키
   // 업로드 재시도 시 이 키를 갈아끼우면 위젯이 새로 만들어져 onMapReady 부터 다시 흐른다
@@ -53,6 +64,22 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     // initState 시점엔 ref 사용이 안전 — 여기서 startedAt 을 한 번 읽어 자동 제목을 만든다.
     final startedAt = ref.read(runningViewModelProvider).startedAt;
     _titleController = TextEditingController(text: _buildAutoTitle(startedAt));
+
+    // 거리가 임계값 미만이면 이미지 업로드 / 저장 둘 다 건너뛴다.
+    // RunningResultMap 자체가 마운트되지 않도록 build 에서 분기하므로
+    // 여기서 _noDataMessage 만 미리 세팅해 그 분기를 트리거한다.
+    // setState 는 build 직후 프레임으로 미뤄야 안전.
+    final distanceKm = ref.read(runningViewModelProvider).distanceKm;
+    if (distanceKm < _minSaveableDistanceKm) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _noDataMessage =
+          '측정된 러닝이 없어 저장하지 않습니다.\n메인으로 돌아갑니다.';
+        });
+      });
+      return;
+    }
 
     // 화면이 처음 그려진 다음 프레임에 자동 저장 절차를 시작한다.
     // initState 직접 호출이 아니라 addPostFrameCallback 안에서 트리거하는 이유:
@@ -128,6 +155,20 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
   Future<void> _autoSave() async {
     final url = _trackImageUrl;
     if (url == null) return;
+
+    // 방어 두 겹 — initState 에서 1차로 막지만 향후 다른 경로로 호출돼도 안전하도록.
+    // BE 가 distance=0 / avgPace=0 케이스를 validation 으로 거르므로 클라이언트가
+    // 미리 막아 라운드트립을 절약하고, 사용자에게도 정확한 사유를 보여 준다.
+    final distanceKm = ref.read(runningViewModelProvider).distanceKm;
+    if (distanceKm < _minSaveableDistanceKm) {
+      if (!mounted) return;
+      setState(() {
+        _noDataMessage =
+        '측정된 러닝이 없어 저장하지 않습니다.\n메인으로 돌아갑니다.';
+      });
+      return;
+    }
+
     try {
       await ref.read(runningViewModelProvider.notifier).saveCurrentSession(
         title: _titleController.text.trim().isEmpty
@@ -140,8 +181,6 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     } on ApiException {
       // ApiException 은 ViewModel 이 saveError 에 채워줌 → build 가 자동으로 배너 노출
     } catch (e) {
-      // 그 외 모든 예외는 ApiException 이 아니라 saveError 에 안 들어감
-      // _uploadErrorMessage 와 같은 자리(배너) 에 표시되도록 임시 대용으로 재활용
       if (!mounted) return;
       setState(() {
         _uploadErrorMessage = '러닝 저장 중 알 수 없는 오류: $e';
@@ -153,6 +192,12 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
   //   - 정상 케이스라면 이미 저장이 끝났을 것이므로 그냥 메인 탭으로 복귀
   //   - 저장 실패 상태라면 다시 시도
   Future<void> _onConfirm() async {
+    // 측정된 러닝이 없는 케이스 — 재시도가 의미 없으므로 그냥 메인으로 복귀.
+    if (_noDataMessage != null) {
+      if (!mounted) return;
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      return;
+    }
     if (_uploadErrorMessage != null) {
       _retryUpload();
       return;
@@ -184,11 +229,14 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     //   1) 이미지 업로드 — _trackImageUrl 이 아직 안 들어왔고 업로드 에러도 없는 상태
     //   2) 저장 API   — state.isSaving 이 true 인 상태
     // 둘 중 하나라도 에러로 끝나면 "다시 시도" 가 필요하므로 그 케이스는 막지 않는다.
-    final bool isInProgress = (_trackImageUrl == null && _uploadErrorMessage == null) || state.isSaving;
+    //
+    // _noDataMessage 가 있으면 "측정 없음 = 종결 상태" — 진행 중 아님.
+    final bool isInProgress = _noDataMessage == null && ((_trackImageUrl == null && _uploadErrorMessage == null) || state.isSaving);
 
     // 뒤로가기 허용 조건 — "전송 단계 중 하나라도 실패한 상태" 일 때만.
     // 평소(진행 중 / 정상 완료) 에는 사용자가 "확인" 버튼으로만 화면을 닫게 한다.
-    final bool canGoBack = _uploadErrorMessage != null || state.saveError != null;
+    // _noDataMessage 케이스에서도 사용자가 빠져나갈 수 있어야 함.
+    final bool canGoBack = _uploadErrorMessage != null || state.saveError != null || _noDataMessage != null;
 
     return PopScope(
       // canPop=false 이면 시스템 백 / 제스처가 차단된다 (다이얼로그도 안 띄움).
@@ -241,13 +289,17 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
                 const SizedBox(height: 16),
 
                 // ── 2. 지도 (코스선만) ────────────────────────────────
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: _buildMap(),
+                // _noDataMessage 가 있다는 건 거리 부족으로 업로드/저장 자체를 건너뛰는 상태.
+                // 이 경우 RunningResultMap 을 아예 마운트하지 않아 onMapLoaded → _captureAndUpload
+                // 흐름이 시작조차 안 되게 한다 → 이미지 서버 업로드 자체를 차단.
+                if (_noDataMessage == null)
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: _buildMap(),
+                    ),
                   ),
-                ),
 
                 const SizedBox(height: 24),
 
@@ -274,6 +326,22 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
                 _MetricGrid(state: state),
 
                 const SizedBox(height: 16),
+                // 측정된 거리 부족으로 저장 자체를 건너뛴 케이스 안내.
+                // 다른 에러 배너와 색은 같지만 의미가 다르므로 별도 블록.
+                if (_noDataMessage != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFE8E8),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _noDataMessage!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
                 // _uploadErrorMessage 가 채워지면 사용자에게 즉시 노출
                 // 업로드가 실패하면 종료 API 호출 자체가 일어나지 않으므로 이 배너가 유일한 신호다
                 if (_uploadErrorMessage != null)
@@ -333,9 +401,13 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
                       ),
                     )
                         : Text(
-                      // 에러 상태(업로드/저장 둘 중 하나라도 실패) → "다시 시도"
-                      // 정상 완료 상태 → "확인"
-                      (_uploadErrorMessage != null || state.saveError != null)
+                      // 측정 없음 케이스 → 메인으로 돌아가기.
+                      // 에러 케이스 → 다시 시도.
+                      // 정상 완료 → 확인.
+                      _noDataMessage != null
+                          ? '메인으로 돌아가기'
+                          : (_uploadErrorMessage != null ||
+                          state.saveError != null)
                           ? '다시 시도'
                           : '확인',
                       style: const TextStyle(
