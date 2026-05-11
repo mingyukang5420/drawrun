@@ -180,6 +180,12 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     // ref.watch — state 가 바뀔 때마다 build 가 다시 호출된다.
     final state = ref.watch(runningViewModelProvider);
 
+    // 아래 두 단계 중 하나라도 "에러 없이 진행 중" 이면 사용자 입력을 막는다.
+    //   1) 이미지 업로드 — _trackImageUrl 이 아직 안 들어왔고 업로드 에러도 없는 상태
+    //   2) 저장 API   — state.isSaving 이 true 인 상태
+    // 둘 중 하나라도 에러로 끝나면 "다시 시도" 가 필요하므로 그 케이스는 막지 않는다.
+    final bool isInProgress = (_trackImageUrl == null && _uploadErrorMessage == null) || state.isSaving;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F4), // 화면 배경(스크린샷의 회색톤)
       appBar: AppBar(
@@ -303,9 +309,10 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
                         borderRadius: BorderRadius.circular(26),
                       ),
                     ),
-                    // 저장 중이면 버튼 누름 차단 — 중복 저장 방지
-                    onPressed: state.isSaving ? null : _onConfirm,
-                    child: state.isSaving
+                    // 업로드/저장 어느 한 단계라도 끝나지 않았다면(에러 없는 진행 중) 입력 차단.
+                    // 에러 상태는 isInProgress 가 false 가 되어 다시 활성 — "다시 시도" 경로 보장.
+                    onPressed: isInProgress ? null : _onConfirm,
+                    child: isInProgress
                         ? const SizedBox(
                       width: 20,
                       height: 20,
@@ -315,7 +322,11 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
                       ),
                     )
                         : Text(
-                      state.saveError != null ? '다시 시도' : '확인',
+                      // 에러 상태(업로드/저장 둘 중 하나라도 실패) → "다시 시도"
+                      // 정상 완료 상태 → "확인"
+                      (_uploadErrorMessage != null || state.saveError != null)
+                          ? '다시 시도'
+                          : '확인',
                       style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600),
