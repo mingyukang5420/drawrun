@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/record/domain/record_detail.dart';
+import 'package:running/features/record/presentation/screen/record_route_screen.dart';
 import 'package:running/features/record/presentation/record_detail_viewmodel.dart';
 import 'package:running/features/record/presentation/record_provider.dart';
 
@@ -160,9 +161,12 @@ class _RecordDetailScreenState extends ConsumerState<RecordDetailScreen> {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('상세 경로 화면은 곧 연결됩니다'),
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => RecordRouteScreen(
+                            nodes: data.nodes,
+                            title: data.title,
+                          ),
                         ),
                       );
                     },
