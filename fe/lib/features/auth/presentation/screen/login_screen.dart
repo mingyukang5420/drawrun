@@ -11,6 +11,13 @@ class LoginScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 로그인 성공(isLoggedIn=true) 시 메인 화면으로 이동
+    ref.listen<AuthState>(authViewModelProvider, (_, next) {
+      if (next.isLoggedIn) {
+        context.goNamed(RouteNames.main);
+      }
+    });
+
     final state = ref.watch(authViewModelProvider);
     final notifier = ref.read(authViewModelProvider.notifier);
     return _LoginBody(state: state, notifier: notifier);
@@ -114,7 +121,7 @@ class _LoginBodyState extends State<_LoginBody> {
                   onPressed: widget.state.isLoading
                       ? null
                       : () => widget.notifier.login(
-                            email: _idController.text.trim(),
+                            loginId: _idController.text.trim(),
                             password: _passwordController.text,
                           ),
                   style: ElevatedButton.styleFrom(

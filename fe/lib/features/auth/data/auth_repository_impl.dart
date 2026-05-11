@@ -11,10 +11,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<String> login({
-    required String email,
+    required String loginId,
     required String password,
   }) async {
-    final token = await _datasource.login(email: email, password: password);
+    final token = await _datasource.login(loginId: loginId, password: password);
     // 로그인 성공 시 토큰을 메모리에 보관 → 이후 요청마다 AuthInterceptor 가 자동 첨부
     TokenStorage.save(token);
     return token;
