@@ -134,7 +134,7 @@ public class CourseController {
     ) {
         Long memberId = 1L;
 
-        CourseResponse.CourseListResultDTO response = courseService.serchCourse(
+        CourseResponse.CourseListResultDTO response = courseService.searchCourse(
                 memberId,
                 keyword,
                 page,

@@ -159,7 +159,7 @@ public class CourseService {
         return CourseConverter.toDetailDTO(course, regions, isCompleted);
     }
 
-    public CourseResponse.CourseListResultDTO serchCourse(
+    public CourseResponse.CourseListResultDTO searchCourse(
             Long memberId,
             String keyword,
             Integer page,
