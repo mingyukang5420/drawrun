@@ -7,6 +7,7 @@ import 'package:running/shared/network/dio_client.dart';
 import 'package:running/shared/network/dio_provider.dart';
 import 'package:running/features/record/presentation/record_history_viewmodel.dart';
 import 'package:running/features/record/presentation/record_stats_viewmodel.dart';
+import 'package:running/features/record/presentation/record_detail_viewmodel.dart';
 
 // 기록 feature 의 Riverpod Provider 모음.
 //
@@ -50,4 +51,19 @@ RecordRepository _recordRepositoryFor() {
 final statsViewModelProvider = NotifierProvider.autoDispose<
     RecordStatsNotifier, RecordStatsState>(
       () => RecordStatsNotifier(_recordRepositoryFor()),
+);
+
+// 상세 화면용 Notifier Provider.
+//
+// NotifierProvider.autoDispose.family<TNotifier, TState, TArg> 형태로
+// "autoDispose" + "family" 두 가지 modifier 를 동시에 건다.
+//   - family: int 타입의 recordId 를 인자로 받아 같은 recordId 면 같은 인스턴스를,
+//     다른 recordId 면 새 인스턴스를 만든다.
+//   - autoDispose: 상세 화면을 빠져나가면 자동 해제.
+//
+// Notifier 클래스(RecordDetailNotifier) 는 FamilyNotifier 만 extend 하면 된다.
+// "AutoDispose" 는 클래스 이름에 안 들어간다 — Provider 쪽 modifier 가 라이프사이클을 담당.
+final recordDetailViewModelProvider =
+NotifierProvider.autoDispose<RecordDetailNotifier, RecordDetailState>(
+      () => RecordDetailNotifier(_recordRepositoryFor()),
 );
