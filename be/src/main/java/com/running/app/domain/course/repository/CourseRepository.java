@@ -119,4 +119,14 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     Optional<Course> findByIdAndMemberIdAndDeletedAtIsNull(Long id, Long memberId);
 
     boolean existsBySourceRecord_Id(Long sourceRecordId);
+
+    @Query("""
+            select c
+            from Course c
+            join fetch c.sourceRecord sr
+            join fetch sr.track t
+            where c.deletedAt is null
+                and lower(c.title) like lower(concat('%', :keyword, '%'))
+            """)
+    Slice<Course> searchCourseSlice(String keyword, Pageable pageable);
 }
