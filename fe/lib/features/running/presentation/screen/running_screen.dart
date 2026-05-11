@@ -76,7 +76,7 @@ class _Header extends StatelessWidget {
                   '오늘도 달리기 좋은 날씨예요! ☀️',
                   style: TextStyle(
                     fontFamily: 'Pretendard',
-                    fontSize: 17,
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1C1C1E),
                     letterSpacing: -0.3,
