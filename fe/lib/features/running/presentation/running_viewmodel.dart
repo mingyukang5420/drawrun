@@ -11,8 +11,7 @@ import 'package:running/shared/map/lat_lng_naver_ext.dart';
 import 'package:running/shared/model/lat_lng.dart';
 import 'package:running/shared/network/api_exception.dart';
 import 'package:running/features/running/domain/running_repository.dart';
-
-import '../../../shared/sensor/cadence_service.dart';
+import 'package:running/shared/sensor/cadence_service.dart';
 
 // 러닝 화면이 구독하는 불변 상태 클래스
 // state = state.copyWith(...) 로 새 객체를 만들어야 Riverpod 이 UI 를 다시 그린다
@@ -364,19 +363,23 @@ class RunningNotifier extends Notifier<RunningState> {
   // saveError 가 채워져 UI 에서 재시도 버튼을 띄울 수 있다.
   Future<void> saveCurrentSession({
     required String title,
+    required String trackImageUrl,
     int? courseId,
+    int? courseDraftId,
   }) async {
     state = state.copyWith(isSaving: true, saveError: null);
     try {
       await _repository.save(
         session: buildSession(),
         title: title,
+        trackImageUrl: trackImageUrl,
         courseId: courseId,
+        courseDraftId: courseDraftId,
       );
       state = state.copyWith(isSaving: false);
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e);
-      rethrow;  // 호출부에서 추가 UI 처리 가능하게 다시 던짐
+      rethrow;
     }
   }
 }

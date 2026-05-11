@@ -20,7 +20,18 @@ import 'package:running/shared/map/lat_lng_naver_ext.dart';
 // 현재 이미지 전송 API가 결정되지 않아 임시로 사진첩에 저장하며,
 // gal 의존성 및 안드로이드 사진첩 접근 권한 또한 추후에 제거 예정
 class RunningResultMap extends ConsumerStatefulWidget {
-  const RunningResultMap({super.key});
+  // 업로드 성공 시 한 번 호출 — trackImageUrl 을 인자로 넘김
+  final ValueChanged<String> onUploaded;
+
+  // 업로드 실패 시 한 번 호출 — 에러 객체를 인자로 넘김
+  // 부모에서 SnackBar / 재시도 버튼 노출 등에 활용
+  final ValueChanged<Object> onUploadFailed;
+
+  const RunningResultMap({
+    super.key,
+    required this.onUploaded,
+    required this.onUploadFailed,
+  });
 
   @override
   ConsumerState<RunningResultMap> createState() => _RunningResultMapState();
@@ -113,6 +124,7 @@ class _RunningResultMapState extends ConsumerState<RunningResultMap> {
         await Future<void>.delayed(const Duration(milliseconds: 100));
 
         await _captureAndSave(_controller!);
+        await _captureAndUpload(_controller!);
       },
     );
   }
@@ -134,6 +146,25 @@ class _RunningResultMapState extends ConsumerState<RunningResultMap> {
       await Gal.putImage(file.path, album: '러닝');
     } catch (_) {
       // 스냅샷 실패는 본 저장 흐름과 무관 — UI 도 건드리지 않는다.
+    }
+  }
+  // 스냅샷 → 서버 업로드 → 결과 콜백 단일 책임 헬퍼
+  Future<void> _captureAndUpload(NaverMapController controller) async {
+    try {
+      // takeSnapshot 은 PNG 임시 파일을 디스크에 쓰고 그 File 을 돌려준다
+      final File file = await controller.takeSnapshot(compressQuality: 80);
+
+      // Repository 를 ref.read 로 꺼내 호출
+      // ref.watch 가 아닌 이유: 이 콜백은 한 번만 발사되고 다시 호출될 일이 없음
+      final repository = ref.read(trackImageRepositoryProvider);
+      final url = await repository.upload(file);
+
+      // 위젯이 트리에서 빠진 뒤(결과 화면을 닫은 뒤) 콜백을 부르면 setState 사고가 날 수 있다
+      if (!mounted) return;
+      widget.onUploaded(url);
+    } catch (e) {
+      if (!mounted) return;
+      widget.onUploadFailed(e);
     }
   }
 }

@@ -8,6 +8,8 @@ import com.running.app.domain.course.entity.CourseDistrict;
 import com.running.app.domain.course.repository.CourseDistrictRepository;
 import com.running.app.domain.course.repository.CourseRepository;
 import com.running.app.domain.course.type.CourseDifficulty;
+import com.running.app.domain.district.entity.District;
+import com.running.app.domain.district.repository.DistrictRepository;
 import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.domain.track.entity.Track;
@@ -36,6 +38,7 @@ public class CourseService {
     private final CourseDistrictRepository courseDistrictRepository;
     private final RunningRecordRepository runningRecordRepository;
     private final DifficultyService difficultyService;
+    private final DistrictRepository districtRepository;
 
     public CourseResponse.CourseListResultDTO getCourseList(
             Long memberId,
@@ -95,6 +98,17 @@ public class CourseService {
         Course course = CourseConverter.toCourseFromRecord(memberId, sourceRecord, difficulty);
         //저장 후 courseId 반환
         Course savedCourse = courseRepository.save(course);
+
+        // 지역 역산: track.geom이 boundary와 교차하는 district 조회 후 course_district 저장
+        String trackWkt = sourceRecord.getTrack().getGeom().toText();
+        List<District> districts = districtRepository.findDistrictsByGeomIntersects(trackWkt);
+        List<CourseDistrict> courseDistricts = districts.stream()
+                .map(district -> CourseDistrict.builder()
+                        .course(savedCourse)
+                        .district(district)
+                        .build())
+                .toList();
+        courseDistrictRepository.saveAll(courseDistricts);
 
         return savedCourse.getId();
     }

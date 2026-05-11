@@ -98,6 +98,8 @@ services:
       dockerfile: Dockerfile
     container_name: backend
     restart: always
+    volumes:
+      - /home/ubuntu/uploads:/home/ubuntu/uploads
     env_file:
       - .env
     environment:

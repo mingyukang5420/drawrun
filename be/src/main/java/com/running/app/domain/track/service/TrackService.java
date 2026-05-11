@@ -25,8 +25,6 @@ public class TrackService {
 
     private static final int SRID = 4326;
 
-    private static final String PENDING_TRACK_IMAGE_URL = "editor-track-image-pending";
-
     private final TrackRepository trackRepository;
 
     @Value("${app.upload.track-image-path-prefix}")
@@ -56,14 +54,16 @@ public class TrackService {
     }
 
     // 에디터 저장용 — 클라이언트가 distance를 모르므로 PostGIS로 자동 계산.
-    // 트랙 이미지는 추후 썸네일 생성 로직 추가 예정 — 그 전까지 sentinel 문자열로 채움.
+    // trackImageUrl 은 호출자(에디터 흐름) 가 base64 → 디스크 저장 후 받은 공개 URL.
     @Transactional
-    public Track createTrackFromEditor(MultiLineString geom) {
+    public Track createTrackFromEditor(MultiLineString geom, String trackImageUrl) {
+        validateTrackImageUrl(trackImageUrl);
+
         String wkt = new WKTWriter().write(geom);
         Double distanceMeters = trackRepository.calculateLengthMeters(wkt);
         Double distanceKm = distanceMeters / 1000.0;
 
-        Track track = TrackConverter.toTrack(geom, distanceKm, PENDING_TRACK_IMAGE_URL);
+        Track track = TrackConverter.toTrack(geom, distanceKm, trackImageUrl);
 
         return trackRepository.save(track);
     }
