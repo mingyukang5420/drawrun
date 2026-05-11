@@ -186,15 +186,26 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     // 둘 중 하나라도 에러로 끝나면 "다시 시도" 가 필요하므로 그 케이스는 막지 않는다.
     final bool isInProgress = (_trackImageUrl == null && _uploadErrorMessage == null) || state.isSaving;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F4), // 화면 배경(스크린샷의 회색톤)
-      appBar: AppBar(
-        title: const Text('러닝 > 완료 리포트',
-            style: TextStyle(fontSize: 14, color: Colors.black54)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.black,
-      ),
+    // 뒤로가기 허용 조건 — "전송 단계 중 하나라도 실패한 상태" 일 때만.
+    // 평소(진행 중 / 정상 완료) 에는 사용자가 "확인" 버튼으로만 화면을 닫게 한다.
+    final bool canGoBack = _uploadErrorMessage != null || state.saveError != null;
+
+    return PopScope(
+      // canPop=false 이면 시스템 백 / 제스처가 차단된다 (다이얼로그도 안 띄움).
+      // 실패 상태에서만 true 가 되어 사용자가 빠져나갈 수 있음.
+        canPop: canGoBack,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF2F2F4),
+          appBar: AppBar(
+            // AppBar 자동 백 아이콘도 같은 정책으로 노출/숨김.
+            // false 면 아이콘이 그려지지 않아 시각적으로도 "지금은 못 나간다" 가 명확하다.
+            automaticallyImplyLeading: canGoBack,
+            title: const Text('러닝 > 완료 리포트',
+                style: TextStyle(fontSize: 14, color: Colors.black54)),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            foregroundColor: Colors.black,
+          ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -338,6 +349,7 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
           ),
         ),
       ),
+        ),
     );
   }
 
