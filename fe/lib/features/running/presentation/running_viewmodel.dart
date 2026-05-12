@@ -511,6 +511,11 @@ class RunningNotifier extends Notifier<RunningState> {
         courseDraftId: state.courseDraftId,
       );
       state = state.copyWith(referenceNodes: response.nodes);
+      // 시트가 이미 열려 있어 컨트롤러가 살아있는 경우엔 즉시 그려준다.
+      // 컨트롤러가 없으면 다음 setMapController(R1) 진입 시점에 자동으로 그려진다.
+      if (mapController != null && response.nodes.length >= 2) {
+        _drawReferenceRoute(response.nodes);
+      }
     } on ApiException catch (e) {
       // 측정은 그대로 진행. 로그만 남겨 운영에서 모니터링 가능하게.
       debugPrint('run/start 실패 (fail-open): ${e.message}');
