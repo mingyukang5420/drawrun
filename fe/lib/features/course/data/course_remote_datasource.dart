@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/course/domain/way.dart';
+// CourseStatus 는 course.dart 에서 export 됨
 import 'package:running/shared/network/api_exception.dart';
 
 // 코스 관련 HTTP 요청 전담 클래스
@@ -40,6 +41,22 @@ class CourseRemoteDataSource {
   Future<void> deleteCourse(int id) async {
     try {
       await _dio.delete('/api/v1/course/$id');
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  // GET /api/v1/my-courses?status={ALL|READY|DONE|REGISTERED} — 내 코스 목록 조회
+  Future<List<Course>> fetchMyCourses(CourseStatus status) async {
+    try {
+      final response = await _dio.get(
+        '/api/v1/my-courses',
+        queryParameters: {'status': status.queryValue},
+      );
+      final content = response.data['result']['content'] as List<dynamic>;
+      return content
+          .map((e) => Course.fromJson(e as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

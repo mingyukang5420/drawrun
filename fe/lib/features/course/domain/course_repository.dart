@@ -10,6 +10,9 @@ abstract class CourseRepository {
   // 서버에서 코스 전체 목록 조회
   Future<List<Course>> getCourses();
 
+  // 내 코스 목록 조회 (status 로 필터)
+  Future<List<Course>> getMyCourses(CourseStatus status);
+
   // 새 코스를 서버에 저장 (응답 바디 불필요)
   Future<void> saveCourse(Course course);
 
