@@ -36,7 +36,7 @@ public class RankingRedisService {
     }
 
     // 적재된 랭킹 데이터에서 key를 받아 상위 10명을 조회
-    public Map<Long, Double> getRankingTopTen(String key) {
+    public Map<Integer, Double> getRankingTopTen(String key) {
 
         ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
 
@@ -44,7 +44,7 @@ public class RankingRedisService {
         Set<TypedTuple<String>> rank = zSetOps.rangeWithScores(key, 0, 9);
 
         // score 기준으로 정렬된 순서를 보장하기 위해 LinkedHashMap
-        Map<Long, Double> memberRankMap = new LinkedHashMap<>();
+        Map<Integer, Double> memberRankMap = new LinkedHashMap<>();
 
         if (rank == null) {
             return memberRankMap;
@@ -53,7 +53,7 @@ public class RankingRedisService {
         rank.forEach(tuple -> {
             // value = memberId
             // score = 기록
-            Long value = Long.parseLong(tuple.getValue());
+            Integer value = Integer.parseInt(tuple.getValue());
             Double score = tuple.getScore();
 
             memberRankMap.put(value, score);
@@ -65,7 +65,7 @@ public class RankingRedisService {
     /**
      * 리턴값이 인덱스의 번호를 반환하므로 랭크 사용 시 +1 처리하여 사용 필요
      */
-    public Long getMyRank(Long memberId, String key) {
+    public Long getMyRank(Integer memberId, String key) {
 
         // 로그인 되어있지 않은 사용자의 기록 조회 불가
         if (memberId == null) {
@@ -77,7 +77,7 @@ public class RankingRedisService {
         return zSetOps.rank(key, memberId.toString());
     }
 
-    public Double getMyRecord(Long memberId, String key) {
+    public Double getMyRecord(Integer memberId, String key) {
 
         if (memberId == null) {
             return null;
