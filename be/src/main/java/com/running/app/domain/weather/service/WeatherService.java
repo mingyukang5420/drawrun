@@ -7,6 +7,8 @@ import com.running.app.domain.weather.dto.WeatherCacheDto;
 import com.running.app.domain.weather.dto.WeatherResponse;
 import com.running.app.domain.weather.type.PrecipitationType;
 import com.running.app.domain.weather.type.SkyCondition;
+import com.running.app.global.response.exception.GeneralException;
+import com.running.app.global.response.status.ErrorStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -31,7 +33,7 @@ public class WeatherService {
         List<District> districts = districtRepository.findDistrictsByGeomIntersects(wkt);
 
         if (districts.isEmpty()) {
-            throw new IllegalArgumentException("해당 위치의 구를 찾을 수 없습니다.");
+            throw new GeneralException(ErrorStatus.DISTRICT_NOT_FOUND);
         }
 
         // 첫 번째 결과 사용
@@ -45,14 +47,14 @@ public class WeatherService {
         WeatherCacheDto cached = objectMapper.convertValue(rawData, WeatherCacheDto.class);
 
         if (cached == null) {
-            throw new IllegalArgumentException("날씨 데이터가 없습니다: " + gu);
+            throw new GeneralException(ErrorStatus.WEATHER_DATA_UNAVAILABLE, gu);
         }
 
         // 4. 숫자 코드 → 텍스트 변환
         // Redis 에서 값을 꺼낼때 2차 null 방어
         if (cached.getSkyCondition() == null || cached.getPrecipitationType() == null
                 || cached.getTemperature() == null) {
-            throw new IllegalArgumentException("날씨 데이터가 불완전합니다: " + gu);
+            throw new GeneralException(ErrorStatus.WEATHER_DATA_UNAVAILABLE, gu);
         }
 
         SkyCondition sky = SkyCondition.fromCode(cached.getSkyCondition());

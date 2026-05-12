@@ -25,7 +25,9 @@ public enum ErrorStatus {
     COURSE_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "코스를 찾을 수 없습니다."),
     INVALID_ROUTE(HttpStatus.BAD_REQUEST, "400", "뛸 수 없는 길이 포함되어 있습니다."),
     ALREADY_REGISTERED_COURSE(HttpStatus.BAD_REQUEST, "400", "등록을 완료한 코스는 삭제할 수 없습니다."),
-    EDITOR_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "400", "수정할 수 없는 상태의 드래프트입니다.");
+    EDITOR_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "400", "수정할 수 없는 상태의 드래프트입니다."),
+    DISTRICT_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "해당 위치의 구를 찾을 수 없습니다."),
+    WEATHER_DATA_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "503", "날씨 데이터를 현재 사용할 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
