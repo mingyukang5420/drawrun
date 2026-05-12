@@ -286,6 +286,7 @@ class RunningNotifier extends Notifier<RunningState> {
       isRunning: false,
       isPaused: false,
       endedAt: DateTime.now(),
+      elapsedSeconds: _stopwatch.elapsed.inSeconds,
     );
   }
 
