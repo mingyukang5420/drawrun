@@ -10,6 +10,7 @@ import 'package:running/shared/location/location_service.dart';
 import 'package:running/shared/map/lat_lng_naver_ext.dart';
 import 'package:running/shared/model/lat_lng.dart';
 import 'package:running/shared/network/api_exception.dart';
+import 'package:running/features/running/domain/run_start_response.dart';
 import 'package:running/features/running/domain/running_repository.dart';
 import 'package:running/shared/sensor/cadence_service.dart';
 import 'package:running/shared/sensor/altitude_service.dart';
@@ -38,6 +39,16 @@ class RunningState {
   final DateTime? startedAt;
   final DateTime? endedAt;
 
+  // 코스/드래프트 진입 시 외부에서 채워 두는 ID 들. 자유 러닝이면 둘 다 null.
+  // 시작 API body / 종료 API body 양쪽에 같이 보낸다.
+  final int? courseId;
+  final int? courseDraftId;
+
+  // 시작 API 응답으로 받은 참조 경로(코스/드래프트의 GPS 노드).
+  // 자유 러닝 / 응답 실패 시엔 빈 리스트.
+  // 추후 진행 화면 지도에 회색 점선으로 그려 사용자가 따라갈 길잡이로 활용.
+  final List<LatLng> referenceNodes;
+
   const RunningState({
     this.isRunning = false,
     this.isPaused = false,
@@ -51,6 +62,9 @@ class RunningState {
     this.saveError,
     this.startedAt,
     this.endedAt,
+    this.courseId,
+    this.courseDraftId,
+    this.referenceNodes = const [],
   });
 
   RunningState copyWith({
@@ -66,6 +80,9 @@ class RunningState {
     ApiException? saveError,
     DateTime? startedAt,
     DateTime? endedAt,
+    int? courseId,
+    int? courseDraftId,
+    List<LatLng>? referenceNodes,
   }) {
     return RunningState(
       isRunning: isRunning ?? this.isRunning,
@@ -80,6 +97,9 @@ class RunningState {
       saveError: saveError ?? this.saveError,
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
+      courseId: courseId ?? this.courseId,
+      courseDraftId: courseDraftId ?? this.courseDraftId,
+      referenceNodes: referenceNodes ?? this.referenceNodes,
     );
   }
 
@@ -431,6 +451,28 @@ class RunningNotifier extends Notifier<RunningState> {
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e);
       rethrow;
+    }
+  }
+
+  // 카운트다운 화면에서 한 번 호출 — 시작 API 발사 후 응답 nodes 를 state 에 보관.
+  //
+  // fail-open 정책:
+  //   네트워크 실패가 나도 예외를 위로 던지지 않는다. referenceNodes 만 빈 채로 둘 뿐
+  //   GPS 측정 / 종료 저장은 정상 진행된다. 사용자 입장에선 "참조 경로가 안 보일 뿐".
+  //
+  // courseId / courseDraftId 는 현재 state 값을 그대로 사용 —
+  // 추후 코스/드래프트 진입 화면이 router 단계에서 state.copyWith(courseId: X) 로 박아두면
+  // 여기서 자동으로 따라간다.
+  Future<void> beginSessionFromServer() async {
+    try {
+      final response = await _repository.startSession(
+        courseId: state.courseId,
+        courseDraftId: state.courseDraftId,
+      );
+      state = state.copyWith(referenceNodes: response.nodes);
+    } on ApiException catch (e) {
+      // 측정은 그대로 진행. 로그만 남겨 운영에서 모니터링 가능하게.
+      debugPrint('run/start 실패 (fail-open): ${e.message}');
     }
   }
 }
