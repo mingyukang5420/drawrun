@@ -89,6 +89,7 @@ public class CourseService {
 
         return CourseConverter.toListResultDTO(courseSlice, content);
     }
+
     // 기록에서 코스 생성 메서드
     @Transactional
     public Long createCourseFromRecord(String loginId, Long recordId) {
@@ -120,6 +121,9 @@ public class CourseService {
                         .build())
                 .toList();
         courseDistrictRepository.saveAll(courseDistricts);
+
+        // 코스 id 삽입
+        sourceRecord.insertCourseId(savedCourse.getId());
 
         return savedCourse.getId();
     }
@@ -328,7 +332,8 @@ public class CourseService {
             return Map.of();
         }
 
-        List<CourseDistrict> courseDistricts = courseDistrictRepository.findAllByCourse_IdIn(courseIds);
+        List<CourseDistrict> courseDistricts = courseDistrictRepository.findAllByCourse_IdIn(
+                courseIds);
         Map<Long, List<String>> regionMap = new HashMap<>();
 
         for (CourseDistrict courseDistrict : courseDistricts) {

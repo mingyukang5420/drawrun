@@ -2,10 +2,21 @@ package com.running.app.domain.record.entity;
 
 import com.running.app.domain.common.BaseRDBEntity;
 import com.running.app.domain.track.entity.Track;
-import jakarta.persistence.*;
-import lombok.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
@@ -71,6 +82,7 @@ public class RunningRecord extends BaseRDBEntity {
     public void changeTitle(String title) {
         this.title = title;
     }
+
     ///
     /// 러닝 종류 분기 규칙 설정
     ///
@@ -91,5 +103,10 @@ public class RunningRecord extends BaseRDBEntity {
     public void normalizeToFreeRun() {
         this.courseId = null;
         this.isCompleted = true;
+    }
+
+    // 코스 등록 시 courseId 삽입
+    public void insertCourseId(long courseId) {
+        this.courseId = courseId;
     }
 }
