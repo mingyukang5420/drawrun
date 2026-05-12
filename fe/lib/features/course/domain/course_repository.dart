@@ -11,11 +11,8 @@ abstract class CourseRepository {
   // 서버에서 코스 전체 목록 조회
   Future<List<Course>> getCourses();
 
-  // 내 코스 목록 조회 (status 로 필터)
-  Future<List<Course>> getMyCourses(CourseStatus status);
-
-  // 편집 중인 코스 초안 목록 조회 (GET /api/v1/editor)
-  Future<List<CourseDraft>> getEditorDrafts();
+  // GET /api/v1/editor?filter=&page= — 내 코스 목록 조회 (status 로 필터)
+  Future<List<CourseDraft>> getMyCourses(CourseStatus status, {int page = 0});
 
   // 새 코스를 서버에 저장 (응답 바디 불필요)
   Future<void> saveCourse(Course course);

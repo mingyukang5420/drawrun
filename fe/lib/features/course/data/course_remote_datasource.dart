@@ -47,27 +47,18 @@ class CourseRemoteDataSource {
     }
   }
 
-  // GET /api/v1/my-courses?status={ALL|READY|DONE|REGISTERED} — 내 코스 목록 조회
-  Future<List<Course>> fetchMyCourses(CourseStatus status) async {
+  // GET /api/v1/editor?filter={ALL|READY|DONE|REGISTERED}&page= — 내 코스 목록 조회
+  // 응답 구조: { "result": { "content": [ ...CourseDraft 배열... ], "page", "size", "hasNext" } }
+  Future<List<CourseDraft>> fetchMyCourses(CourseStatus status,
+      {int page = 0}) async {
     try {
       final response = await _dio.get(
         '/api/v1/editor',
-        queryParameters: {'status': status.queryValue},
+        queryParameters: {
+          'filter': status.queryValue,
+          'page': page,
+        },
       );
-      final content = response.data['result']['content'] as List<dynamic>;
-      return content
-          .map((e) => Course.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } on DioException catch (e) {
-      throw ApiException.fromDioException(e);
-    }
-  }
-
-  // GET /api/v1/editor — 편집 중인 코스 초안 목록 조회 (READY 상태)
-  // 응답 구조: { "result": { "content": [ ...CourseDraft 배열... ] } }
-  Future<List<CourseDraft>> fetchEditorDrafts() async {
-    try {
-      final response = await _dio.get('/api/v1/editor');
       final content = response.data['result']['content'] as List<dynamic>;
       return content
           .map((e) => CourseDraft.fromJson(e as Map<String, dynamic>))
