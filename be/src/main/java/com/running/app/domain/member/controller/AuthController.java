@@ -4,6 +4,7 @@ import com.running.app.domain.member.dto.MemberRequest.LoginRequest;
 import com.running.app.domain.member.dto.MemberRequest.SignupRequest;
 import com.running.app.domain.member.dto.MemberResponse.CheckDuplicationResponse;
 import com.running.app.domain.member.dto.MemberResponse.LoginResponse;
+import com.running.app.domain.member.dto.MemberResponse.ReissueResponse;
 import com.running.app.domain.member.service.AuthService;
 import com.running.app.domain.member.service.MemberService;
 import com.running.app.global.response.ApiResponse;
@@ -23,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,6 +39,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/v1/auth")
 public class AuthController {
+
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
 
     private final MemberService memberService;
     private final AuthService authService;
@@ -127,24 +131,61 @@ public class AuthController {
 
         // 로그인 및 토큰 발급 진행
         LoginResponse loginResponse = authService.login(request);
+        response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                createRefreshTokenCookie(loginResponse.getRefreshToken()).toString()
+        );
+        return ApiResponse.onSuccess(loginResponse);
+    }
 
-        // Refresh Token -> HTTP only Cookie 세팅
-        ResponseCookie cookie = ResponseCookie.from("refreshToken", loginResponse.getRefreshToken())
+    @Operation(summary = "access token 재발급")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "재발급 성공"
+            )
+    })
+    @PostMapping("/reissue")
+    public ApiResponse<ReissueResponse> reissue(
+            @CookieValue(name = REFRESH_TOKEN_COOKIE_NAME, required = false) String refreshToken
+    ) {
+        return ApiResponse.onSuccess(authService.reissue(refreshToken));
+    }
+
+    @Operation(summary = "로그아웃")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "로그아웃 성공"
+            )
+    })
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(
+            @CookieValue(name = REFRESH_TOKEN_COOKIE_NAME, required = false) String refreshToken,
+            HttpServletResponse response
+    ) {
+        authService.logout(refreshToken);
+        response.addHeader(HttpHeaders.SET_COOKIE, expireRefreshTokenCookie().toString());
+        return ApiResponse.OK;
+    }
+
+    private ResponseCookie createRefreshTokenCookie(String refreshToken) {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
                 .httpOnly(true)
                 .secure(true)
                 .path("/")
                 .maxAge(Duration.ofDays(30))
                 .sameSite("Strict")
                 .build();
-
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        return ApiResponse.onSuccess(loginResponse);
     }
 
-    // accessToken 테스트 api
-    @GetMapping("/test")
-    public ApiResponse<String> testApi() {
-
-        return ApiResponse.onSuccess("테스트 성공");
+    private ResponseCookie expireRefreshTokenCookie() {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Strict")
+                .build();
     }
 }
