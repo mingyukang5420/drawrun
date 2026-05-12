@@ -160,6 +160,9 @@ class RunningNotifier extends Notifier<RunningState> {
   // 지도 제어 객체 (state 외부 보관)
   NaverMapController? mapController;
   NPolylineOverlay? _routeLine;
+  // 참조 경로(코스/드래프트 노드) 전용 오버레이. 사용자 경로와 별도 운영.
+  // _routeLine 과 같은 라이프사이클 정책 — controller 교체 시 null 리셋.
+  NPolylineOverlay? _referenceLine;
 
   // 러닝 Repository 필드 및 생성자 추가
   final RunningRepository _repository;
@@ -201,10 +204,15 @@ class RunningNotifier extends Notifier<RunningState> {
     // 이전 controller 에 묶여 있던 routeLine 객체는 새 controller 에선 무효 → null 리셋.
     // 안 지우면 _drawRoute 가 deleteOverlay 를 호출하다 옛 controller 참조로 사고 가능.
     _routeLine = null;
+    _referenceLine = null;
     // 시트가 처음 열릴 때 이미 누적된 points 를 즉시 다시 그려줌.
     // 이 한 줄이 없으면 시트 첫 진입 시 폴리라인이 비어있고, 새 점이 와야만 그려짐.
     if (state.points.length >= 2) {
       _drawRoute(state.points);
+    }
+    // 시작 API 응답이 이미 도착한 상태였다면 참조 경로도 같은 타이밍에 한 번 그려준다.
+    if (state.referenceNodes.length >= 2) {
+      _drawReferenceRoute(state.referenceNodes);
     }
   }
 
@@ -215,6 +223,7 @@ class RunningNotifier extends Notifier<RunningState> {
   void clearMapController() {
     mapController = null;
     _routeLine = null;
+    _referenceLine = null;
   }
 
   void startRunning() {
@@ -320,6 +329,10 @@ class RunningNotifier extends Notifier<RunningState> {
       mapController!.deleteOverlay(_routeLine!.info);
       _routeLine = null;
     }
+    if (mapController != null && _referenceLine != null) {
+      mapController!.deleteOverlay(_referenceLine!.info);
+      _referenceLine = null;
+    }
     _stopwatch.reset();
     _ticker?.cancel();
     _ticker = null;
@@ -386,6 +399,34 @@ class RunningNotifier extends Notifier<RunningState> {
       // 다음 setMapController 호출 시 깨끗이 다시 그릴 수 있도록 참조만 끊고 swallow.
       mapController = null;
       _routeLine = null;
+    }
+  }
+
+  // 참조 경로(코스/드래프트의 GPS 노드) 를 그레이 폴리라인으로 한 번 그린다.
+  // 사용자 경로(_drawRoute) 와 달리 노드가 시간에 따라 늘어나지 않으므로 단발성 호출.
+  //
+  // 호출 시점:
+  //   (a) setMapController — 시트 진입 시 이미 응답이 와 있다면 즉시
+  //   (b) beginSessionFromServer — 응답이 늦게 도착했고 컨트롤러가 살아있을 때(R2 에서 추가)
+  void _drawReferenceRoute(List<LatLng> nodes) {
+    if (mapController == null || nodes.length < 2) return;
+    try {
+      // 이전 오버레이가 남아 있으면 먼저 제거 — 같은 id 로 두 번 add 하면 충돌.
+      if (_referenceLine != null) {
+        mapController!.deleteOverlay(_referenceLine!.info);
+      }
+      _referenceLine = NPolylineOverlay(
+        id: 'running_reference',
+        coords: nodes.map((p) => p.toNLatLng()).toList(),
+        // 사용자 경로(blueAccent, width 6) 보다 한 단계 얇고 무채색 — 본인 경로가 도드라지게.
+        width: 4,
+        color: const Color(0xFF9CA3AF),
+      );
+      mapController!.addOverlay(_referenceLine!);
+    } catch (_) {
+      // _drawRoute 와 동일 정책: PlatformView dispose 직후라면 호출이 실패할 수 있다.
+      // 참조만 끊고 swallow — 다음 setMapController 호출 시 깨끗이 다시 그린다.
+      _referenceLine = null;
     }
   }
 
