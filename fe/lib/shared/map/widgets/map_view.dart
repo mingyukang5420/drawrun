@@ -22,12 +22,16 @@ class MapView extends StatefulWidget {
   // 카메라 이동이 완전히 멈춘 후 호출된다 (스크롤·줌 조작 종료 시점)
   final VoidCallback? onCameraIdle;
 
+  // 위치 권한 거부·GPS 꺼짐 등으로 현재 위치를 가져오지 못했을 때 호출된다
+  final VoidCallback? onLocationError;
+
   const MapView({
     super.key,
     this.onMapReady,
     this.onMapTapped,
     this.showCurrentLocation = false,
     this.onCameraIdle,
+    this.onLocationError,
   });
 
   @override
@@ -47,7 +51,17 @@ class _MapViewState extends State<MapView> {
   // 현재 위치로 카메라를 이동하고, 위치 오버레이(핀)를 켜서 실시간으로 갱신한다.
   Future<void> _setupLocationOverlay(NaverMapController mapController) async {
     final position = await LocationService.getCurrentPosition();
-    if (position == null) return;
+    if (position == null) {
+      // 위치 권한 거부 또는 GPS 꺼짐 → 서울 중심부 전체가 보이는 줌으로 고정
+      await mapController.updateCamera(
+        NCameraUpdate.scrollAndZoomTo(
+          target: const NLatLng(37.5665, 126.9780),
+          zoom: 11,
+        ),
+      );
+      widget.onLocationError?.call();
+      return;
+    }
 
     // 현재 위치로 카메라를 이동한다
     await mapController.updateCamera(

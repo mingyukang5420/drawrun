@@ -23,28 +23,46 @@ class RunningMapView extends ConsumerStatefulWidget {
 }
 
 class _RunningMapViewState extends ConsumerState<RunningMapView> {
-  // initState 에서 한 번 잡아두고 dispose 에서 안전하게 사용.
-  // late final: 처음 한 번만 할당, 그 후 불변.
   late final RunningNotifier _notifier;
+
+  // 재시도 시 증가 → MapView 를 key 로 강제 재생성해 onMapReady 재실행
+  int _mapRetryKey = 0;
+
+  OverlayEntry? _locationErrorOverlay;
 
   @override
   void initState() {
     super.initState();
-    // initState 시점엔 ref 사용 안전.
-    // .notifier 를 잡아두면 dispose 시점에 ref 없이도 호출 가능.
     _notifier = ref.read(runningViewModelProvider.notifier);
   }
 
   @override
   void dispose() {
-    // ref 대신 미리 보관해둔 _notifier 사용 → 안전
+    _removeOverlay();
     _notifier.clearMapController();
     super.dispose();
+  }
+
+  void _showLocationErrorOverlay() {
+    _removeOverlay();
+    _locationErrorOverlay = OverlayEntry(builder: (_) => _LocationErrorBanner(
+      onRetry: () {
+        _removeOverlay();
+        setState(() => _mapRetryKey++);
+      },
+    ));
+    Overlay.of(context).insert(_locationErrorOverlay!);
+  }
+
+  void _removeOverlay() {
+    _locationErrorOverlay?.remove();
+    _locationErrorOverlay = null;
   }
 
   @override
   Widget build(BuildContext context) {
     return MapView(
+      key: ValueKey(_mapRetryKey),
       showCurrentLocation: true,
       onMapReady: (mapController) {
         if (widget.trackRoute) {
@@ -53,6 +71,81 @@ class _RunningMapViewState extends ConsumerState<RunningMapView> {
               .setMapController(mapController);
         }
       },
+      onLocationError: () {
+        if (mounted) _showLocationErrorOverlay();
+      },
+    );
+  }
+}
+
+class _LocationErrorBanner extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _LocationErrorBanner({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    return Positioned(
+      top: topPadding + 12,
+      left: 16,
+      right: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1C1E).withOpacity(0.9),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.location_off_outlined,
+                  color: Color(0xFFFFD60A), size: 18),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  '위치를 가져올 수 없습니다. 위치 권한을 확인해 주세요.',
+                  style: TextStyle(
+                    fontFamily: 'Pretendard',
+                    fontSize: 12,
+                    color: Colors.white,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onRetry,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF60A5FA).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    '재시도',
+                    style: TextStyle(
+                      fontFamily: 'Pretendard',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF60A5FA),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
