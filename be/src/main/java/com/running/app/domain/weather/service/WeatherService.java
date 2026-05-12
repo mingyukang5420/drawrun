@@ -1,5 +1,6 @@
 package com.running.app.domain.weather.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.running.app.domain.district.entity.District;
 import com.running.app.domain.district.repository.DistrictRepository;
 import com.running.app.domain.weather.dto.WeatherCacheDto;
@@ -17,6 +18,7 @@ public class WeatherService {
 
     private final DistrictRepository districtRepository;
     private final RedisTemplate<String, Object> redisObjectTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public WeatherResponse.Result getWeather(Double lat, Double lng) {
 
@@ -37,10 +39,10 @@ public class WeatherService {
         String gu = district.getGu();
 
         // 3. Redis에서 "weather:송파구" 키로 조회
+        // Redis 역직렬화 시 LinkedHashMap으로 반환될 수 있어 직접 캐스팅 대신 ObjectMapper.convertValue() 사용
         String redisKey = "weather:" + gu;
-        WeatherCacheDto cached = (WeatherCacheDto) redisObjectTemplate
-                .opsForValue()
-                .get(redisKey);
+        Object rawData = redisObjectTemplate.opsForValue().get(redisKey);
+        WeatherCacheDto cached = objectMapper.convertValue(rawData, WeatherCacheDto.class);
 
         if (cached == null) {
             throw new IllegalArgumentException("날씨 데이터가 없습니다: " + gu);
