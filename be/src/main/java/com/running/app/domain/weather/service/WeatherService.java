@@ -20,7 +20,7 @@ public class WeatherService {
 
     private final DistrictRepository districtRepository;
     private final RedisTemplate<String, Object> redisObjectTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public WeatherResponse.Result getWeather(Double lat, Double lng) {
 
@@ -41,7 +41,7 @@ public class WeatherService {
         String gu = district.getGu();
 
         // 3. Redis에서 "weather:송파구" 키로 조회
-        // Redis 역직렬화 시 LinkedHashMap으로 반환될 수 있어 직접 캐스팅 대신 ObjectMapper.convertValue() 사용
+        // Redis 역직렬화 시 LinkedHashMap으로 반환될 수 있어 직접 캐스팅 대신 objectMapper.convertValue() 사용
         String redisKey = "weather:" + gu;
         Object rawData = redisObjectTemplate.opsForValue().get(redisKey);
         WeatherCacheDto cached = objectMapper.convertValue(rawData, WeatherCacheDto.class);

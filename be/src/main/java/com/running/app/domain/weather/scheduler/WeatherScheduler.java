@@ -28,8 +28,8 @@ public class WeatherScheduler {
     private final DistrictRepository districtRepository;
     private final RedisTemplate<String, Object> redisObjectTemplate;
     private final RestClient weatherRestClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
+    private final ObjectMapper objectMapper;
+    
     @Value("${weather.api.key}")
     private String apiKey;
 
