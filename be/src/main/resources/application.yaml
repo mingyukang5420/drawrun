@@ -15,6 +15,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  task:
+    execution:
+      pool:
+        core-size: 2
+        max-size: 10
 
 springdoc:
   api-docs:

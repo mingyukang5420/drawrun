@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.running.app.domain.district.entity.District;
 import com.running.app.domain.district.repository.DistrictRepository;
 import com.running.app.domain.weather.dto.WeatherCacheDto;
-import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -15,7 +14,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -29,7 +31,7 @@ public class WeatherScheduler {
     private final RedisTemplate<String, Object> redisObjectTemplate;
     private final RestClient weatherRestClient;
     private final ObjectMapper objectMapper;
-    
+
     @Value("${weather.api.key}")
     private String apiKey;
 
@@ -93,10 +95,12 @@ public class WeatherScheduler {
     }
 
     // 스프링 시작할 때 한번 실행
-    @PostConstruct
+    @Async
+    @EventListener(ApplicationReadyEvent.class)
     public void init() {
         updateWeather();
     }
+
 
     // 기상청 JSON 응답 파싱
     private WeatherCacheDto parseWeatherResponse(String response, String baseTime) {
