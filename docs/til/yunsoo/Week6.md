@@ -38,3 +38,26 @@
 - 프론트 팀원이랑 날씨 API 연동
 
 ---
+
+### 📘 0512 · Tue
+
+#### 오늘 한 일 (What I did)
+- 502 에러 원인 분석 및 해결 방향 도출 (Jenkins ENV 미주입 → 백엔드 기동 실패)
+- 날씨 API 코드 리뷰 피드백 전체 반영 및 MR 수정
+
+#### 배운 것 (What I learned)
+- 502 Bad Gateway는 Nginx 문제가 아니라 upstream(백엔드)이 안 떠있을 때 발생
+- `@PostConstruct`는 메인 스레드에서 실행되어 외부 API 장애 시 앱 기동 지연 가능 → `@Async + @EventListener(ApplicationReadyEvent.class)`가 더 안전
+- `ObjectMapper`를 `new`로 생성하면 Spring Boot Jackson 자동설정 상속 안 됨 → Bean 주입 써야 함
+- Redis 역직렬화 시 직접 캐스팅하면 `LinkedHashMap` → `ClassCastException` 발생 가능 → `ObjectMapper.convertValue()` 사용
+
+#### 문제 & 해결 (Problem & Solution)
+- **문제:** 팀원 환경에서 502 에러, 스웨거/로그인 전부 불가
+- **원인:** Jenkins에 `WEATHER_API_KEY` 미등록 → Spring Boot `@Value` 주입 실패 → 기동 전 프로세스 종료
+- **해결:** Grafana Loki로 `APPLICATION FAILED TO START` 로그 확인 후 Jenkins Credentials에 키 등록
+
+#### 인사이트 (Insight)
+- 필수 환경변수 하나 없으면 서비스 전체가 뻗음, 로컬에선 잘 되다가 배포에서 터지는 대표적인 패턴
+
+#### 다음 할 것 (What's Next)
+- 남은 API 작업들 하기
