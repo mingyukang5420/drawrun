@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/core/theme/app_text_style.dart';
+import 'package:running/features/mypage/presentation/screen/mypage_screen.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
@@ -56,11 +57,16 @@ class _Header extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 프로필 아바타 (TODO: 실제 프로필 이미지로 교체)
-          const CircleAvatar(
-            radius: 24,
-            backgroundColor: Color(0xFFE5E7EB),
-            child: Icon(Icons.person, color: Color(0xFF9CA3AF), size: 26),
+          // 프로필 아바타 — 탭 시 마이페이지로 이동
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MypageScreen()),
+            ),
+            child: const CircleAvatar(
+              radius: 24,
+              backgroundColor: Color(0xFFE5E7EB),
+              child: Icon(Icons.person, color: Color(0xFF9CA3AF), size: 26),
+            ),
           ),
           const SizedBox(width: 14),
           // 인사 + 날씨
