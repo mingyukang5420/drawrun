@@ -28,6 +28,7 @@ public class WeatherScheduler {
     private final DistrictRepository districtRepository;
     private final RedisTemplate<String, Object> redisObjectTemplate;
     private final RestClient weatherRestClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${weather.api.key}")
     private String apiKey;
@@ -100,8 +101,7 @@ public class WeatherScheduler {
     // 기상청 JSON 응답 파싱
     private WeatherCacheDto parseWeatherResponse(String response, String baseTime) {
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode items = mapper.readTree(response)
+            JsonNode items = objectMapper.readTree(response)
                     .path("response").path("body").path("items").path("item");
 
             Integer temperature = null;
@@ -124,6 +124,10 @@ public class WeatherScheduler {
                     case "SKY" -> skyCondition = item.path("fcstValue").asInt();
                     case "PTY" -> precipitationType = item.path("fcstValue").asInt();
                 }
+            }
+
+            if (temperature == null || skyCondition == null || precipitationType == null) {
+                throw new RuntimeException("기상청 응답에서 필수 데이터 누락: TMP/SKY/PTY");
             }
 
             return WeatherCacheDto.builder()

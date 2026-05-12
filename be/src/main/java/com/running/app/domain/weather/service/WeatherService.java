@@ -47,6 +47,12 @@ public class WeatherService {
         }
 
         // 4. 숫자 코드 → 텍스트 변환
+        // Redis 에서 값을 꺼낼때 2차 null 방어
+        if (cached.getSkyCondition() == null || cached.getPrecipitationType() == null
+                || cached.getTemperature() == null) {
+            throw new IllegalArgumentException("날씨 데이터가 불완전합니다: " + gu);
+        }
+
         SkyCondition sky = SkyCondition.fromCode(cached.getSkyCondition());
         PrecipitationType pty = PrecipitationType.fromCode(cached.getPrecipitationType());
 
