@@ -94,4 +94,8 @@ public class JwtUtil {
     public String getTokenType(String token) {
         return getClaims(token).get("type", String.class);
     }
+
+    public long getRefreshTokenExpiration() {
+        return refreshTokenExpiration;
+    }
 }
