@@ -67,7 +67,7 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
     boolean existsByTrack_TrackId(Long trackId);
 
 
-    // 조회하려는 코스에서 사용자 별 최고기록만을 가져옴
+    // 조회하려는 코스에서 사용자 별 최고기록만을 오름차순(완주 기록 빠른 순)으로 가져옴
     @Query("""
             SELECT r.memberId AS memberId, MIN(r.runningTime) AS bestTime
             FROM RunningRecord r
