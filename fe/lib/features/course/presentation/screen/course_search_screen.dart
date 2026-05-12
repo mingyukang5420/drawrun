@@ -6,10 +6,10 @@ import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/course_viewmodel.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
 
-// 코스 목록 화면
+// 코스 탐색 화면
 // 서버에서 코스를 불러와 카드 목록으로 표시하고, 편집 화면 진입을 제공
-class CourseScreen extends ConsumerWidget {
-  const CourseScreen({super.key});
+class CourseSearchScreen extends ConsumerWidget {
+  const CourseSearchScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

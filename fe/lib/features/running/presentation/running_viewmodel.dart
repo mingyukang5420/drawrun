@@ -12,6 +12,8 @@ import 'package:running/shared/model/lat_lng.dart';
 import 'package:running/shared/network/api_exception.dart';
 import 'package:running/features/running/domain/running_repository.dart';
 import 'package:running/shared/sensor/cadence_service.dart';
+import 'package:running/shared/sensor/altitude_service.dart';
+import 'package:running/shared/calculator/calories_calculator.dart';
 
 // 러닝 화면이 구독하는 불변 상태 클래스
 // state = state.copyWith(...) 로 새 객체를 만들어야 Riverpod 이 UI 를 다시 그린다
@@ -25,7 +27,6 @@ class RunningState {
   final int elapsedSeconds;
 
   // 임시값 (데이터 소스 미연결)
-  final int caloriesKcal;
   final double altitudeM;
   final int bpm;
 
@@ -43,7 +44,6 @@ class RunningState {
     this.distanceKm = 0.0,
     this.points = const [],
     this.elapsedSeconds = 0,
-    this.caloriesKcal = 0,
     this.altitudeM = 0.0,
     this.bpm = 0,
     this.cadenceSpm = 0,
@@ -59,7 +59,6 @@ class RunningState {
     double? distanceKm,
     List<LatLng>? points,
     int? elapsedSeconds,
-    int? caloriesKcal,
     double? altitudeM,
     int? bpm,
     int? cadenceSpm,
@@ -74,7 +73,6 @@ class RunningState {
       distanceKm: distanceKm ?? this.distanceKm,
       points: points ?? this.points,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
-      caloriesKcal: caloriesKcal ?? this.caloriesKcal,
       altitudeM: altitudeM ?? this.altitudeM,
       bpm: bpm ?? this.bpm,
       cadenceSpm: cadenceSpm ?? this.cadenceSpm,
@@ -113,6 +111,15 @@ class RunningState {
   }
 
   String get avgPaceLabel => paceLabel;
+
+  // 누적 칼로리 — distance / elapsedSeconds 의 함수.
+  // 매 호출마다 다시 계산되지만 곱셈 몇 번이라 비용 무시 가능.
+  // TODO: 사용자 성별 도입 후 gender 매개변수 함께 전달.
+  int get caloriesKcal => CaloriesCalculator.compute(
+    distanceKm: distanceKm,
+    elapsedSeconds: elapsedSeconds,
+  );
+
   String get caloriesLabel => '$caloriesKcal';
   String get altitudeLabel => '${altitudeM.toStringAsFixed(0)} m';
   String get bpmLabel => '$bpm';
@@ -149,6 +156,11 @@ class RunningNotifier extends Notifier<RunningState> {
   final CadenceService _cadence = CadenceService();
   StreamSubscription<int>? _cadenceSub;
 
+  // 고도 측정 서비스. CadenceService와 같은 패턴
+  // pause/resume/finish/clear 각 라이프사이클 지점에서 같이 토글
+  final AltitudeService _altitude = AltitudeService();
+  StreamSubscription<double>? _altitudeSub;
+
   @override
   RunningState build() {
     // Provider 해제(탭 전환 등) 시 자원 자동 정리
@@ -157,6 +169,8 @@ class RunningNotifier extends Notifier<RunningState> {
       _ticker?.cancel();
       _cadenceSub?.cancel();
       _cadence.dispose();
+      _altitudeSub?.cancel();
+      _altitude.dispose();
     });
     return const RunningState();
   }
@@ -189,6 +203,9 @@ class RunningNotifier extends Notifier<RunningState> {
     _startTicker();
     _cadence.startListening();
     _cadenceSub = _cadence.spmStream.listen(_onCadence);
+    // 고도 측정 시작. 첫 5초간 baseline 워밍업 후 상대 고도가 흐른다.
+    _altitude.startListening();
+    _altitudeSub = _altitude.altitudeStream.listen(_onAltitude);
     _locationSub = LocationService.getLatLngStream().listen(_onLocation);
 
     // 첫 좌표 즉시 시도 — last known position 이라도 있으면 점 한 개 즉시 찍힘
@@ -223,6 +240,13 @@ class RunningNotifier extends Notifier<RunningState> {
 
     await _cadence.stopListening();
 
+    // 일시정지 시엔 고도 측정도 같이 멈춘다 — 멈춰 있는 동안 기압이 천천히 변동하는
+    // 것까지 지표에 반영할 이유가 없다. baseline 은 AltitudeService 가 유지하므로
+    // resume 시 같은 baseline 으로 자연스럽게 이어진다.
+    await _altitudeSub?.cancel();
+    _altitudeSub = null;
+    await _altitude.stopListening();
+
     state = state.copyWith(isPaused: true);
   }
 
@@ -234,6 +258,10 @@ class RunningNotifier extends Notifier<RunningState> {
     _locationSub = LocationService.getLatLngStream().listen(_onLocation);
 
     _cadenceSub = _cadence.spmStream.listen(_onCadence);
+
+    // 재개 시 고도도 다시 켠다. baseline 은 유지된 상태 → 출발지 기준 그대로 이어짐.
+    _altitude.startListening();
+    _altitudeSub = _altitude.altitudeStream.listen(_onAltitude);
 
     state = state.copyWith(isPaused: false);
   }
@@ -249,12 +277,11 @@ class RunningNotifier extends Notifier<RunningState> {
 
     await _cadence.stopListening();
 
-    // ── 고도 정리 (티켓 1, C3) 가 들어가 있다면 그대로 유지 ──
+    // 종료 시 고도도 정리. 마지막으로 흘러온 altitudeM 값이 결과 화면에 그대로 표시.
+    await _altitudeSub?.cancel();
+    _altitudeSub = null;
+    await _altitude.stopListening();
 
-    // ticker 는 1초 주기로만 state.elapsedSeconds 를 갱신한다.
-    // 종료 시점이 tick 사이에 끼면 마지막 ~0.999초가 state 에 반영되지 않은 상태로
-    // finish 가 끝나 평균 페이스 / 결과 화면 시간이 미세하게 어긋난다.
-    // stopwatch 의 정확한 값을 여기서 한 번 더 박아 그 lag 을 제거한다.
     state = state.copyWith(
       isRunning: false,
       isPaused: false,
@@ -277,6 +304,14 @@ class RunningNotifier extends Notifier<RunningState> {
     _ticker = null;
 
     await _cadence.stopListening();
+
+    // clear 는 "다시 처음으로" — 고도 측정도 같이 정리.
+    // baseline 까지 폐기해야 다음 시작에서 새 출발지 기준으로 재워밍업이 동작한다.
+    // stopListening 만으론 baseline 이 남아 다음 세션이 옛 baseline 으로 시작된다.
+    await _altitudeSub?.cancel();
+    _altitudeSub = null;
+    await _altitude.stopListening();
+    _altitude.reset();
 
     state = const RunningState(); // 전체 초기화
   }
@@ -302,6 +337,14 @@ class RunningNotifier extends Notifier<RunningState> {
     // 일시정지/종료 직후 늦게 도착한 이벤트는 무시 — 표시값이 튀지 않게.
     if (!state.isRunning || state.isPaused) return;
     state = state.copyWith(cadenceSpm: spm);
+  }
+
+  // AltitudeService 가 새 고도값을 흘려줄 때마다 호출.
+  // state 의 altitudeM 만 갈아끼우면 ref.watch 한 화면이 자동 리빌드된다.
+  void _onAltitude(double altitudeM) {
+    // 일시정지/종료 직후 늦게 도착한 이벤트는 무시 — 표시값 튐 방지.
+    if (!state.isRunning || state.isPaused) return;
+    state = state.copyWith(altitudeM: altitudeM);
   }
 
   void _drawRoute(List<LatLng> points) {

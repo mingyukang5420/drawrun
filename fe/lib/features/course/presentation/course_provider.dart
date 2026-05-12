@@ -30,7 +30,7 @@ CourseNotifier _buildCourseNotifier({bool autoLoad = false}) {
 
 // 코스 목록 화면용 Provider
 // autoLoad: true → build() 직후 loadCourses() 자동 호출
-// autoDispose: 탭 전환으로 CourseScreen 이 트리를 떠날 때 자동 해제
+// autoDispose: 탭 전환으로 CourseSearchScreen 이 트리를 떠날 때 자동 해제
 final courseViewModelProvider =
     NotifierProvider.autoDispose<CourseNotifier, CourseState>(
   () => _buildCourseNotifier(autoLoad: true),

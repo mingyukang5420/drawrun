@@ -219,6 +219,63 @@ public class CourseService {
         return CourseConverter.toListResultDTO(courseSlice, content);
     }
 
+    // 마이코스 목록 조회
+    public CourseResponse.CourseListResultDTO getMyCourseList(
+            String loginId,
+            Integer page,
+            Integer size
+    ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
+        Slice<Course> courseSlice = courseRepository.findMyCourseSlice(
+                memberId,
+                pageable
+        );
+
+        List<Course> courses = courseSlice.getContent();
+        Map<Long, List<String>> regionMap = getRegionMap(courses);
+        Set<Long> completedCourseIds = getCompletedCourseIds(memberId, courses);
+
+        List<CourseResponse.CourseListDTO> content = courses.stream()
+                .map(course -> CourseConverter.toListDTO(
+                        course,
+                        regionMap.getOrDefault(course.getId(), List.of()),
+                        completedCourseIds.contains(course.getId())
+                ))
+                .toList();
+
+        return CourseConverter.toListResultDTO(courseSlice, content);
+    }
+
+    // 마이코스 상세조회
+    public CourseResponse.CourseDetailDTO getMyCourse(
+            String loginId,
+            Long courseId
+    ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
+        Course course = courseRepository.findMyCourseByIdWithTrack(memberId, courseId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+        List<String> regions = getRegions(courseId);
+        Boolean isCompleted = runningRecordRepository.existsByMemberIdAndCourseIdAndIsCompletedTrue(
+                memberId,
+                courseId
+        );
+
+        return CourseConverter.toDetailDTO(course, regions, isCompleted);
+    }
+
     private Slice<Course> getCourseSlice(
             Long memberId,
             CourseDifficulty difficulty,

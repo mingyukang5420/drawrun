@@ -47,7 +47,7 @@ public abstract class CourseConverter {
     }
 
     public static CourseResponse.CourseListResultDTO toListResultDTO(
-            Slice<Course> courseSlice,
+            Slice<?> courseSlice,
             List<CourseResponse.CourseListDTO> content
     ) {
         return CourseResponse.CourseListResultDTO.builder()
