@@ -12,11 +12,11 @@ import 'package:running/shared/network/dio_provider.dart';
 
 // RunningNotifier Provider
 //
-// NotifierProvider.autoDispose: MainTabScreen 이 body: pages[index] 구조이므로
-// 탭 전환 시 RunningScreen 이 트리에서 제거된다.
-// autoDispose 를 설정하면 화면 제거 시 GPS 구독, 타이머 등이 자동 정리된다.
+// autoDispose 를 사용하지 않는다: CountdownScreen → ActiveScreen 전환 시 ref.read만
+// 사용하는 구간이 생겨 provider 가 즉시 dispose 되어 GPS 가 멈추는 문제가 발생한다.
+// 대신 pause/finish/clear 에서 명시적으로 자원을 정리한다.
 final runningViewModelProvider =
-    NotifierProvider.autoDispose<RunningNotifier, RunningState>(
+    NotifierProvider<RunningNotifier, RunningState>(
       _buildRunningNotifier,
 );
 
