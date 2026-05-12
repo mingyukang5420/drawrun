@@ -25,6 +25,12 @@ class _RunningCountdownScreenState
   @override
   void initState() {
     super.initState();
+    // 시작 API 발사 — await 하지 않고 그대로 흘려보낸다.
+    // 카운트다운 3초가 자연스러운 로딩 버퍼 역할을 한다.
+    // 응답이 도착하면 state.referenceNodes 가 채워지며 진행 화면이 자동으로 그것을 사용.
+    // 실패 처리(fail-open + 콘솔 로그) 는 beginSessionFromServer 안에서 끝낸다.
+    ref.read(runningViewModelProvider.notifier).beginSessionFromServer();
+
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
