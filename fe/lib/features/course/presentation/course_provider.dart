@@ -4,6 +4,7 @@ import 'package:running/features/course/data/course_remote_datasource.dart';
 import 'package:running/features/course/data/course_repository_impl.dart';
 import 'package:running/features/course/domain/course_repository.dart';
 import 'package:running/features/course/presentation/course_editor_viewmodel.dart';
+import 'package:running/features/course/presentation/course_management_viewmodel.dart';
 import 'package:running/features/course/presentation/course_viewmodel.dart';
 import 'package:running/shared/network/dio_client.dart';
 import 'package:running/shared/network/dio_provider.dart';
@@ -40,6 +41,14 @@ final courseViewModelProvider =
 final courseEditorViewModelProvider =
     NotifierProvider.autoDispose<CourseNotifier, CourseState>(
   () => _buildCourseNotifier(),
+);
+
+// 코스 관리 화면용 Provider
+final courseManagementProvider = NotifierProvider.autoDispose<
+    CourseManagementNotifier, CourseManagementState>(
+  () => CourseManagementNotifier(
+    CourseRepositoryImpl(CourseRemoteDataSource(DioClient.create())),
+  ),
 );
 
 // 신 코스 편집 화면 전용 Provider

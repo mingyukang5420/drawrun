@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gal/gal.dart';
 
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/shared/map/lat_lng_naver_ext.dart';
@@ -14,11 +13,9 @@ import 'package:running/shared/map/lat_lng_naver_ext.dart';
 //  1. 지도가 준비되면 사용자가 뛴 경로(state.points)를 폴리라인으로 그린다
 //  2. 그 경로 전체가 화면에 들어오도록 NCameraUpdate.fitBounds 로 카메라를 맞춘다
 //  3. 카메라가 settle 된 다음 takeSnapshot 으로 PNG 파일을 만든다
-//  4. 그 PNG 파일을 사용자 사진첩(갤러리)에 저장한다 — 서버 업로드는 다음 단계
+//  4. 그 PNG 를 서버에 업로드해 받은 URL 을 부모(onUploaded 콜백) 로 전달한다
 //
 // 한 번만 진행되도록 _snapshotTriggered 로 가드한다.
-// 현재 이미지 전송 API가 결정되지 않아 임시로 사진첩에 저장하며,
-// gal 의존성 및 안드로이드 사진첩 접근 권한 또한 추후에 제거 예정
 class RunningResultMap extends ConsumerStatefulWidget {
   // 업로드 성공 시 한 번 호출 — trackImageUrl 을 인자로 넘김
   final ValueChanged<String> onUploaded;
@@ -123,31 +120,11 @@ class _RunningResultMapState extends ConsumerState<RunningResultMap> {
         // 다만 한 프레임 더 양보해 주면 GPU 가 그린 결과가 캡처 버퍼에 반영된 뒤 잡힌다.
         await Future<void>.delayed(const Duration(milliseconds: 100));
 
-        await _captureAndSave(_controller!);
         await _captureAndUpload(_controller!);
       },
     );
   }
 
-  // 스냅샷 찍어서 사진첩에 저장하는 단일 책임 헬퍼.
-  Future<void> _captureAndSave(NaverMapController controller) async {
-    try {
-      // takeSnapshot 은 PNG 임시 파일을 디스크에 쓰고 그 File 을 돌려준다.
-      // compressQuality 80 = 용량/품질 적당한 기본값.
-      final File file = await controller.takeSnapshot(compressQuality: 80);
-
-      // 사용자가 사진첩 접근을 한 번도 허용하지 않았다면 권한 요청.
-      // 이미 허용된 적 있으면 즉시 true 반환.
-      final hasAccess = await Gal.requestAccess();
-      if (!hasAccess) return;
-
-      // 파일 경로를 그대로 사진첩으로 복사.
-      // album 인자에 폴더명을 지정하면 iOS 사진첩에 별도 앨범, Android 갤러리에 별도 폴더로 묶인다.
-      await Gal.putImage(file.path, album: '러닝');
-    } catch (_) {
-      // 스냅샷 실패는 본 저장 흐름과 무관 — UI 도 건드리지 않는다.
-    }
-  }
   // 스냅샷 → 서버 업로드 → 결과 콜백 단일 책임 헬퍼
   Future<void> _captureAndUpload(NaverMapController controller) async {
     try {

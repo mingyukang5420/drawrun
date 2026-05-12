@@ -210,6 +210,7 @@ class RunningNotifier extends Notifier<RunningState> {
 
     // 첫 좌표 즉시 시도 — last known position 이라도 있으면 점 한 개 즉시 찍힘
     LocationService.getCurrentLatLng().then((p) {
+      if (!ref.mounted) return;
       if (p != null && state.isRunning) _onLocation(p);
     });
 
@@ -246,7 +247,7 @@ class RunningNotifier extends Notifier<RunningState> {
     await _altitudeSub?.cancel();
     _altitudeSub = null;
     await _altitude.stopListening();
-
+    if (!ref.mounted) return;
     state = state.copyWith(isPaused: true);
   }
 
@@ -281,11 +282,12 @@ class RunningNotifier extends Notifier<RunningState> {
     await _altitudeSub?.cancel();
     _altitudeSub = null;
     await _altitude.stopListening();
-
+    if (!ref.mounted) return;
     state = state.copyWith(
       isRunning: false,
       isPaused: false,
       endedAt: DateTime.now(),
+      elapsedSeconds: _stopwatch.elapsed.inSeconds,
     );
   }
 
@@ -311,7 +313,7 @@ class RunningNotifier extends Notifier<RunningState> {
     _altitudeSub = null;
     await _altitude.stopListening();
     _altitude.reset();
-
+    if (!ref.mounted) return;
     state = const RunningState(); // 전체 초기화
   }
 
