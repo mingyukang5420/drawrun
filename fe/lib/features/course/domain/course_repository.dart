@@ -1,4 +1,5 @@
 import 'package:running/features/course/domain/course.dart';
+import 'package:running/features/course/domain/course_draft.dart';
 import 'package:running/features/course/domain/way.dart';
 
 // 코스 저장소 추상 인터페이스 (계약)
@@ -12,6 +13,9 @@ abstract class CourseRepository {
 
   // 내 코스 목록 조회 (status 로 필터)
   Future<List<Course>> getMyCourses(CourseStatus status);
+
+  // 편집 중인 코스 초안 목록 조회 (GET /api/v1/editor)
+  Future<List<CourseDraft>> getEditorDrafts();
 
   // 새 코스를 서버에 저장 (응답 바디 불필요)
   Future<void> saveCourse(Course course);

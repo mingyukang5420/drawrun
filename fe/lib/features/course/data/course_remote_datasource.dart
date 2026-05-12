@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'package:running/features/course/domain/course.dart';
+import 'package:running/features/course/domain/course_draft.dart';
 import 'package:running/features/course/domain/way.dart';
 // CourseStatus 는 course.dart 에서 export 됨
 import 'package:running/shared/network/api_exception.dart';
@@ -50,12 +51,26 @@ class CourseRemoteDataSource {
   Future<List<Course>> fetchMyCourses(CourseStatus status) async {
     try {
       final response = await _dio.get(
-        '/api/v1/my-courses',
+        '/api/v1/editor',
         queryParameters: {'status': status.queryValue},
       );
       final content = response.data['result']['content'] as List<dynamic>;
       return content
           .map((e) => Course.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  // GET /api/v1/editor — 편집 중인 코스 초안 목록 조회 (READY 상태)
+  // 응답 구조: { "result": { "content": [ ...CourseDraft 배열... ] } }
+  Future<List<CourseDraft>> fetchEditorDrafts() async {
+    try {
+      final response = await _dio.get('/api/v1/editor');
+      final content = response.data['result']['content'] as List<dynamic>;
+      return content
+          .map((e) => CourseDraft.fromJson(e as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);

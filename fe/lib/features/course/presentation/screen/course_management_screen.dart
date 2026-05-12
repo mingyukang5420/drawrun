@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/course/domain/course.dart';
+import 'package:running/features/course/domain/course_draft.dart';
 import 'package:running/features/course/presentation/course_management_viewmodel.dart';
 import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
@@ -139,6 +140,10 @@ class _CourseList extends StatelessWidget {
       );
     }
 
+    if (state.selectedStatus == CourseStatus.ready) {
+      return _buildDraftList(context, state.drafts);
+    }
+
     if (state.courses.isEmpty) {
       return _EmptyState(status: state.selectedStatus);
     }
@@ -149,7 +154,7 @@ class _CourseList extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         itemCount: state.courses.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (_, i) {
           final course = state.courses[i];
           return _CourseManagementCard(
@@ -157,6 +162,22 @@ class _CourseList extends StatelessWidget {
             onDelete: () => _confirmDelete(context, ref, course),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildDraftList(BuildContext context, List<CourseDraft> drafts) {
+    if (drafts.isEmpty) {
+      return _EmptyState(status: state.selectedStatus);
+    }
+    return RefreshIndicator(
+      onRefresh: () =>
+          ref.read(courseManagementProvider.notifier).loadMyCourses(),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        itemCount: drafts.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (_, i) => _CourseDraftCard(draft: drafts[i]),
       ),
     );
   }
@@ -188,6 +209,153 @@ class _CourseList extends StatelessWidget {
           .deleteCourse(course.id!);
     }
   }
+}
+
+// ── 코스 초안 카드 (작성중 탭 전용) ──────────────────────────────────────
+class _CourseDraftCard extends StatelessWidget {
+  final CourseDraft draft;
+
+  const _CourseDraftCard({required this.draft});
+
+  static const _difficultyColor = {
+    'EASY': Color(0xFF27AE60),
+    'NORMAL': Color(0xFFE67E22),
+    'HARD': Color(0xFFE74C3C),
+  };
+  static const _difficultyLabel = {
+    'EASY': '쉬움',
+    'NORMAL': '보통',
+    'HARD': '어려움',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final diffColor =
+        _difficultyColor[draft.difficulty] ?? const Color(0xFF6B7280);
+    final diffLabel =
+        _difficultyLabel[draft.difficulty] ?? (draft.difficulty ?? '');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.07),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
+            child: _Thumbnail(url: draft.trackImageUrl),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        draft.title,
+                        style: const TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1C1C1E),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (draft.difficulty != null) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: diffColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          diffLabel,
+                          style: TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: diffColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.straighten,
+                        size: 13, color: Color(0xFF9CA3AF)),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${draft.distance.toStringAsFixed(1)} km',
+                      style: const TextStyle(
+                        fontFamily: 'SUIT',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                    if (draft.createdAt != null) ...[
+                      const Spacer(),
+                      Text(
+                        _formatDate(draft.createdAt!),
+                        style: const TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 12,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const CourseEditorScreen()),
+                        ),
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        label: const Text('이어서 편집'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF1C1C1E),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime dt) =>
+      '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
 }
 
 // ── 코스 관리 카드 ────────────────────────────────────────────────────
