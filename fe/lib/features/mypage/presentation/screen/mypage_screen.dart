@@ -18,9 +18,7 @@ class MypageScreen extends ConsumerWidget {
             const _ProfileHeader(),
             const _StatsRow(),
             const Divider(height: 1, color: Color(0xFFF3F4F6)),
-            Expanded(
-              child: _MenuList(ref: ref),
-            ),
+            const Expanded(child: _MenuList()),
           ],
         ),
       ),
@@ -160,50 +158,48 @@ class _VerticalDivider extends StatelessWidget {
 }
 
 // ── 메뉴 목록 ─────────────────────────────────────────────────────────
-class _MenuList extends StatelessWidget {
-  final WidgetRef ref;
-
-  const _MenuList({required this.ref});
-
-  void _push(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-  }
-
-  Future<void> _logout(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('로그아웃'),
-        content: const Text('로그아웃 하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('로그아웃',
-                style: TextStyle(color: Color(0xFFEF4444))),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await ref.read(authViewModelProvider.notifier).logout();
-    if (context.mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
-  }
+class _MenuList extends ConsumerWidget {
+  const _MenuList();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    void push(Widget screen) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    }
+
+    Future<void> logout() async {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('로그아웃'),
+          content: const Text('로그아웃 하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('로그아웃',
+                  style: TextStyle(color: Color(0xFFEF4444))),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      await ref.read(authViewModelProvider.notifier).logout();
+      if (context.mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    }
+
     return ListView(
       padding: const EdgeInsets.only(top: 8),
       children: [
         _MenuItem(
           icon: Icons.manage_search_rounded,
           label: '내 코스 관리',
-          onTap: () => _push(context, const CourseManagementScreen()),
+          onTap: () => push(const CourseManagementScreen()),
         ),
         _MenuItem(
           icon: Icons.bookmark_border_rounded,
@@ -213,12 +209,12 @@ class _MenuList extends StatelessWidget {
         _MenuItem(
           icon: Icons.list_alt_rounded,
           label: '내 기록',
-          onTap: () => _push(context, const RecordScreen(initialIndex: 1)),
+          onTap: () => push(const RecordScreen(initialIndex: 1)),
         ),
         _MenuItem(
           icon: Icons.bar_chart_rounded,
           label: '통계',
-          onTap: () => _push(context, const RecordScreen(initialIndex: 0)),
+          onTap: () => push(const RecordScreen(initialIndex: 0)),
         ),
         const Divider(
             height: 24,
@@ -233,7 +229,7 @@ class _MenuList extends StatelessWidget {
         _MenuItem(
           icon: Icons.logout_rounded,
           label: '로그아웃',
-          onTap: () => _logout(context),
+          onTap: logout,
           isDestructive: true,
         ),
       ],
