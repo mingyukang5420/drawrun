@@ -5,15 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.running.app.domain.district.entity.District;
 import com.running.app.domain.district.repository.DistrictRepository;
 import com.running.app.domain.weather.dto.WeatherCacheDto;
-import com.running.app.domain.weather.type.PrecipitationType;
-import com.running.app.domain.weather.type.SkyCondition;
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Point;
@@ -118,7 +115,9 @@ public class WeatherScheduler {
                 String category = item.path("category").asText();
                 String fcstTime = item.path("fcstTime").asText();
 
-                if (!fcstTime.equals(targetTime)) continue;
+                if (!fcstTime.equals(targetTime)) {
+                    continue;
+                }
 
                 switch (category) {
                     case "TMP" -> temperature = item.path("fcstValue").asInt();
@@ -144,7 +143,9 @@ public class WeatherScheduler {
         int hour = now.getHour();
         int lastBase = BASE_HOURS[0];
         for (int base : BASE_HOURS) {
-            if (hour >= base) lastBase = base;
+            if (hour >= base) {
+                lastBase = base;
+            }
         }
         return String.format("%02d00", lastBase);
     }
@@ -153,7 +154,7 @@ public class WeatherScheduler {
     // 예: baseTime = "0800" → "0900"
     private String getNextFcstTime(String baseTime) {
         int hour = Integer.parseInt(baseTime.substring(0, 2));
-        return String.format("%02d00", hour + 1);
+        return String.format("%02d00", (hour + 1) % 24);
     }
 
     // 다음 기상청 업데이트 시각까지 남은 초 계산 (동적 TTL)
@@ -199,8 +200,12 @@ public class WeatherScheduler {
         double ra = Math.tan(Math.PI * 0.25 + lat * DEGRAD * 0.5);
         ra = re * sf / Math.pow(ra, sn);
         double theta = lon * DEGRAD - olon;
-        if (theta > Math.PI) theta -= 2.0 * Math.PI;
-        if (theta < -Math.PI) theta += 2.0 * Math.PI;
+        if (theta > Math.PI) {
+            theta -= 2.0 * Math.PI;
+        }
+        if (theta < -Math.PI) {
+            theta += 2.0 * Math.PI;
+        }
         theta *= sn;
 
         int nx = (int) Math.floor(ra * Math.sin(theta) + XO + 0.5);
