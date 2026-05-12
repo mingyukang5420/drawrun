@@ -1,4 +1,5 @@
 import 'package:running/features/running/data/running_remote_datasource.dart';
+import 'package:running/features/running/domain/run_start_response.dart';
 import 'package:running/features/running/domain/running_repository.dart';
 import 'package:running/features/running/domain/running_session.dart';
 
@@ -26,6 +27,23 @@ class RunningRepositoryImpl implements RunningRepository {
       courseDraftId: courseDraftId,
     );
     await _remote.postSession(body);
+  }
+
+  // 시작 API — request 의 두 ID 를 그대로 body 로 만들고,
+  // RemoteDataSource 가 떼어 준 result Map 을 도메인 모델로 변환.
+  @override
+  Future<RunStartResponse> startSession({
+    int? courseId,
+    int? courseDraftId,
+  }) async {
+    final body = {
+      // 둘 중 하나만 not-null 이거나, 둘 다 null 인 경우도 그대로 전송.
+      // BE 가 키 자체의 존재가 아니라 값으로 자유 / 코스 / 드래프트를 구분.
+      'courseId': courseId,
+      'courseDraftId': courseDraftId,
+    };
+    final result = await _remote.startRun(body);
+    return RunStartResponse.fromResultJson(result);
   }
 
 // RunningSession + 메타데이터 → BE 가 기대하는 JSON 형태로 변환.
