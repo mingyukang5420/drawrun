@@ -1,5 +1,6 @@
 import 'package:running/features/course/data/course_remote_datasource.dart';
 import 'package:running/features/course/domain/course.dart';
+import 'package:running/features/course/domain/course_draft.dart';
 import 'package:running/features/course/domain/course_repository.dart';
 import 'package:running/features/course/domain/way.dart';
 
@@ -12,6 +13,10 @@ class CourseRepositoryImpl implements CourseRepository {
 
   @override
   Future<List<Course>> getCourses() => _datasource.fetchCourses();
+
+  @override
+  Future<List<CourseDraft>> getMyCourses(CourseStatus status, {int page = 0}) =>
+      _datasource.fetchMyCourses(status, page: page);
 
   @override
   Future<void> saveCourse(Course course) => _datasource.createCourse(course);
