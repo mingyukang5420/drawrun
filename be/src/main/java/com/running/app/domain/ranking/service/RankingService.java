@@ -29,7 +29,7 @@ public class RankingService {
 
     // 가상 스레드 활성화 되어있음
     @Transactional(readOnly = true)
-    public RecordRankingResponse getRank(String loginId, long courseId) {
+    public RecordRankingResponse getRecordRanking(String loginId, long courseId) {
 
         // redis key 조립
         String key = "course:ranking:" + courseId;
