@@ -50,8 +50,9 @@ public class WeatherScheduler {
         List<District> districts = districtRepository.findAll();
 
         LocalDateTime now = LocalDateTime.now();
-        String baseDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String baseTime = getBaseTime(now);
+        LocalDateTime baseDateTime = getBaseDateTime(now);
+        String baseDate = baseDateTime.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String baseTime = baseDateTime.format(DateTimeFormatter.ofPattern("HHmm"));
         long ttl = calculateTtl(now);
 
         // 2. 각 구마다 기상청 API 호출 후 Redis 저장
@@ -145,12 +146,12 @@ public class WeatherScheduler {
         }
     }
 
-    // 현재 시각 기준 가장 최근 base_time 반환
-    // 예: 현재 9:30 → "0800"
-    private String getBaseTime(LocalDateTime now) {
+    // 현재 시각 기준 가장 최근 base_date + base_time 반환
+    // 예: 현재 9:30 → 오늘 08:00 / 현재 01:00 → 전날 23:00
+    private LocalDateTime getBaseDateTime(LocalDateTime now) {
         int hour = now.getHour();
         if (hour < BASE_HOURS[0]) {
-            return "2300"; // 전날 23시 기준
+            return now.minusDays(1).withHour(23).withMinute(0).withSecond(0).withNano(0);
         }
         int lastBase = BASE_HOURS[0];
         for (int base : BASE_HOURS) {
@@ -158,7 +159,7 @@ public class WeatherScheduler {
                 lastBase = base;
             }
         }
-        return String.format("%02d00", lastBase);
+        return now.withHour(lastBase).withMinute(0).withSecond(0).withNano(0);
     }
 
     // 다음 예보 시각 반환
