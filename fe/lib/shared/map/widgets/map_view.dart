@@ -52,7 +52,13 @@ class _MapViewState extends State<MapView> {
   Future<void> _setupLocationOverlay(NaverMapController mapController) async {
     final position = await LocationService.getCurrentPosition();
     if (position == null) {
-      // 위치 권한 거부 또는 GPS 꺼짐 — 외부에 에러 상태 전달
+      // 위치 권한 거부 또는 GPS 꺼짐 → 서울 중심부 전체가 보이는 줌으로 고정
+      await mapController.updateCamera(
+        NCameraUpdate.scrollAndZoomTo(
+          target: const NLatLng(37.5665, 126.9780),
+          zoom: 11,
+        ),
+      );
       widget.onLocationError?.call();
       return;
     }
