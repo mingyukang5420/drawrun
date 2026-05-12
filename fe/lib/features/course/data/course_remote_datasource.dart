@@ -38,10 +38,10 @@ class CourseRemoteDataSource {
     }
   }
 
-  // DELETE /api/v1/course/{id} — 코스 삭제
-  Future<void> deleteCourse(int id) async {
+  // DELETE /api/v1/editor/{editorId} — 코스 삭제
+  Future<void> deleteCourse(int editorId) async {
     try {
-      await _dio.delete('/api/v1/course/$id');
+      await _dio.delete('/api/v1/editor/$editorId');
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
