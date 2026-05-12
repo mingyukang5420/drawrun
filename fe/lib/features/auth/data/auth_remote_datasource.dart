@@ -9,18 +9,18 @@ class AuthRemoteDataSource {
 
   AuthRemoteDataSource(this._dio);
 
-  // POST /auth/login — 이메일·비밀번호로 로그인 후 서버 발급 토큰 반환
-  // TODO: 백엔드 스펙 확정 후 엔드포인트와 응답 키 수정
+  // POST /api/v1/auth/login — loginId·비밀번호로 로그인 후 서버 발급 토큰 반환
+  // 응답 구조: { isSuccess, code, message, result: { accessToken } }
   Future<String> login({
-    required String email,
+    required String loginId,
     required String password,
   }) async {
     try {
       final response = await _dio.post(
-        '/auth/login',
-        data: {'email': email, 'password': password},
+        '/api/v1/auth/login',
+        data: {'loginId': loginId, 'password': password},
       );
-      return response.data['token'] as String;
+      return response.data['result']['accessToken'] as String;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

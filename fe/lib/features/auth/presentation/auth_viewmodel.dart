@@ -42,14 +42,14 @@ class AuthNotifier extends Notifier<AuthState> {
   @override
   AuthState build() => const AuthState();
 
-  // 이메일·비밀번호로 로그인
+  // loginId·비밀번호로 로그인
   Future<void> login({
-    required String email,
+    required String loginId,
     required String password,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      await _repository.login(email: email, password: password);
+      await _repository.login(loginId: loginId, password: password);
       state = state.copyWith(isLoading: false, isLoggedIn: true);
     } on ApiException catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.message);

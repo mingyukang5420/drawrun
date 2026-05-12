@@ -129,4 +129,34 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
                 and lower(c.title) like lower(concat('%', :keyword, '%'))
             """)
     Slice<Course> searchCourseSlice(String keyword, Pageable pageable);
+
+    // 마이코스 목록 조회
+    @Query("""
+        select c
+        from Course c
+        join fetch c.sourceRecord sr
+        join fetch sr.track t
+        where c.memberId = :memberId
+          and c.deletedAt is null
+        """)
+    Slice<Course> findMyCourseSlice(
+            Long memberId,
+            Pageable pageable
+    );
+
+    // 마이코스 상세 조회
+    @Query("""
+        select c
+        from Course c
+        join fetch c.sourceRecord sr
+        join fetch sr.track
+        where c.id = :courseId
+          and c.memberId = :memberId
+          and c.deletedAt is null
+        """)
+    Optional<Course> findMyCourseByIdWithTrack(
+            Long memberId,
+            Long courseId
+    );
+
 }

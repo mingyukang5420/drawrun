@@ -73,7 +73,7 @@ class DioClient {
 class _AuthInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final token = TokenStorage.get();
+    final token = TokenStorage.read();
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
