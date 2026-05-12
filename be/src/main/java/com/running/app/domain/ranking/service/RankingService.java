@@ -1,5 +1,6 @@
 package com.running.app.domain.ranking.service;
 
+import com.running.app.domain.course.repository.CourseRepository;
 import com.running.app.domain.member.entity.Member;
 import com.running.app.domain.member.projection.MemberNicknameQueryResult;
 import com.running.app.domain.member.repository.MemberRepository;
@@ -26,10 +27,15 @@ public class RankingService {
     private final RankingRedisService rankingRedisService;
     private final MemberRepository memberRepository;
     private final RunningRecordRepository runningRecordRepository;
+    private final CourseRepository courseRepository;
 
     // 가상 스레드 활성화 되어있음
     @Transactional(readOnly = true)
     public RecordRankingResponse getRecordRanking(String loginId, long courseId) {
+
+        // 요청받은 course가 존재하는지 확인
+        courseRepository.findById(courseId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
 
         // redis key 조립
         String key = "course:ranking:" + courseId;
@@ -37,12 +43,11 @@ public class RankingService {
         // redis에 데이터가 있는지 확인
         if (!rankingRedisService.isHaveRank(key)) {
             // redis에 데이터 적재
-
             rankingRedisService.setRankingValue(
                     runningRecordRepository.findRankingByCourseId(courseId), courseId);
         }
 
-        // redis에 데이터가 있는 경우
+        // 로그인 하지 않은 사용자도 랭킹 조회 가능
         Member member = null;
         Integer memberId = null;
         String nickname = null;
