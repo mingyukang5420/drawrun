@@ -145,6 +145,9 @@ public class WeatherScheduler {
     // 예: 현재 9:30 → "0800"
     private String getBaseTime(LocalDateTime now) {
         int hour = now.getHour();
+        if (hour < BASE_HOURS[0]) {
+            return "2300"; // 전날 23시 기준
+        }
         int lastBase = BASE_HOURS[0];
         for (int base : BASE_HOURS) {
             if (hour >= base) {
