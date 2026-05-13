@@ -1,5 +1,35 @@
 import 'package:running/shared/model/lat_lng.dart';
 
+enum CourseStatus {
+  all,        // 필터 전용 (ALL — 서버 파라미터)
+  ready,      // 작성중 (에디터 저장, 미주행)
+  done,       // 검증됨 (주행 완료, 미등록)
+  registered; // 등록됨 (정식 코스 등록 완료)
+
+  // 서버 응답 문자열 → enum 변환 (null/미지원이면 null)
+  static CourseStatus? fromString(String? value) => switch (value) {
+        'READY' => ready,
+        'DONE' => done,
+        'REGISTERED' => registered,
+        _ => null,
+      };
+
+  // API 쿼리 파라미터로 전달할 문자열
+  String get queryValue => switch (this) {
+        all => 'ALL',
+        ready => 'READY',
+        done => 'DONE',
+        registered => 'REGISTERED',
+      };
+
+  String get label => switch (this) {
+        all => '전체',
+        ready => '작성중',
+        done => '검증됨',
+        registered => '등록됨',
+      };
+}
+
 // 코스 도메인 엔티티
 // GET /v1/courses 응답 구조에 맞춰 필드를 정의한다
 class Course {
@@ -33,6 +63,9 @@ class Course {
   // 완주율 0~100 (완주하지 않은 경우 부분 달린 비율)
   final int completionScore;
 
+  // 코스 상태: READY | DONE | REGISTERED (내 코스 관리 API 에서 반환)
+  final CourseStatus? status;
+
   const Course({
     this.id,
     required this.title,
@@ -44,6 +77,7 @@ class Course {
     this.thumbnailUrl,
     this.createdAt,
     this.completionScore = 0,
+    this.status,
   });
 
   // GET /v1/courses 응답 아이템 JSON → Course 변환
@@ -67,6 +101,7 @@ class Course {
             ? DateTime.tryParse(json['createdAt'] as String)
             : null,
         completionScore: json['completionScore'] as int? ?? 0,
+        status: CourseStatus.fromString(json['status'] as String?),
       );
 
   // POST /api/v1/editor 저장 요청 시 서버로 전송할 JSON

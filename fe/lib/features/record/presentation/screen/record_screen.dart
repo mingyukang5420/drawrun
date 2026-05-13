@@ -15,13 +15,15 @@ import 'package:running/features/record/presentation/screen/record_stats_screen.
 // initialIndex: 0 — 첫 진입 시 "통계" 탭이 선택되도록 한다.
 //   (시안 1번이 통계여서 그쪽이 디폴트)
 class RecordScreen extends StatelessWidget {
-  const RecordScreen({super.key});
+  final int initialIndex;
+
+  const RecordScreen({super.key, this.initialIndex = 0});
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
-      initialIndex: 0,
+      initialIndex: initialIndex,
       child: Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(

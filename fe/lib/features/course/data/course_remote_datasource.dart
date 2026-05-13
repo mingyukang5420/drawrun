@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 
 import 'package:running/features/course/domain/course.dart';
+import 'package:running/features/course/domain/course_draft.dart';
 import 'package:running/features/course/domain/way.dart';
+// CourseStatus 는 course.dart 에서 export 됨
 import 'package:running/shared/network/api_exception.dart';
 
 // 코스 관련 HTTP 요청 전담 클래스
@@ -36,10 +38,31 @@ class CourseRemoteDataSource {
     }
   }
 
-  // DELETE /api/v1/course/{id} — 코스 삭제
-  Future<void> deleteCourse(int id) async {
+  // DELETE /api/v1/editor/{editorId} — 코스 삭제
+  Future<void> deleteCourse(int editorId) async {
     try {
-      await _dio.delete('/api/v1/course/$id');
+      await _dio.delete('/api/v1/editor/$editorId');
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  // GET /api/v1/editor?filter={ALL|READY|DONE|REGISTERED}&page= — 내 코스 목록 조회
+  // 응답 구조: { "result": { "content": [ ...CourseDraft 배열... ], "page", "size", "hasNext" } }
+  Future<List<CourseDraft>> fetchMyCourses(CourseStatus status,
+      {int page = 0}) async {
+    try {
+      final response = await _dio.get(
+        '/api/v1/editor',
+        queryParameters: {
+          'filter': status.queryValue,
+          'page': page,
+        },
+      );
+      final content = response.data['result']['content'] as List<dynamic>;
+      return content
+          .map((e) => CourseDraft.fromJson(e as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
