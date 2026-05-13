@@ -29,10 +29,14 @@ class CourseRemoteDataSource {
   }
 
   // POST /api/v1/editor — 새 코스 저장
-  // 서버 응답 바디는 사용하지 않으므로 Future<void> 반환
-  Future<void> createCourse(Course course) async {
+  // trackImageUrl: 지도 스냅샷 업로드 후 받은 공개 URL (있으면 요청 바디에 포함)
+  Future<void> createCourse(Course course, {String? trackImageUrl}) async {
     try {
-      await _dio.post('/api/v1/editor', data: course.toJson());
+      final data = course.toJson();
+      if (trackImageUrl != null && trackImageUrl.isNotEmpty) {
+        data['trackImageUrl'] = trackImageUrl;
+      }
+      await _dio.post('/api/v1/editor', data: data);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
