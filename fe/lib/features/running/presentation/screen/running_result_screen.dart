@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,7 +7,7 @@ import 'package:running/shared/network/api_exception.dart';
 import 'package:running/core/theme/app_text_style.dart';
 import 'package:running/features/running/presentation/running_viewmodel.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
-import 'package:running/features/running/presentation/widgets/running_result_map.dart';
+import 'package:running/shared/map/widgets/track_snapshot_map.dart';
 
 // 러닝 완료 결과 화면 (거리·시간·페이스 요약)
 // - 지도에는 사용자가 뛴 경로(폴리라인)만 그려진다
@@ -96,22 +98,37 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     super.dispose();
   }
 
-  // 업로드 성공 콜백
-  // 업로드 결과 URL 을 보관한 뒤 곧장 종료 API 를 시작한다
-  void _onUploaded(String url) {
-    setState(() {
-      _trackImageUrl = url;
-      _uploadErrorMessage = null;
-    });
-    _autoSave(); // 이제서야 trackImageUrl 이 있어 안전하게 호출 가능
+  // 트랙 스냅샷이 만들어졌을 때 호출되는 콜백.
+  // 받은 PNG File 을 trackImageRepository 로 업로드하고, 성공 시 결과 URL 을 보관해
+  // 곧장 종료 API 흐름으로 이어 준다.
+  //
+  // 업로드 책임이 결과 화면으로 옮겨온 이유:
+  // 스냅샷 위젯은 도메인을 알지 않게 두고, "업로드를 한다 / 어디로 한다" 같은 정책은
+  // 도메인 화면이 결정하도록 분리.
+  Future<void> _onCaptured(File file) async {
+    try {
+      final repository = ref.read(trackImageRepositoryProvider);
+      final url = await repository.upload(file);
+      if (!mounted) return;
+      setState(() {
+        _trackImageUrl = url;
+        _uploadErrorMessage = null;
+      });
+      _autoSave();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _uploadErrorMessage = '경로 이미지 업로드 실패: $e';
+      });
+    }
   }
 
-  // 업로드 실패 콜백
-  // 종료 API 호출은 보류하고 사용자에게 메시지만 노출
-  // 사용자가 "다시 시도" 누르면 _retryUpload 가 호출됨
-  void _onUploadFailed(Object error) {
+  // 트랙 스냅샷 생성 자체가 실패했을 때 호출되는 콜백 (takeSnapshot 예외 등).
+  // 종료 API 호출은 보류하고 사용자에게 메시지만 노출.
+  // 사용자가 "다시 시도" 누르면 _retryUpload 가 호출돼 위젯이 새 인스턴스로 다시 mount 된다.
+  void _onCaptureFailed(Object error) {
     setState(() {
-      _uploadErrorMessage = '경로 이미지 업로드 실패: $error';
+      _uploadErrorMessage = '경로 이미지 생성 실패: $error';
     });
   }
 
@@ -211,12 +228,16 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
-  // key 를 갈아끼우면 위젯이 새 인스턴스로 만들어져 캡처 + 업로드가 처음부터 다시 흐른다
+  // key 를 갈아끼우면 위젯이 새 인스턴스로 만들어져 캡처 + 업로드가 처음부터 다시 흐른다.
+  // 노드 리스트는 현재 ViewModel의 points를 그대로 prop으로 넘겨준다
+  // 더 이상 새 점이 추가되지 않으므로 ref.read로 한 번만 읽어도 충분
   Widget _buildMap() {
-    return RunningResultMap(
+    final nodes = ref.read(runningViewModelProvider).points;
+    return TrackSnapshotMap(
       key: _mapKey,
-      onUploaded: _onUploaded,
-      onUploadFailed: _onUploadFailed,
+      nodes: nodes,
+      onCaptured: _onCaptured,
+      onCaptureFailed: _onCaptureFailed,
     );
   }
 
