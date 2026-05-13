@@ -498,8 +498,13 @@ class RunningNotifier extends Notifier<RunningState> {
   // 카운트다운 화면에서 한 번 호출 — 시작 API 발사 후 응답 nodes 를 state 에 보관.
   //
   // fail-open 정책:
-  //   네트워크 실패가 나도 예외를 위로 던지지 않는다. referenceNodes 만 빈 채로 둘 뿐
+  //   네트워크 실패가 나도, 응답을 모델로 변환하다 예기치 못한 예외가 터져도
+  //   예외를 위로 던지지 않는다. referenceNodes 만 빈 채로 둘 뿐
   //   GPS 측정 / 종료 저장은 정상 진행된다. 사용자 입장에선 "참조 경로가 안 보일 뿐".
+  //
+  // 호출자(카운트다운 화면)는 이 Future 를 await 하지 않고 흘려보내므로,
+  // 여기서 예외가 빠져나가면 Unhandled Future Error 가 되어 콘솔에서도 묻혀버린다.
+  // 그래서 ApiException 외의 모든 예외도 같은 fail-open 으로 흡수하되 메시지를 갈라 둔다.
   //
   // courseId / courseDraftId 는 현재 state 값을 그대로 사용 —
   // 추후 코스/드래프트 진입 화면이 router 단계에서 state.copyWith(courseId: X) 로 박아두면
@@ -517,8 +522,14 @@ class RunningNotifier extends Notifier<RunningState> {
         _drawReferenceRoute(response.nodes);
       }
     } on ApiException catch (e) {
-      // 측정은 그대로 진행. 로그만 남겨 운영에서 모니터링 가능하게.
+      // 예상 가능한 네트워크/HTTP 실패. 측정은 그대로 진행.
       debugPrint('run/start 실패 (fail-open): ${e.message}');
+    } catch (e, st) {
+      // 예기치 못한 예외 — 응답 형태가 스펙과 다를 때 발생하는 TypeError 등.
+      // BE 가 스펙대로 내려오면 이 경로는 안 탄다. 만약 탔다면 응답이 깨진 사건이므로
+      // 스택트레이스까지 같이 남겨 운영에서 원인을 추적할 수 있게 한다.
+      // 측정 흐름은 같은 fail-open 정책으로 보호.
+      debugPrint('run/start 처리 중 예기치 못한 오류 (fail-open): $e\n$st');
     }
   }
 }
