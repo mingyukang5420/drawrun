@@ -18,11 +18,14 @@ import com.running.app.domain.recordstats.repository.MemberRecordStatsRepository
 import com.running.app.domain.recordstats.type.RecordStatsPeriodType;
 import com.running.app.domain.recordstats.service.MemberRecordStatsService;
 import com.running.app.domain.track.entity.Track;
+import com.running.app.domain.track.service.TrackImageAiService;
+import com.running.app.domain.track.service.TrackRouteRenderService;
 import com.running.app.domain.track.service.TrackService;
 import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.data.domain.PageRequest;
@@ -41,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true) //읽기 전용 처리
 public class RecordService {
@@ -53,11 +57,13 @@ public class RecordService {
     private final CourseDraftRepository courseDraftRepository;
     private final MemberRecordStatsRepository memberRecordStatsRepository;
     private final TrackService trackService;
+    private final TrackImageAiService trackImageAiService;
     private final MemberRecordStatsService memberRecordStatsService;
     private final CourseService courseService;
     private final CourseRepository courseRepository;
     private final OsmService osmService;
     private final MemberRepository memberRepository;
+    private final TrackRouteRenderService trackRouteRenderService;
     //작성
     @Transactional
     public void createRecord(
@@ -69,6 +75,7 @@ public class RecordService {
         Long memberId = member.getMemberId().longValue();
 
         validateRecordSource(request);
+        renderAndGenerateAiRouteImages(request);
 
         Track track = trackService.createTrack(
                 request.getNodes(),
@@ -99,6 +106,36 @@ public class RecordService {
         // 통계 테이블에 해당 기록의 데이터 합산해서 저장
         memberRecordStatsService.increaseStats(savedRunningRecord);
 
+    }
+
+    private void renderAndGenerateAiRouteImages(RecordRequest.CreateDTO request) {
+        try {
+            TrackRouteRenderService.RenderedRouteImage renderedRouteImage =
+                    trackRouteRenderService.renderRouteImageToDesktop(
+                            request.getNodes(),
+                            request.getTitle()
+                    );
+
+            List<String> candidates = trackImageAiService.inferRouteSilhouetteCandidates(
+                    renderedRouteImage.pngBytes(),
+                    request.getTitle()
+            );
+            log.info("Route silhouette candidates: {}", candidates);
+            String primaryCandidate = candidates.get(0);
+            log.info("Primary silhouette candidate selected for image generation: {}", primaryCandidate);
+
+            String base64Image = trackImageAiService.extractBase64Image(
+                    trackImageAiService.generateStyledCourseImage(
+                            renderedRouteImage.pngBytes(),
+                            request.getTitle(),
+                            primaryCandidate
+                    )
+            );
+
+            trackImageAiService.saveBase64ImageToDesktop(base64Image, request.getTitle());
+        } catch (Exception e) {
+            log.warn("Route image rendering or AI generation failed, but record save will continue.", e);
+        }
     }
 
     private boolean determineIsSafe(Track userTrack) {

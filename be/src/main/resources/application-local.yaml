@@ -32,6 +32,14 @@ jwt:
   access-token-expiration: 2592000000   # 30일 (ms)
   refresh-token-expiration: 2592000000 # 30일 (ms)
 
+gms:
+  base-url: https://gms.ssafy.io/gmsapi/api.openai.com/v1
+  api-key: ${GMS_API_KEY:}
+  analysis-model: gpt-4o
+  image-model: gpt-image-1.5
+  image-size: 1024x1024
+  image-count: 1
+
 logging:
   level:
     root: INFO
