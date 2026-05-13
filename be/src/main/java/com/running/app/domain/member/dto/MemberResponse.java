@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -33,6 +34,19 @@ public abstract class MemberResponse {
     }
 
     @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class MyInfoResponse {
+
+        private String nickname;
+        private String email;
+        private String birthDate;
+        private String gender;
+        private Integer totalMyCourse;
+        private Integer totalMyRecord;
+        private Integer totalMyBookmark;
+
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     @AllArgsConstructor
     @Schema(description = "accessToken 재발급 응답")
