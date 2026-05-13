@@ -1,6 +1,6 @@
 import 'package:running/shared/model/lat_lng.dart';
 
-// POST /api/v1/run/start 응답 모델.
+// GET /api/v1/run/start 응답 모델.
 //
 // 서버 응답의 envelope 부분(isSuccess/code/message) 은
 // RunningRepositoryImpl 에서 벗겨낸 뒤 'result' 안쪽만 이 모델로 변환한다.

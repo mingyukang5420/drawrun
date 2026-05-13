@@ -29,20 +29,20 @@ class RunningRepositoryImpl implements RunningRepository {
     await _remote.postSession(body);
   }
 
-  // 시작 API — request 의 두 ID 를 그대로 body 로 만들고,
-  // RemoteDataSource 가 떼어 준 result Map 을 도메인 모델로 변환.
+  // 시작 API — 두 ID 를 RemoteDataSource 에 그대로 위임하고,
+  // 응답 envelope 의 result Map 을 도메인 모델로 변환한다.
+  //
+  // 쿼리 파라미터를 만드는 일(null 인 키 제외 등) 은 RemoteDataSource 의 책임이므로
+  // 여기선 단순히 위임만 한다. Repository 는 도메인 모델 변환에 집중.
   @override
   Future<RunStartResponse> startSession({
     int? courseId,
     int? courseDraftId,
   }) async {
-    final body = {
-      // 둘 중 하나만 not-null 이거나, 둘 다 null 인 경우도 그대로 전송.
-      // BE 가 키 자체의 존재가 아니라 값으로 자유 / 코스 / 드래프트를 구분.
-      'courseId': courseId,
-      'courseDraftId': courseDraftId,
-    };
-    final result = await _remote.startRun(body);
+    final result = await _remote.startRun(
+      courseId: courseId,
+      courseDraftId: courseDraftId,
+    );
     return RunStartResponse.fromResultJson(result);
   }
 

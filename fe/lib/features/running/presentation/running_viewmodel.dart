@@ -40,7 +40,7 @@ class RunningState {
   final DateTime? endedAt;
 
   // 코스/드래프트 진입 시 외부에서 채워 두는 ID 들. 자유 러닝이면 둘 다 null.
-  // 시작 API body / 종료 API body 양쪽에 같이 보낸다.
+  // 시작 API 는 쿼리 파라미터로, 종료 API 는 요청 본문으로 같이 보낸다.
   final int? courseId;
   final int? courseDraftId;
 
