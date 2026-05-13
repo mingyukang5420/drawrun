@@ -23,6 +23,7 @@ public class RankingRedisService {
     // 랭킹 데이터를 redis에 적재함(key, member, score)
     public void setRankingValue(List<RankingQueryResult> rankingResults, long courseId) {
 
+        log.info("Redis 적재 요청");
         ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
         // redis key: course:ranking:{courseId}
         String key = "course:ranking:" + courseId;

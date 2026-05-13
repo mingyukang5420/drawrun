@@ -32,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.data.domain.PageRequest;
@@ -42,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true) //읽기 전용 처리
@@ -106,13 +108,14 @@ public class RecordService {
 
         // 트랜잭션의 커밋 후 course가 존재하는 러닝이었다면 redis에 적재된 랭킹 데이터 삭제
         if (savedRunningRecord.getCourseId() != null) {
+            log.info("코스 런 커밋 완료. Redis에 적재된 랭킹 데이터 삭제");
             Long courseId = savedRunningRecord.getCourseId();
 
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            rankingRedisService.deleteRankValue("course:ranking" + courseId);
+                            rankingRedisService.deleteRankValue("course:ranking:" + courseId);
                         }
                     }
             );

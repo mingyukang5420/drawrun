@@ -7,6 +7,7 @@ import com.running.app.domain.member.repository.MemberRepository;
 import com.running.app.domain.ranking.converter.RankingConverter;
 import com.running.app.domain.ranking.dto.RankingResponse.Ranking;
 import com.running.app.domain.ranking.dto.RankingResponse.RecordRankingResponse;
+import com.running.app.domain.record.projection.RankingQueryResult;
 import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
@@ -32,7 +33,7 @@ public class RankingService {
     // 가상 스레드 활성화 되어있음
     @Transactional(readOnly = true)
     public RecordRankingResponse getRecordRanking(String loginId, long courseId) {
-
+        
         // 요청받은 course가 존재하는지 확인
         courseRepository.findById(courseId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
@@ -41,10 +42,15 @@ public class RankingService {
         String key = "course:ranking:" + courseId;
 
         // redis에 데이터가 있는지 확인
+        log.info("{}", rankingRedisService.isHaveRank(key));
         if (!rankingRedisService.isHaveRank(key)) {
+            log.info("Redis에 데이터 존재하지 않음 적재 시작");
             // redis에 데이터 적재
-            rankingRedisService.setRankingValue(
-                    runningRecordRepository.findRankingByCourseId(courseId), courseId);
+            List<RankingQueryResult> rankingQueryResults = runningRecordRepository.findRankingByCourseId(
+                    courseId);
+            rankingRedisService.setRankingValue(rankingQueryResults, courseId);
+
+            log.info("Redis 데이터 적재 완료. 적재된 데이터 수: {}", rankingQueryResults.size());
         }
 
         // 로그인 하지 않은 사용자도 랭킹 조회 가능
