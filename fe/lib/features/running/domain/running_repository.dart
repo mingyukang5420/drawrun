@@ -1,4 +1,5 @@
 import 'package:running/features/running/domain/running_session.dart';
+import 'package:running/features/running/domain/run_start_response.dart';
 
 // 러닝 데이터 영속화 계약(인터페이스). ViewModel 은 이 추상 타입에만 의존.
 // session: 측정된 러닝 데이터 (거리/시간/경로 등 — 측정 결과)
@@ -10,6 +11,14 @@ abstract class RunningRepository {
     required RunningSession session,
     required String title,
     required String trackImageUrl,
+    int? courseId,
+    int? courseDraftId,
+  });
+
+  // 러닝 시작 — 카운트다운 진입 직후 한 번 호출.
+  // courseId / courseDraftId 둘 다 null 이면 자유 러닝.
+  // 응답으로 코스의 GPS 노드(있다면) 가 따라온다 — 호출처에서 state 에 보관해 활용.
+  Future<RunStartResponse> startSession({
     int? courseId,
     int? courseDraftId,
   });
