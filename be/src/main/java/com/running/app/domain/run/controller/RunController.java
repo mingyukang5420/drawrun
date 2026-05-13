@@ -11,10 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Run", description = "러닝 관련 API")
 @RestController
@@ -33,43 +30,7 @@ public class RunController {
                     - 공식 코스 러닝: courseId != null, courseDraftId = null
                     - 에디터 코스 러닝: courseId = null, courseDraftId != null
                     - courseId와 courseDraftId를 동시에 보내면 400 에러
-                    """,
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "러닝 시작 요청 바디",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = {
-                                    @ExampleObject(
-                                            name = "자유 러닝",
-                                            value = """
-                                                    {
-                                                      "courseId": null,
-                                                      "courseDraftId": null
-                                                    }
-                                                    """
-                                    ),
-                                    @ExampleObject(
-                                            name = "공식 코스 러닝",
-                                            value = """
-                                                    {
-                                                      "courseId": 1,
-                                                      "courseDraftId": null
-                                                    }
-                                                    """
-                                    ),
-                                    @ExampleObject(
-                                            name = "에디터 코스 러닝",
-                                            value = """
-                                                    {
-                                                      "courseId": null,
-                                                      "courseDraftId": 1
-                                                    }
-                                                    """
-                                    )
-                            }
-                    )
-            )
+                    """
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -139,10 +100,13 @@ public class RunController {
                     )
             )
     })
-    @PostMapping("/start")
+    @GetMapping("/start")
     public ApiResponse<RunResponse.StartDTO> startRun(
-            @RequestBody @Valid RunRequest.StartDTO request
+            @RequestParam(required = false) Long courseId,
+            @RequestParam(required = false) Long courseDraftId
+
     ) {
+        RunRequest.StartDTO request = new RunRequest.StartDTO(courseId, courseDraftId);
         RunResponse.StartDTO response = runService.startRun(request);
         return ApiResponse.onSuccess(response);
     }
