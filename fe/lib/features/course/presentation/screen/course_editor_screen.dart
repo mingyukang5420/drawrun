@@ -1,13 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/course/presentation/course_editor_viewmodel.dart';
 import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/widgets/course_editor_map_view.dart';
-import 'package:flutter_naver_map/flutter_naver_map.dart';
-import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/shared/map/widgets/track_snapshot_map.dart';
 import 'package:running/shared/model/lat_lng.dart' as shared;
 
@@ -34,22 +34,20 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   }
 
   // ── TrackSnapshotMap 캡처 성공 콜백 ───────────────────────────────
-  // PNG File 을 받아 POST /api/v1/tracks/image 에 업로드한 뒤
-  // 받은 URL 로 코스 저장 API 를 호출한다
+  // PNG File 을 base64 로 변환한 뒤 thumbnailBase64 로 코스 저장 API 를 호출한다
   Future<void> _onCaptured(File imageFile) async {
-    setState(() => _isCapturing = false); // 스냅샷 위젯은 더 이상 필요 없으므로 제거
+    setState(() => _isCapturing = false);
 
     try {
-      // trackImageRepositoryProvider: running_provider.dart 에 이미 등록된 공용 Provider
-      final url =
-          await ref.read(trackImageRepositoryProvider).upload(imageFile);
+      final bytes = await imageFile.readAsBytes();
+      final base64Str = base64Encode(bytes);
       if (!mounted) return;
-      // 업로드 성공 → URL 과 함께 코스 저장 API 호출
-      await ref.read(courseEditorProvider.notifier).saveCourse(trackImageUrl: url);
+      await ref
+          .read(courseEditorProvider.notifier)
+          .saveCourse(thumbnailBase64: base64Str);
     } catch (_) {
       if (!mounted) return;
-      // 업로드 실패 → isSaving 을 내리고 에러 메시지를 화면에 표시
-      ref.read(courseEditorProvider.notifier).failSave('이미지 업로드에 실패했습니다');
+      ref.read(courseEditorProvider.notifier).failSave('이미지 변환에 실패했습니다');
     }
   }
 
