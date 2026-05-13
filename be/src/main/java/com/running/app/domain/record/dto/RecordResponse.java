@@ -1,12 +1,11 @@
 package com.running.app.domain.record.dto;
 
 import com.running.app.domain.track.dto.TrackRequest;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 public abstract class RecordResponse {
 
@@ -62,7 +61,7 @@ public abstract class RecordResponse {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class DetailDTO{
+    public static class DetailDTO {
 
         private Long recordId;
         private Long trackId;
@@ -70,6 +69,7 @@ public abstract class RecordResponse {
         private Long courseDraftId;
         private String title;
         private String date;
+        private String startedAt;
         private String trackImageUrl;
         private Double distance;
         private String avgPace;
