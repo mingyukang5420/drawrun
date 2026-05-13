@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -162,8 +163,16 @@ public class AuthController {
     @PostMapping("/logout")
     public ApiResponse<Void> logout(
             @CookieValue(name = REFRESH_TOKEN_COOKIE_NAME, required = false) String refreshToken,
+            HttpServletRequest request,
             HttpServletResponse response
     ) {
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String accessToken = null;
+
+        if(authorization != null && authorization.startsWith("Bearer ")) {
+            accessToken = authorization.substring(7);
+        }
+
         authService.logout(refreshToken);
         response.addHeader(HttpHeaders.SET_COOKIE, expireRefreshTokenCookie().toString());
         return ApiResponse.OK;

@@ -30,6 +30,8 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final RedisTemplate<String, String> redisTemplate;
 
+    private static final String ACCESS_TOKEN_BLACKLIST_PREFIX = "blacklist:access:";
+
     public CheckDuplicationResponse checkNickname(String nickname) {
         return MemberConverter.toCheckDuplicationResponse(
                 memberRepository.existsByNickname(nickname));
