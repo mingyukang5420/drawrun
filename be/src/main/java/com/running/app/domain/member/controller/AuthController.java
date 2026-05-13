@@ -173,7 +173,7 @@ public class AuthController {
             accessToken = authorization.substring(7);
         }
 
-        authService.logout(refreshToken);
+        authService.logout(refreshToken, accessToken);
         response.addHeader(HttpHeaders.SET_COOKIE, expireRefreshTokenCookie().toString());
         return ApiResponse.OK;
     }

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+
+    private static final String ACCESS_TOKEN_BLACKLIST_PREFIX = "blacklist:access:";
+    private final RedisTemplate<String, String> redisTemplate;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -29,6 +33,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // 2. "Bearer " 접두사 제거
         if (token != null && token.startsWith("Bearer ")) {
             token = token.substring(7);
+        }
+
+        // 2-2. 블랙리스트인지 체크
+        if (token != null && isBlacklisted(token)) {
+            filterChain.doFilter(request,response);
+            return;
         }
 
         // 3. 토큰이 없으면 다음 필터로 넘김 (Security가 알아서 401 처리)
@@ -55,5 +65,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         // 8. 다음 필터로 넘김
         filterChain.doFilter(request, response);
+    }
+
+    // 블랙리스트 판별
+    private boolean isBlacklisted(String token) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(getAccessTokenBlacklistKey(token)));
+    }
+
+    private String getAccessTokenBlacklistKey(String token) {
+        return ACCESS_TOKEN_BLACKLIST_PREFIX + token;
     }
 }

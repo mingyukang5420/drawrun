@@ -86,7 +86,11 @@ public class AuthService {
         return MemberConverter.toReissueResponse(newAccessToken);
     }
 
-    public void logout(String refreshToken) {
+    public void logout(String refreshToken, String accessToken) {
+
+        deleteRefreshTokne(refreshToken);
+        blacklistAccessToken(accessToken);
+
         if (refreshToken == null || refreshToken.isBlank()) {
             return;
         }
@@ -119,5 +123,53 @@ public class AuthService {
 
     private String getRefreshTokenKey(String loginId) {
         return REFRESH_TOKEN_PREFIX + loginId;
+    }
+
+    // 리프레시 토큰 삭제 메서드
+    private void deleteRefreshTokne(String refreshToken) {
+        if(refreshToken == null || refreshToken.isBlank()){
+            return;
+        }
+
+        if(!jwtUtil.validateToken(refreshToken)) {
+            return;
+        }
+
+        if(!"refresh".equals(jwtUtil.getTokenType(refreshToken))) {
+            return;
+        }
+        String loginId = jwtUtil.getLoginId(refreshToken);
+        redisTemplate.delete(getRefreshTokenKey(loginId));
+    }
+
+    //Access Token 블랙리스트에 추가
+    private void blacklistAccessToken(String accessToken) {
+        if(accessToken == null || accessToken.isBlank()) {
+            return;
+        }
+
+        if(!jwtUtil.validateToken(accessToken)){
+            return;
+        }
+
+        if(!"access".equals(jwtUtil.getTokenType(accessToken))){
+            return;
+        }
+
+        long remainingExpiration = jwtUtil.getRemainingExpiration(accessToken);
+        if(remainingExpiration <= 0) {
+            return;
+        }
+
+        // 해당 access 토큰의 남은 시간만큼 레디스에 블랙리스트로 추가
+        redisTemplate.opsForValue().set(
+                getAccessTokenBlacklistKey(accessToken),
+                "logout",
+                Duration.ofMillis(remainingExpiration)
+        );
+    }
+
+    private String getAccessTokenBlacklistKey(String accessToken) {
+        return ACCESS_TOKEN_BLACKLIST_PREFIX + accessToken;
     }
 }
