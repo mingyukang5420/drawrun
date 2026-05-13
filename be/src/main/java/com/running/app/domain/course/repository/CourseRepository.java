@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface CourseRepository extends JpaRepository<Course, Long> {
-    
+
     // 지역 없을 때 코스 조회 (빈 리스트 넣었을 시 발생할 수 있는 오류 방지)
     @Query("""
             select c
@@ -132,13 +132,13 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
 
     // 마이코스 목록 조회
     @Query("""
-        select c
-        from Course c
-        join fetch c.sourceRecord sr
-        join fetch sr.track t
-        where c.memberId = :memberId
-          and c.deletedAt is null
-        """)
+            select c
+            from Course c
+            join fetch c.sourceRecord sr
+            join fetch sr.track t
+            where c.memberId = :memberId
+              and c.deletedAt is null
+            """)
     Slice<Course> findMyCourseSlice(
             Long memberId,
             Pageable pageable
@@ -146,17 +146,20 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
 
     // 마이코스 상세 조회
     @Query("""
-        select c
-        from Course c
-        join fetch c.sourceRecord sr
-        join fetch sr.track
-        where c.id = :courseId
-          and c.memberId = :memberId
-          and c.deletedAt is null
-        """)
+            select c
+            from Course c
+            join fetch c.sourceRecord sr
+            join fetch sr.track
+            where c.id = :courseId
+              and c.memberId = :memberId
+              and c.deletedAt is null
+            """)
     Optional<Course> findMyCourseByIdWithTrack(
             Long memberId,
             Long courseId
     );
+
+    // 내가 등록한 코스 개수 조회
+    Integer countByMemberIdAndDeletedAtIsNull(Long memberId);
 
 }
