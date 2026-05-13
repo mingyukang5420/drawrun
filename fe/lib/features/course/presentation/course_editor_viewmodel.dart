@@ -291,9 +291,9 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     state = state.copyWith(isSaving: true, saveError: null);
   }
 
-  // ── 저장 2단계: 이미지 업로드 완료 후 코스 저장 API 호출 ─────────────
-  // trackImageUrl: TrackSnapshotMap 캡처 → POST /api/v1/tracks/image 업로드 결과
-  Future<void> saveCourse({String? trackImageUrl}) async {
+  // ── 저장 2단계: 캡처 완료 후 코스 저장 API 호출 ──────────────────────
+  // thumbnailBase64: TrackSnapshotMap 이 캡처한 PNG 를 base64 인코딩한 문자열
+  Future<void> saveCourse({String? thumbnailBase64}) async {
     // 도로를 따라가는 전체 좌표가 있으면 그것을, 없으면 스냅 노드만 사용
     final pathPoints =
         _currentRouteCoords.isNotEmpty ? _currentRouteCoords : state.nodes;
@@ -310,7 +310,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     );
 
     try {
-      await _repository.saveCourse(course, trackImageUrl: trackImageUrl);
+      await _repository.saveCourse(course, thumbnailBase64: thumbnailBase64);
       state = state.copyWith(isSaving: false);
       reset(); // 저장 성공 후 편집 상태를 초기화
     } on ApiException catch (e) {
