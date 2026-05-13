@@ -19,8 +19,8 @@ class CourseRepositoryImpl implements CourseRepository {
       _datasource.fetchMyCourses(status, page: page);
 
   @override
-  Future<void> saveCourse(Course course, {String? trackImageUrl}) =>
-      _datasource.createCourse(course, trackImageUrl: trackImageUrl);
+  Future<void> saveCourse(Course course, {String? thumbnailBase64}) =>
+      _datasource.createCourse(course, thumbnailBase64: thumbnailBase64);
 
   @override
   Future<void> deleteCourse(int id) => _datasource.deleteCourse(id);
