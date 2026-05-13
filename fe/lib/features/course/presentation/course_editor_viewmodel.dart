@@ -283,14 +283,17 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     );
   }
 
-  // 현재 경로를 서버에 저장
-  // 도로를 따라간 전체 좌표(_currentRouteCoords)가 있으면 그것을 저장하고,
-  // 없으면 스냅 노드 목록만 전달한다.
-  // isSaving 플래그로 저장 진행 상태를 UI 에 전달한다
-  Future<void> saveCourse() async {
+  // ── 저장 1단계: 화면이 캡처를 시작하기 직전에 호출 ──────────────────
+  // isSaving 플래그를 올려 저장 버튼을 비활성화하고 로딩 표시를 켠다.
+  // 실제 API 호출은 캡처·업로드가 끝난 뒤 saveCourse() 가 담당한다.
+  void startCapture() {
     if (state.nodes.isEmpty) return;
     state = state.copyWith(isSaving: true, saveError: null);
+  }
 
+  // ── 저장 2단계: 이미지 업로드 완료 후 코스 저장 API 호출 ─────────────
+  // trackImageUrl: TrackSnapshotMap 캡처 → POST /api/v1/tracks/image 업로드 결과
+  Future<void> saveCourse({String? trackImageUrl}) async {
     // 도로를 따라가는 전체 좌표가 있으면 그것을, 없으면 스냅 노드만 사용
     final pathPoints =
         _currentRouteCoords.isNotEmpty ? _currentRouteCoords : state.nodes;
@@ -307,7 +310,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     );
 
     try {
-      await _repository.saveCourse(course);
+      await _repository.saveCourse(course, trackImageUrl: trackImageUrl);
       state = state.copyWith(isSaving: false);
       reset(); // 저장 성공 후 편집 상태를 초기화
     } on ApiException catch (e) {
@@ -316,6 +319,11 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       // ApiException 이외의 예외 (JSON 파싱 오류 등) 를 일반 메시지로 처리
       state = state.copyWith(isSaving: false, saveError: '저장 중 오류가 발생했습니다');
     }
+  }
+
+  // ── 저장 실패 처리: 캡처 또는 업로드 단계에서 에러가 발생했을 때 ────────
+  void failSave(String message) {
+    state = state.copyWith(isSaving: false, saveError: message);
   }
 
   // 노드 목록으로 도로를 따라가는 경로 폴리라인을 그린다
@@ -418,12 +426,6 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     if (_wayCoordinates.isNotEmpty && !state.hasWays) {
       state = state.copyWith(hasWays: true);
     }
-  }
-
-  // 지도에서 도로 오버레이를 모두 제거하고 state 를 갱신한다
-  void _clearWays() {
-    _disposeOverlays();
-    state = state.copyWith(hasWays: false);
   }
 
   // 오버레이와 라우팅 그래프를 정리한다 (state 갱신 없음 — onDispose 에서 사용)
