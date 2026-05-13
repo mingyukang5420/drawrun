@@ -88,7 +88,7 @@ public class AuthService {
 
     public void logout(String refreshToken, String accessToken) {
 
-        deleteRefreshTokne(refreshToken);
+        deleteRefreshToken(refreshToken);
         blacklistAccessToken(accessToken);
 
         if (refreshToken == null || refreshToken.isBlank()) {
@@ -126,16 +126,16 @@ public class AuthService {
     }
 
     // 리프레시 토큰 삭제 메서드
-    private void deleteRefreshTokne(String refreshToken) {
-        if(refreshToken == null || refreshToken.isBlank()){
+    private void deleteRefreshToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
             return;
         }
 
-        if(!jwtUtil.validateToken(refreshToken)) {
+        if (!jwtUtil.validateToken(refreshToken)) {
             return;
         }
 
-        if(!"refresh".equals(jwtUtil.getTokenType(refreshToken))) {
+        if (!"refresh".equals(jwtUtil.getTokenType(refreshToken))) {
             return;
         }
         String loginId = jwtUtil.getLoginId(refreshToken);
@@ -144,20 +144,20 @@ public class AuthService {
 
     //Access Token 블랙리스트에 추가
     private void blacklistAccessToken(String accessToken) {
-        if(accessToken == null || accessToken.isBlank()) {
+        if (accessToken == null || accessToken.isBlank()) {
             return;
         }
 
-        if(!jwtUtil.validateToken(accessToken)){
+        if (!jwtUtil.validateToken(accessToken)) {
             return;
         }
 
-        if(!"access".equals(jwtUtil.getTokenType(accessToken))){
+        if (!"access".equals(jwtUtil.getTokenType(accessToken))) {
             return;
         }
 
         long remainingExpiration = jwtUtil.getRemainingExpiration(accessToken);
-        if(remainingExpiration <= 0) {
+        if (remainingExpiration <= 0) {
             return;
         }
 
