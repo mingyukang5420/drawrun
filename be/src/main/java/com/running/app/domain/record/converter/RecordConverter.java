@@ -5,7 +5,6 @@ import com.running.app.domain.record.dto.RecordResponse;
 import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.track.converter.TrackConverter;
 import com.running.app.domain.track.entity.Track;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -99,6 +98,7 @@ public class RecordConverter {
                 .courseDraftId(runningRecord.getCourseDraftId())
                 .title(runningRecord.getTitle())
                 .date(formatDate(runningRecord.getStartedAt()))
+                .startedAt(formatDateTime(runningRecord.getStartedAt()))
                 .trackImageUrl(track.getTrackImageUrl())
                 .distance(track.getDistance())
                 .avgPace(formatAvgPace(runningRecord.getAvgPace()))
@@ -167,6 +167,19 @@ public class RecordConverter {
 
         return String.format("%02d:%02d", minutes, seconds);
     }
+
+    // 러닝 시작 시간 시-분 포함 포맷
+    private static String formatDateTime(LocalDateTime startedAt) {
+        return String.format(
+                "%d-%02d-%02d %02d:%02d",
+                startedAt.getYear(),
+                startedAt.getMonthValue(),
+                startedAt.getDayOfMonth(),
+                startedAt.getHour(),
+                startedAt.getMinute()
+        );
+    }
+
 
 }
 
