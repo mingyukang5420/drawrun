@@ -3,6 +3,7 @@ package com.running.app.domain.member.converter;
 import com.running.app.domain.member.dto.MemberRequest.SignupRequest;
 import com.running.app.domain.member.dto.MemberResponse.CheckDuplicationResponse;
 import com.running.app.domain.member.dto.MemberResponse.LoginResponse;
+import com.running.app.domain.member.dto.MemberResponse.ReissueResponse;
 import com.running.app.domain.member.entity.Member;
 import lombok.RequiredArgsConstructor;
 
@@ -29,5 +30,10 @@ public abstract class MemberConverter {
     public static LoginResponse toLoginResponse(String accessToken, String refreshToken) {
 
         return new LoginResponse(accessToken, refreshToken);
+    }
+
+    public static ReissueResponse toReissueResponse(String accessToken) {
+
+        return new ReissueResponse(accessToken);
     }
 }

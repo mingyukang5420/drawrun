@@ -40,26 +40,23 @@ public class SecurityConfig {
                 // 사용자 정보를 세션에 저장하는 기본 설정 비활성화
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // 요청 권한 설정(열어 둘 api 엔드포인트 설정)
-//                .authorizeHttpRequests(auth ->
-//                        auth.requestMatchers(
-//                                        // 여기에서 인증 없이 요청을 허용 할 url 입력
-//                                        "/v1/auth/check/*",
-//                                        "/v1/auth/signup",
-//                                        "/v1/auth/login",
-//                                        "/v1/api-docs/**",
-//                                        "/swagger-ui/**",
-//                                        "/swagger-ui.html",
-//                                        "/v1/course/**",
-//                                        "/v1/record/**"
-//                                ).permitAll()
-//                                .anyRequest().authenticated()
-//                )
-//                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-                //원활한 개발을 위한 permitAll 및 JWT 필터 주석처리
                 .authorizeHttpRequests(auth ->
-                        auth.anyRequest().permitAll()
-                );
+                        auth.requestMatchers(
+                                        // 여기에서 인증 없이 요청을 허용 할 url 입력
+                                        "/v1/auth/signup",
+                                        "/v1/auth/login",
+                                        "/v1/auth/reissue",
+                                        "/v1/auth/logout",
+                                        "/v1/auth/check/**",
+                                        "/v1/api-docs/**",
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html"
+                                ).permitAll()
+                                .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -73,6 +70,7 @@ public class SecurityConfig {
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
