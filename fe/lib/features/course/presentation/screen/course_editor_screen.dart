@@ -40,7 +40,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 
     try {
       final bytes = await imageFile.readAsBytes();
-      final base64Str = base64Encode(bytes);
+      final base64Str = 'data:image/png;base64,${base64Encode(bytes)}';
       if (!mounted) return;
       await ref
           .read(courseEditorProvider.notifier)
