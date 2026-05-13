@@ -46,5 +46,13 @@ public abstract class MemberResponse {
         private Integer totalMyCourse;
         private Integer totalMyRecord;
         private Integer totalMyBookmark;
+
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor
+    @Schema(description = "accessToken 재발급 응답")
+    public static class ReissueResponse {
+
+        @Schema(description = "재발급된 accessToken")
+        private String accessToken;
     }
 }

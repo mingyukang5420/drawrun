@@ -10,6 +10,7 @@ import 'package:running/shared/location/location_service.dart';
 import 'package:running/shared/map/lat_lng_naver_ext.dart';
 import 'package:running/shared/model/lat_lng.dart';
 import 'package:running/shared/network/api_exception.dart';
+import 'package:running/features/running/domain/run_start_response.dart';
 import 'package:running/features/running/domain/running_repository.dart';
 import 'package:running/shared/sensor/cadence_service.dart';
 import 'package:running/shared/sensor/altitude_service.dart';
@@ -38,6 +39,16 @@ class RunningState {
   final DateTime? startedAt;
   final DateTime? endedAt;
 
+  // 코스/드래프트 진입 시 외부에서 채워 두는 ID 들. 자유 러닝이면 둘 다 null.
+  // 시작 API 는 쿼리 파라미터로, 종료 API 는 요청 본문으로 같이 보낸다.
+  final int? courseId;
+  final int? courseDraftId;
+
+  // 시작 API 응답으로 받은 참조 경로(코스/드래프트의 GPS 노드).
+  // 자유 러닝 / 응답 실패 시엔 빈 리스트.
+  // 추후 진행 화면 지도에 회색 점선으로 그려 사용자가 따라갈 길잡이로 활용.
+  final List<LatLng> referenceNodes;
+
   const RunningState({
     this.isRunning = false,
     this.isPaused = false,
@@ -51,6 +62,9 @@ class RunningState {
     this.saveError,
     this.startedAt,
     this.endedAt,
+    this.courseId,
+    this.courseDraftId,
+    this.referenceNodes = const [],
   });
 
   RunningState copyWith({
@@ -66,6 +80,9 @@ class RunningState {
     ApiException? saveError,
     DateTime? startedAt,
     DateTime? endedAt,
+    int? courseId,
+    int? courseDraftId,
+    List<LatLng>? referenceNodes,
   }) {
     return RunningState(
       isRunning: isRunning ?? this.isRunning,
@@ -80,6 +97,9 @@ class RunningState {
       saveError: saveError ?? this.saveError,
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
+      courseId: courseId ?? this.courseId,
+      courseDraftId: courseDraftId ?? this.courseDraftId,
+      referenceNodes: referenceNodes ?? this.referenceNodes,
     );
   }
 
@@ -140,6 +160,9 @@ class RunningNotifier extends Notifier<RunningState> {
   // 지도 제어 객체 (state 외부 보관)
   NaverMapController? mapController;
   NPolylineOverlay? _routeLine;
+  // 참조 경로(코스/드래프트 노드) 전용 오버레이. 사용자 경로와 별도 운영.
+  // _routeLine 과 같은 라이프사이클 정책 — controller 교체 시 null 리셋.
+  NPolylineOverlay? _referenceLine;
 
   // 러닝 Repository 필드 및 생성자 추가
   final RunningRepository _repository;
@@ -181,10 +204,15 @@ class RunningNotifier extends Notifier<RunningState> {
     // 이전 controller 에 묶여 있던 routeLine 객체는 새 controller 에선 무효 → null 리셋.
     // 안 지우면 _drawRoute 가 deleteOverlay 를 호출하다 옛 controller 참조로 사고 가능.
     _routeLine = null;
+    _referenceLine = null;
     // 시트가 처음 열릴 때 이미 누적된 points 를 즉시 다시 그려줌.
     // 이 한 줄이 없으면 시트 첫 진입 시 폴리라인이 비어있고, 새 점이 와야만 그려짐.
     if (state.points.length >= 2) {
       _drawRoute(state.points);
+    }
+    // 시작 API 응답이 이미 도착한 상태였다면 참조 경로도 같은 타이밍에 한 번 그려준다.
+    if (state.referenceNodes.length >= 2) {
+      _drawReferenceRoute(state.referenceNodes);
     }
   }
 
@@ -195,6 +223,7 @@ class RunningNotifier extends Notifier<RunningState> {
   void clearMapController() {
     mapController = null;
     _routeLine = null;
+    _referenceLine = null;
   }
 
   void startRunning() {
@@ -300,6 +329,10 @@ class RunningNotifier extends Notifier<RunningState> {
       mapController!.deleteOverlay(_routeLine!.info);
       _routeLine = null;
     }
+    if (mapController != null && _referenceLine != null) {
+      mapController!.deleteOverlay(_referenceLine!.info);
+      _referenceLine = null;
+    }
     _stopwatch.reset();
     _ticker?.cancel();
     _ticker = null;
@@ -369,6 +402,34 @@ class RunningNotifier extends Notifier<RunningState> {
     }
   }
 
+  // 참조 경로(코스/드래프트의 GPS 노드) 를 그레이 폴리라인으로 한 번 그린다.
+  // 사용자 경로(_drawRoute) 와 달리 노드가 시간에 따라 늘어나지 않으므로 단발성 호출.
+  //
+  // 호출 시점:
+  //   (a) setMapController — 시트 진입 시 이미 응답이 와 있다면 즉시
+  //   (b) beginSessionFromServer — 응답이 늦게 도착했고 컨트롤러가 살아있을 때(R2 에서 추가)
+  void _drawReferenceRoute(List<LatLng> nodes) {
+    if (mapController == null || nodes.length < 2) return;
+    try {
+      // 이전 오버레이가 남아 있으면 먼저 제거 — 같은 id 로 두 번 add 하면 충돌.
+      if (_referenceLine != null) {
+        mapController!.deleteOverlay(_referenceLine!.info);
+      }
+      _referenceLine = NPolylineOverlay(
+        id: 'running_reference',
+        coords: nodes.map((p) => p.toNLatLng()).toList(),
+        // 사용자 경로(blueAccent, width 6) 보다 한 단계 얇고 무채색 — 본인 경로가 도드라지게.
+        width: 4,
+        color: const Color(0xFF9CA3AF),
+      );
+      mapController!.addOverlay(_referenceLine!);
+    } catch (_) {
+      // _drawRoute 와 동일 정책: PlatformView dispose 직후라면 호출이 실패할 수 있다.
+      // 참조만 끊고 swallow — 다음 setMapController 호출 시 깨끗이 다시 그린다.
+      _referenceLine = null;
+    }
+  }
+
   // 1초마다 elapsedSeconds 갱신 → UI 클록 리빌드
   void _startTicker() {
     _ticker?.cancel();
@@ -431,6 +492,44 @@ class RunningNotifier extends Notifier<RunningState> {
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e);
       rethrow;
+    }
+  }
+
+  // 카운트다운 화면에서 한 번 호출 — 시작 API 발사 후 응답 nodes 를 state 에 보관.
+  //
+  // fail-open 정책:
+  //   네트워크 실패가 나도, 응답을 모델로 변환하다 예기치 못한 예외가 터져도
+  //   예외를 위로 던지지 않는다. referenceNodes 만 빈 채로 둘 뿐
+  //   GPS 측정 / 종료 저장은 정상 진행된다. 사용자 입장에선 "참조 경로가 안 보일 뿐".
+  //
+  // 호출자(카운트다운 화면)는 이 Future 를 await 하지 않고 흘려보내므로,
+  // 여기서 예외가 빠져나가면 Unhandled Future Error 가 되어 콘솔에서도 묻혀버린다.
+  // 그래서 ApiException 외의 모든 예외도 같은 fail-open 으로 흡수하되 메시지를 갈라 둔다.
+  //
+  // courseId / courseDraftId 는 현재 state 값을 그대로 사용 —
+  // 추후 코스/드래프트 진입 화면이 router 단계에서 state.copyWith(courseId: X) 로 박아두면
+  // 여기서 자동으로 따라간다.
+  Future<void> beginSessionFromServer() async {
+    try {
+      final response = await _repository.startSession(
+        courseId: state.courseId,
+        courseDraftId: state.courseDraftId,
+      );
+      state = state.copyWith(referenceNodes: response.nodes);
+      // 시트가 이미 열려 있어 컨트롤러가 살아있는 경우엔 즉시 그려준다.
+      // 컨트롤러가 없으면 다음 setMapController(R1) 진입 시점에 자동으로 그려진다.
+      if (mapController != null && response.nodes.length >= 2) {
+        _drawReferenceRoute(response.nodes);
+      }
+    } on ApiException catch (e) {
+      // 예상 가능한 네트워크/HTTP 실패. 측정은 그대로 진행.
+      debugPrint('run/start 실패 (fail-open): ${e.message}');
+    } catch (e, st) {
+      // 예기치 못한 예외 — 응답 형태가 스펙과 다를 때 발생하는 TypeError 등.
+      // BE 가 스펙대로 내려오면 이 경로는 안 탄다. 만약 탔다면 응답이 깨진 사건이므로
+      // 스택트레이스까지 같이 남겨 운영에서 원인을 추적할 수 있게 한다.
+      // 측정 흐름은 같은 fail-open 정책으로 보호.
+      debugPrint('run/start 처리 중 예기치 못한 오류 (fail-open): $e\n$st');
     }
   }
 }
