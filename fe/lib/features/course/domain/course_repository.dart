@@ -15,7 +15,8 @@ abstract class CourseRepository {
   Future<List<CourseDraft>> getMyCourses(CourseStatus status, {int page = 0});
 
   // 새 코스를 서버에 저장 (응답 바디 불필요)
-  Future<void> saveCourse(Course course);
+  // trackImageUrl: 경로 이미지 업로드 후 받은 URL (없으면 생략)
+  Future<void> saveCourse(Course course, {String? trackImageUrl});
 
   // id 에 해당하는 코스 삭제
   Future<void> deleteCourse(int id);
