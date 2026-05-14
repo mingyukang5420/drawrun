@@ -4,9 +4,13 @@ import 'package:running/features/running/data/running_remote_datasource.dart';
 import 'package:running/features/running/data/running_repository_impl.dart';
 import 'package:running/features/running/data/track_image_remote_datasource.dart';
 import 'package:running/features/running/data/track_image_repository_impl.dart';
+import 'package:running/features/running/data/weather_remote_datasource.dart';
+import 'package:running/features/running/data/weather_repository_impl.dart';
 import 'package:running/features/running/domain/running_repository.dart';
 import 'package:running/features/running/domain/track_image_repository.dart';
+import 'package:running/features/running/domain/weather_repository.dart';
 import 'package:running/features/running/presentation/running_viewmodel.dart';
+import 'package:running/features/running/presentation/weather_viewmodel.dart';
 import 'package:running/shared/network/dio_client.dart';
 import 'package:running/shared/network/dio_provider.dart';
 
@@ -40,6 +44,22 @@ final trackImageRemoteDataSourceProvider = Provider<TrackImageRemoteDataSource>(
 // 화면 코드에서는 이 타입 한 개만 알면 된다
 final trackImageRepositoryProvider = Provider<TrackImageRepository>(
       (ref) => TrackImageRepositoryImpl(ref.watch(trackImageRemoteDataSourceProvider)),
+);
+
+// 날씨 Repository Provider
+final weatherRepositoryProvider = Provider<WeatherRepository>(
+  (ref) => WeatherRepositoryImpl(
+    WeatherRemoteDataSource(ref.watch(dioProvider)),
+  ),
+);
+
+// 날씨 상태 Provider
+// autoDispose: RunningScreen 이 트리를 떠날 때 자동 해제
+final weatherProvider =
+    NotifierProvider.autoDispose<WeatherNotifier, WeatherState>(
+  () => WeatherNotifier(
+    WeatherRepositoryImpl(WeatherRemoteDataSource(DioClient.create())),
+  ),
 );
 
 // NotifierProvider 의 팩토리는 ref 를 받지 못하므로

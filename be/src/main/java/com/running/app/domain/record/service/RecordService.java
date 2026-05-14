@@ -7,6 +7,7 @@ import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
 import com.running.app.domain.member.entity.Member;
 import com.running.app.domain.member.repository.MemberRepository;
+import com.running.app.domain.ranking.service.RankingRedisService;
 import com.running.app.domain.record.converter.RecordConverter;
 import com.running.app.domain.record.dto.RecordRequest;
 import com.running.app.domain.record.dto.RecordResponse;
@@ -15,22 +16,13 @@ import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.domain.record.type.RecordStatsPeriod;
 import com.running.app.domain.recordstats.entity.MemberRecordStats;
 import com.running.app.domain.recordstats.repository.MemberRecordStatsRepository;
-import com.running.app.domain.recordstats.type.RecordStatsPeriodType;
 import com.running.app.domain.recordstats.service.MemberRecordStatsService;
+import com.running.app.domain.recordstats.type.RecordStatsPeriodType;
 import com.running.app.domain.track.entity.Track;
 import com.running.app.domain.track.service.TrackService;
 import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
-import lombok.RequiredArgsConstructor;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.MultiLineString;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -39,11 +31,24 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.MultiLineString;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true) //읽기 전용 처리
 public class RecordService {
+
     private static final double COMPLETION_THRESHOLD = 0.8;
     private static final double BUFFER_DEGREES = 0.0005; // 위도 기준 약 55m
     private static final double SAFE_BUFFER_DEGREES = 0.0005;
@@ -58,6 +63,8 @@ public class RecordService {
     private final CourseRepository courseRepository;
     private final OsmService osmService;
     private final MemberRepository memberRepository;
+    private final RankingRedisService rankingRedisService;
+
     //작성
     @Transactional
     public void createRecord(
@@ -75,7 +82,7 @@ public class RecordService {
                 request.getDistance(),
                 request.getTrackImageUrl()
         );
-        
+
         boolean isCompleted = determineIsCompleted(request, track);
         boolean isSafe = determineIsSafe(track);
 
@@ -98,6 +105,21 @@ public class RecordService {
 
         // 통계 테이블에 해당 기록의 데이터 합산해서 저장
         memberRecordStatsService.increaseStats(savedRunningRecord);
+
+        // 트랜잭션의 커밋 후 course가 존재하는 러닝이었다면 redis에 적재된 랭킹 데이터 삭제
+        if (savedRunningRecord.getCourseId() != null) {
+            log.info("코스 런 커밋 완료. Redis에 적재된 랭킹 데이터 삭제");
+            Long courseId = savedRunningRecord.getCourseId();
+
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            rankingRedisService.deleteRankValue("course:ranking:" + courseId);
+                        }
+                    }
+            );
+        }
 
     }
 
@@ -184,7 +206,9 @@ public class RecordService {
         MultiLineString userGeom = userTrack.getGeom();
 
         double courseLength = courseGeom.getLength();
-        if (courseLength == 0) return false;
+        if (courseLength == 0) {
+            return false;
+        }
 
         Geometry userBuffer = userGeom.buffer(BUFFER_DEGREES);
         double coveredLength = courseGeom.intersection(userBuffer).getLength();
@@ -359,7 +383,7 @@ public class RecordService {
                 toChartDTOList(chartMap)
         );
     }
-    
+
     // 거리 합산
     private Double calculateTotalDistance(
             List<MemberRecordStats> statsList
@@ -574,7 +598,7 @@ public class RecordService {
             return;
         }
         // 해당 기록이 완주(일치) 되었다면 return
-        if (Boolean.TRUE.equals(runningRecord.getIsCompleted())){
+        if (Boolean.TRUE.equals(runningRecord.getIsCompleted())) {
             return;
         }
         //아니면 코스런이지만 일치하지 않으므로 자유런으로 변경
@@ -589,11 +613,11 @@ public class RecordService {
             return;
         }
         // 해당 기록의 is_completed가 false 라면 return
-        if(!Boolean.TRUE.equals(runningRecord.getIsCompleted())){
+        if (!Boolean.TRUE.equals(runningRecord.getIsCompleted())) {
             return;
         }
         // 해당 기록의 is_safe가 false 라면 return
-        if(!Boolean.TRUE.equals(runningRecord.getIsSafe())) {
+        if (!Boolean.TRUE.equals(runningRecord.getIsSafe())) {
             return;
         }
 
