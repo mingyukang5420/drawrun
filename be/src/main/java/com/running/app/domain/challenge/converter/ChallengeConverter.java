@@ -3,6 +3,8 @@ package com.running.app.domain.challenge.converter;
 import com.running.app.domain.challenge.dto.GmsImageDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
+import com.running.app.domain.challenge.entity.Challenge;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public abstract class ChallengeConverter {
@@ -33,5 +35,19 @@ public abstract class ChallengeConverter {
                 .outputFormat("png")
                 .build();
 
+    }
+
+    public static Challenge toChallenge(String title, String imagePath) {
+
+        // 14일 후 정각으로 세팅
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime end = now.plusDays(14).toLocalDate().atStartOfDay();
+
+        return Challenge.builder()
+                .title(title)
+                .polygonImageUrl(imagePath)
+                .startedAt(now)
+                .endedAt(end)
+                .build();
     }
 }
