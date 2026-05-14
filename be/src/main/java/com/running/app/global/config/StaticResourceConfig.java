@@ -17,16 +17,24 @@ public class StaticResourceConfig implements WebMvcConfigurer {
     private final String trackImagePathPrefix;
     private final String contextPath;
 
+    private final String challengeImageDir;
+    private final String challengeImagePathPrefix;
+
     public StaticResourceConfig(
             // 실제 저장 폴더
             @Value("${app.upload.track-image-dir}") String trackImageDir,
             // 공개 URL prefix
             @Value("${app.upload.track-image-path-prefix}") String trackImagePathPrefix,
-            @Value("${server.servlet.context-path:}") String contextPath
+            @Value("${server.servlet.context-path:}") String contextPath,
+            // 챌린지 관련 경로
+            @Value("${app.upload.challenge-image-dir}") String challengeImageDir,
+            @Value("${app.upload.challenge-image-path-prefix}") String challengeDirPrefix
     ) {
         this.trackImageDir = trackImageDir;
         this.trackImagePathPrefix = trackImagePathPrefix;
         this.contextPath = normalizeContextPath(contextPath);
+        this.challengeImageDir = challengeImageDir;
+        this.challengeImagePathPrefix = challengeDirPrefix;
     }
 
     // 해당 URL로 오면 폴더의 파일을 보여주도록 등록
@@ -37,6 +45,10 @@ public class StaticResourceConfig implements WebMvcConfigurer {
 
         registry.addResourceHandler(handlerPattern)
                 .addResourceLocations(resourceLocation);
+
+        // 챌린지 경로 추가
+        registry.addResourceHandler(createHandlerPattern(challengeImagePathPrefix))
+                .addResourceLocations(createResourceLocation(challengeImageDir));
     }
 
     // 브라우저가 접근할 URL 패턴 생성
