@@ -124,6 +124,7 @@ class BookmarkedCourseIdsNotifier
         // 러닝 캐러셀(5장) 도 같은 데이터의 다른 슬라이스를 들고 있다.
         // 사용자가 코스 탐색에서 북마크를 끄거나 켰을 때, 다음에 러닝 탭을 열면
         // 캐러셀이 새 데이터를 보여주도록 캐시를 무효화.
+        ref.invalidate(bookmarkedCoursesProvider);
       } on ApiException catch (e) {
         // 실패: 낙관적 변경 되돌리기.
         final revert = {...state.ids};

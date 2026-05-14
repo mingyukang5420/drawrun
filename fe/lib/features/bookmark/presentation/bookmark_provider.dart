@@ -4,6 +4,7 @@ import 'package:running/features/bookmark/data/bookmark_remote_datasource.dart';
 import 'package:running/features/bookmark/data/bookmark_repository_impl.dart';
 import 'package:running/features/bookmark/domain/bookmark_repository.dart';
 import 'package:running/features/bookmark/presentation/bookmarked_course_ids_notifier.dart';
+import 'package:running/features/bookmark/presentation/bookmarked_courses_viewmodel.dart';
 import 'package:running/shared/network/dio_client.dart';
 import 'package:running/shared/network/dio_provider.dart';
 
@@ -29,7 +30,20 @@ final bookmarkRepositoryProvider = Provider<BookmarkRepository>(
 // 같은 캐시를 공유하므로 메인 탭 전환 시마다 리셋되지 않게 전역 수명을 부여한다.
 final bookmarkedCourseIdsProvider = NotifierProvider<
     BookmarkedCourseIdsNotifier, BookmarkedCourseIdsState>(
-      () => BookmarkedCourseIdsNotifier(
+  () => BookmarkedCourseIdsNotifier(
+    BookmarkRepositoryImpl(BookmarkRemoteDataSource(DioClient.create())),
+  ),
+);
+
+// 러닝 메인 화면 상단 캐러셀 전용 Provider.
+//
+// NotifierProvider 의 팩토리는 ref 를 받지 못하므로 DioClient.create() 로
+// Repository 를 직접 조립 — 다른 도메인의 _build* 헬퍼 패턴과 동일하다.
+// autoDispose 를 붙이지 않은 이유: 러닝 화면은 메인 탭이라 자주 재진입되므로
+// 매번 새 인스턴스를 만들기보다 한 번 받은 데이터를 유지하는 편이 효율적.
+final bookmarkedCoursesProvider =
+NotifierProvider<BookmarkedCoursesNotifier, BookmarkedCoursesState>(
+      () => BookmarkedCoursesNotifier(
     BookmarkRepositoryImpl(BookmarkRemoteDataSource(DioClient.create())),
   ),
 );
