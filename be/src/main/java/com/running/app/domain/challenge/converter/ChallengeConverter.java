@@ -1,13 +1,14 @@
 package com.running.app.domain.challenge.converter;
 
-import com.running.app.domain.challenge.dto.GmsDTO;
-import com.running.app.domain.challenge.dto.GmsDTO.GmsTextRequest;
+import com.running.app.domain.challenge.dto.GmsImageDTO;
+import com.running.app.domain.challenge.dto.GmsTextDTO;
+import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import java.util.List;
 
 public abstract class ChallengeConverter {
 
     public static GmsTextRequest toGmsTextRequest(String model,
-            GmsDTO.RequestMessage requestMessage) {
+            GmsTextDTO.RequestMessage requestMessage) {
 
         return GmsTextRequest.builder()
                 .model(model)
@@ -15,10 +16,22 @@ public abstract class ChallengeConverter {
                 .build();
     }
 
-    public static GmsDTO.RequestMessage toRequestMessage(String prompt) {
-        return GmsDTO.RequestMessage.builder()
+    public static GmsTextDTO.RequestMessage toRequestMessage(String prompt) {
+        return GmsTextDTO.RequestMessage.builder()
                 .role("system")
                 .content(prompt)
                 .build();
+    }
+
+    public static GmsImageDTO.GmsImageRequest toGmsImageRequest(String prompt, String model) {
+
+        return GmsImageDTO.GmsImageRequest.builder()
+                .model(model)
+                .prompt(prompt)
+                .n(1)
+                .size("1024x1024")
+                .outputFormat("png")
+                .build();
+
     }
 }

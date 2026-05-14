@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-public abstract class GmsDTO {
+public abstract class GmsTextDTO {
 
     @Getter
     @Builder
