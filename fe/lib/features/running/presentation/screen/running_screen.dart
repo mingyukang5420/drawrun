@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:running/core/theme/app_text_style.dart';
 import 'package:running/features/bookmark/presentation/bookmark_provider.dart';
 import 'package:running/features/bookmark/presentation/bookmarked_courses_viewmodel.dart';
+import 'package:running/features/bookmark/presentation/screen/bookmark_list_screen.dart';
 import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/mypage/presentation/screen/mypage_screen.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
@@ -244,9 +245,8 @@ class _BookmarkedCoursesState extends ConsumerState<_BookmarkedCourses> {
       itemCount: courses.length + 1,
       itemBuilder: (_, i) {
         if (i == courses.length) {
-          // 마지막 자리에 + 버튼.
-          // 이번 커밋에선 아직 라우팅이 없으므로 onTap 은 비워둔다.
-          // (커밋 4 에서 BookmarkListScreen 으로 push 한다.)
+          // 마지막 자리에 + 버튼 — 탭 시 북마크 목록 화면으로 이동.
+          // 마이페이지의 "북마크" 메뉴와 도착지가 같다.
           return Padding(
             padding: const EdgeInsets.only(
               left: 20,
@@ -257,7 +257,13 @@ class _BookmarkedCoursesState extends ConsumerState<_BookmarkedCourses> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const BookmarkListScreen(),
+                    ),
+                  );
+                },
                 child: Container(
                   width:
                   MediaQuery.of(context).size.width *

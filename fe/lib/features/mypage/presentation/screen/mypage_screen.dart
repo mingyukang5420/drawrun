@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/auth/presentation/auth_provider.dart';
+import 'package:running/features/bookmark/presentation/screen/bookmark_list_screen.dart';
 import 'package:running/features/course/presentation/screen/course_management_screen.dart';
 import 'package:running/features/record/presentation/screen/record_screen.dart';
 
@@ -204,7 +205,7 @@ class _MenuList extends ConsumerWidget {
         _MenuItem(
           icon: Icons.bookmark_border_rounded,
           label: '북마크',
-          onTap: () {},
+          onTap: () => push(const BookmarkListScreen()),
         ),
         _MenuItem(
           icon: Icons.list_alt_rounded,

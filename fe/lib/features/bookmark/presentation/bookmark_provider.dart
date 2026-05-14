@@ -5,6 +5,7 @@ import 'package:running/features/bookmark/data/bookmark_repository_impl.dart';
 import 'package:running/features/bookmark/domain/bookmark_repository.dart';
 import 'package:running/features/bookmark/presentation/bookmarked_course_ids_notifier.dart';
 import 'package:running/features/bookmark/presentation/bookmarked_courses_viewmodel.dart';
+import 'package:running/features/bookmark/presentation/bookmark_list_viewmodel.dart';
 import 'package:running/shared/network/dio_client.dart';
 import 'package:running/shared/network/dio_provider.dart';
 
@@ -44,6 +45,17 @@ final bookmarkedCourseIdsProvider = NotifierProvider<
 final bookmarkedCoursesProvider =
 NotifierProvider<BookmarkedCoursesNotifier, BookmarkedCoursesState>(
       () => BookmarkedCoursesNotifier(
+    BookmarkRepositoryImpl(BookmarkRemoteDataSource(DioClient.create())),
+  ),
+);
+
+// 북마크 목록 전체 화면 전용 Provider.
+//
+// autoDispose: 목록 화면을 빠져나가면 자동 해제 — 다시 진입하면 첫 페이지부터 새로 로드.
+// (사용자가 다른 화면에서 북마크를 추가/제거한 결과가 자연스럽게 반영된다.)
+final bookmarkListProvider = NotifierProvider.autoDispose<
+    BookmarkListNotifier, BookmarkListState>(
+      () => BookmarkListNotifier(
     BookmarkRepositoryImpl(BookmarkRemoteDataSource(DioClient.create())),
   ),
 );
