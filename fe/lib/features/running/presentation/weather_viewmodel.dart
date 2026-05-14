@@ -33,17 +33,17 @@ class WeatherNotifier extends Notifier<WeatherState> {
 
   @override
   WeatherState build() {
-    _load();
+    _load().ignore();
     return const WeatherState(isLoading: true);
   }
 
   Future<void> _load() async {
-    final position = await LocationService.getCurrentLatLng();
-    if (position == null) {
-      state = const WeatherState(errorMessage: '위치를 가져올 수 없습니다');
-      return;
-    }
     try {
+      final position = await LocationService.getCurrentLatLng();
+      if (position == null) {
+        state = const WeatherState(errorMessage: '위치를 가져올 수 없습니다');
+        return;
+      }
       final weather = await _repository.getWeather(
         lat: position.latitude,
         lng: position.longitude,
