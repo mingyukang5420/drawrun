@@ -7,12 +7,14 @@ import 'package:running/features/auth/presentation/screen/intro_screen.dart';
 import 'package:running/features/auth/presentation/screen/login_screen.dart';
 import 'package:running/features/auth/presentation/screen/signup_screen.dart';
 
-// true 로 설정하면 인트로/로그인 없이 메인 탭으로 바로 진입 (개발 편의용)
-const bool kDevBypassLogin = true;
+// 개발 편의용 액세스 토큰
+// null 이 아니면: 토큰을 TokenStorage 에 주입하고 메인 탭으로 바로 진입
+// null 이면: 정상 인트로 → 로그인 플로우
+const String? kDevToken = null;
 
 // 앱 전체 화면 이동 규칙 관리
 final GoRouter appRouter = GoRouter(
-  initialLocation: kDevBypassLogin ? '/main' : '/intro',
+  initialLocation: kDevToken != null ? '/main' : '/intro',
 
   routes: [
     // 인트로 화면
