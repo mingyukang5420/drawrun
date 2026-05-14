@@ -25,8 +25,10 @@ class CourseDraftDetail {
 
   factory CourseDraftDetail.fromJson(Map<String, dynamic> json) {
     final rawCoords = json['coordinates'] as List<dynamic>? ?? [];
+    // order 필드가 null 로 내려오는 경우 0 으로 대체해 정렬 오류 방지
     final sorted = List<Map<String, dynamic>>.from(rawCoords)
-      ..sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
+      ..sort((a, b) => (a['order'] as int? ?? 0)
+          .compareTo(b['order'] as int? ?? 0));
     return CourseDraftDetail(
       courseDraftId: json['courseDraftId'] as int,
       courseId: json['courseId'] as int?,

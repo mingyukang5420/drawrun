@@ -50,6 +50,9 @@ class CourseDetailNotifier extends Notifier<CourseDetailState> {
       state = CourseDetailState(isLoading: false, detail: detail);
     } on ApiException catch (e) {
       state = CourseDetailState(isLoading: false, errorMessage: e.message);
+    } catch (e) {
+      // JSON 파싱 오류 등 예상치 못한 예외도 에러 상태로 처리
+      state = CourseDetailState(isLoading: false, errorMessage: e.toString());
     }
   }
 
