@@ -66,7 +66,6 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
     // Track 미참조 여부 확인 — 에디터 임시 저장본 삭제 시 Track 동반 삭제 가능 여부 판단용
     boolean existsByTrack_TrackId(Long trackId);
 
-
     // 조회하려는 코스에서 사용자 별 최고기록만을 오름차순(완주 기록 빠른 순)으로 가져옴
     @Query("""
             SELECT r.memberId AS memberId, MIN(r.runningTime) AS bestTime
@@ -77,4 +76,6 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
             """)
     List<RankingQueryResult> findRankingByCourseId(@Param("courseId") Long courseId);
 
+    // 내 기록 개수 조회
+    Integer countByMemberId(Long memberId);
 }
