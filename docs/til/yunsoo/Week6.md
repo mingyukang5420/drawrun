@@ -82,3 +82,27 @@
 - 챌린지 기능 기반 구현 시작
 
 ---
+
+### 📘 0514 · Thu
+
+#### 오늘 한 일 (What I did)
+- 챌린지 기능 기반 구현 (ERD 설계, `Challenge` 엔티티 및 DTO 작성, `records` 테이블 컬럼 추가)
+- 로컬/EC2 DB 구조 확인 및 DBeaver에서 DDL 직접 실행 후 서버 기동 확인
+- MR 올린 후 git 충돌 트러블슈팅 및 정리
+
+#### 배운 것 (What I learned)
+- `BigDecimal`은 소수점 정밀도가 중요한 값에 사용, `Double`/`Float`은 부동소수점 오차 발생 가능
+- `git add .`은 충돌 해결 상황에서 위험 — 충돌난 파일만 `git add [파일경로]` 해야 함
+
+#### 문제 & 해결 (Problem & Solution)
+- **문제:** MR 후 conflict 발생, 충돌 해결하면서 `git add .` 했더니 FE 파일 21개가 내 MR changes에 잡힘
+- **해결:** `git reset --hard`로 원하는 시점으로 돌아간 후 `git rebase develop`으로 깔끔하게 재정리
+
+#### 인사이트 (Insight)
+- merge는 머지 커밋이 남고 rebase는 내 커밋을 develop 위에 재배치해서 히스토리가 일직선
+- 결과는 같지만 히스토리 모양이 다름
+
+#### 다음 할 것 (What's Next)
+- 백엔드 팀원들과 상의하고 챌린지 구현 작업 나누기
+
+---
