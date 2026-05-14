@@ -5,6 +5,7 @@ import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/course/domain/course_draft.dart';
 import 'package:running/features/course/presentation/course_management_viewmodel.dart';
 import 'package:running/features/course/presentation/course_provider.dart';
+import 'package:running/features/course/presentation/screen/course_detail_screen.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
 
 class CourseManagementScreen extends ConsumerWidget {
@@ -193,19 +194,28 @@ class _CourseDraftCard extends StatelessWidget {
     final statusColor = _statusColor[draft.status];
     final statusLabel = _statusLabel[draft.status];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.07),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      // 카드 탭 시 상세 화면으로 이동 (GET /api/v1/editor/{courseDraftId})
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              CourseDetailScreen(courseDraftId: draft.courseDraftId),
+        ),
       ),
-      child: Column(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.07),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
@@ -329,7 +339,8 @@ class _CourseDraftCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ),  // Container
+    );  // InkWell
   }
 
   String _formatDate(DateTime dt) =>
