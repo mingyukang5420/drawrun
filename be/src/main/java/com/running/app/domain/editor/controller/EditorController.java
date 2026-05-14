@@ -349,7 +349,7 @@ public class EditorController {
         return ApiResponse.onSuccess(response);
     }
 
-    @DeleteMapping
+    @DeleteMapping("/{courseDraftId}")
     @Operation(
             summary = "에디터 삭제 — 미등록 임시 코스(드래프트) 삭제",
             description = """
@@ -394,7 +394,7 @@ public class EditorController {
             @AuthenticationPrincipal String loginId,
 
             @Parameter(description = "삭제할 임시 코스(드래프트) ID. 본인이 만든 READY 상태 드래프트만 삭제 가능", required = true, example = "42")
-            @RequestParam Long courseDraftId
+            @PathVariable Long courseDraftId
     ) {
 
         editorService.delete(loginId, courseDraftId);
