@@ -6,6 +6,7 @@ import 'package:running/features/course/domain/course_draft.dart';
 import 'package:running/features/course/presentation/course_management_viewmodel.dart';
 import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
+import 'package:running/shared/network/api_exception.dart';
 
 class CourseManagementScreen extends ConsumerWidget {
   const CourseManagementScreen({super.key});
@@ -184,7 +185,21 @@ Future<void> _confirmDelete(
     ),
   );
   if (confirmed == true && context.mounted) {
-    ref.read(courseManagementProvider.notifier).deleteCourse(courseDraftId);
+    try {
+      await ref.read(courseManagementProvider.notifier).deleteCourse(courseDraftId);
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('삭제에 실패했습니다')),
+        );
+      }
+    }
   }
 }
 

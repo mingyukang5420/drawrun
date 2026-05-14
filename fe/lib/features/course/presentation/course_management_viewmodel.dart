@@ -61,11 +61,7 @@ class CourseManagementNotifier extends Notifier<CourseManagementState> {
   }
 
   Future<void> deleteCourse(int id) async {
-    try {
-      await _repository.deleteCourse(id);
-      await loadMyCourses();
-    } on ApiException catch (e) {
-      state = state.copyWith(errorMessage: e.message);
-    }
+    await _repository.deleteCourse(id);
+    await loadMyCourses();
   }
 }
