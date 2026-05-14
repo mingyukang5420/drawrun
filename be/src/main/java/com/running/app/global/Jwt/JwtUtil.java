@@ -94,4 +94,15 @@ public class JwtUtil {
     public String getTokenType(String token) {
         return getClaims(token).get("type", String.class);
     }
+
+    public long getRefreshTokenExpiration() {
+        return refreshTokenExpiration;
+    }
+
+    // 토큰의 만료시간 계산
+    public long getRemainingExpiration(String token) {
+        Date expiration = getClaims(token).getExpiration();
+        long remaining = expiration.getTime() - System.currentTimeMillis();
+        return Math.max(remaining,0);
+    }
 }
