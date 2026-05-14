@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:running/features/course/data/course_remote_datasource.dart';
 import 'package:running/features/course/data/course_repository_impl.dart';
 import 'package:running/features/course/domain/course_repository.dart';
+import 'package:running/features/course/presentation/course_detail_viewmodel.dart';
 import 'package:running/features/course/presentation/course_editor_viewmodel.dart';
 import 'package:running/features/course/presentation/course_management_viewmodel.dart';
 import 'package:running/features/course/presentation/course_viewmodel.dart';
@@ -57,6 +58,16 @@ final courseManagementProvider = NotifierProvider.autoDispose<
 final courseEditorProvider =
     NotifierProvider.autoDispose<CourseEditorNotifier, CourseEditorState>(
   () => CourseEditorNotifier(
+    CourseRepositoryImpl(CourseRemoteDataSource(DioClient.create())),
+  ),
+);
+
+// 에디터 코스 상세 조회 Provider
+// autoDispose: 상세 화면을 닫으면 자동 해제
+// courseDraftId 는 화면 진입 후 notifier.load(id) 로 전달한다
+final courseDetailProvider =
+    NotifierProvider.autoDispose<CourseDetailNotifier, CourseDetailState>(
+  () => CourseDetailNotifier(
     CourseRepositoryImpl(CourseRemoteDataSource(DioClient.create())),
   ),
 );
