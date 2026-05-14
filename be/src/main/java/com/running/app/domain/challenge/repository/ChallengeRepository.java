@@ -2,6 +2,7 @@ package com.running.app.domain.challenge.repository;
 
 import com.running.app.domain.challenge.entity.Challenge;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -14,4 +15,7 @@ public interface ChallengeRepository extends JpaRepository<Challenge, Long> {
                 LIMIT 1
             """)
     LocalDateTime findResentChallenge();
+
+    @Query("SELECT c.title FROM Challenge c")
+    List<String> findAllTitles();
 }

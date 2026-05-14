@@ -2,6 +2,7 @@ package com.running.app.domain.challenge.service;
 
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,5 +19,10 @@ public class ChallengeService {
     public Challenge create(Challenge challenge) {
 
         return challengeRepository.save(challenge);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getChallengeAllTitle() {
+        return challengeRepository.findAllTitles();
     }
 }

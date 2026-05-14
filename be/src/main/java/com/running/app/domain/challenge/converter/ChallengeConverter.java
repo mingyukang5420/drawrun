@@ -50,4 +50,5 @@ public abstract class ChallengeConverter {
                 .endedAt(end)
                 .build();
     }
+    
 }
