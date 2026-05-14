@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/course/domain/course_draft.dart';
+import 'package:running/features/course/domain/course_draft_detail.dart';
 import 'package:running/features/course/domain/way.dart';
 // CourseStatus 는 course.dart 에서 export 됨
 import 'package:running/shared/network/api_exception.dart';
@@ -35,6 +36,18 @@ class CourseRemoteDataSource {
       final data = course.toJson();
       if (thumbnailBase64 != null) data['thumbnailBase64'] = thumbnailBase64;
       await _dio.post('/api/v1/editor', data: data);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  // GET /api/v1/editor/{courseDraftId} — 에디터 코스 상세 조회
+  Future<CourseDraftDetail> fetchEditorDetail(int courseDraftId) async {
+    try {
+      final response = await _dio
+          .get<Map<String, dynamic>>('/api/v1/editor/$courseDraftId');
+      final result = response.data!['result'] as Map<String, dynamic>;
+      return CourseDraftDetail.fromJson(result);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
