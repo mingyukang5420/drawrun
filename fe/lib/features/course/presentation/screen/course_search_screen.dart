@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:running/features/bookmark/presentation/bookmark_provider.dart';
+import 'package:running/features/bookmark/presentation/bookmarked_course_ids_notifier.dart';
 import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/course_viewmodel.dart';
@@ -10,6 +12,15 @@ import 'package:running/features/course/presentation/screen/course_editor_screen
 // 서버에서 코스를 불러와 카드 목록으로 표시하고, 편집 화면 진입을 제공
 class CourseSearchScreen extends ConsumerWidget {
   const CourseSearchScreen({super.key});
+
+  void _openCourseDetail(BuildContext context, int courseId) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('코스 상세 화면은 별도 작업 중입니다'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -193,15 +204,20 @@ class CourseSearchScreen extends ConsumerWidget {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       itemCount: state.courses.length,
-      itemBuilder: (context, index) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: _CourseCard(
-          course: state.courses[index],
-          onDelete: state.courses[index].id != null
-              ? () => notifier.deleteCourse(state.courses[index].id!)
-              : null,
-        ),
-      ),
+      itemBuilder: (context, index) {
+        final course = state.courses[index];
+        // 카드 본문 탭 → 상세 화면(placeholder).
+        // id 가 null 인 코스(클라이언트에서 막 만든 임시 상태) 는 진입 자체를 막는다.
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _CourseCard(
+            course: course,
+            onTap: course.id != null
+                ? () => _openCourseDetail(context, course.id!)
+                : null,
+          ),
+        );
+      },
     );
   }
 }
@@ -210,103 +226,128 @@ class CourseSearchScreen extends ConsumerWidget {
 // 코스 목록 카드
 // 섬네일 · 코스명 · 거리/지역 · 완주 상태 · 난이도 배지를 표시
 // ─────────────────────────────────────────────────────────────────────
-class _CourseCard extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────
+// 코스 목록 카드.
+// 섬네일 · 코스명 · 거리/지역 · 완주 상태 · 난이도 배지 + 우측 북마크 토글.
+// 카드 본문(아이콘 영역 제외) 을 탭하면 상세 화면 진입 콜백이 호출되고,
+// 우측 북마크 아이콘을 탭하면 그 코스의 북마크가 토글된다.
+// ConsumerWidget 인 이유: 카드별 북마크 상태를 ref.watch 로 직접 구독하기 위함.
+// ─────────────────────────────────────────────────────────────────────
+class _CourseCard extends ConsumerWidget {
   final Course course;
 
-  // null 이면 삭제 버튼 비활성 (id 가 없는 코스)
-  final VoidCallback? onDelete;
+  // 카드 본문 탭 콜백. null 이면 비활성 (id 가 없는 임시 카드).
+  final VoidCallback? onTap;
 
-  const _CourseCard({required this.course, this.onDelete});
+  const _CourseCard({required this.course, this.onTap});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 북마크 ID 집합을 watch — 토글 시 이 카드도 자동으로 리빌드된다.
+    final idsState = ref.watch(bookmarkedCourseIdsProvider);
+
+    // id 가 있는 코스만 토글 가능. 첫 로드 중(isLoading=true) 일 때는
+    // 상태를 모르는 상태이므로 일단 false 로 그려 두고 onPressed 도 비활성.
+    final canBookmark = course.id != null && !idsState.isLoading;
+    final isBookmarked =
+        course.id != null && idsState.ids.contains(course.id!);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      shadowColor: Colors.black.withOpacity(0.06),
+      elevation: 2,
+      child: InkWell(
+        // onTap 이 null 이면 InkWell 이 자동으로 비활성 (ripple 없음).
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 코스 경로 미리보기 섬네일
-            _CourseThumbnail(url: course.thumbnailUrl),
-            const SizedBox(width: 14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 코스 경로 미리보기 섬네일
+              _CourseThumbnail(url: course.thumbnailUrl),
+              const SizedBox(width: 14),
 
-            // 코스 정보 영역
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 코스 이름
-                      Expanded(
-                        child: Text(
-                          course.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.3,
+              // 코스 정보 영역
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 코스 이름
+                        Expanded(
+                          child: Text(
+                            course.title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -0.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      // 난이도 배지 (EASY/NORMAL/HARD)
-                      if (course.difficulty != null)
-                        _DifficultyBadge(difficulty: course.difficulty!),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // 거리 + 지역 정보
-                  Text(
-                    '${course.distance.toStringAsFixed(1)}km'
-                    '  ${course.regions.join(' ')}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
+                        const SizedBox(width: 8),
+                        // 난이도 배지 (EASY/NORMAL/HARD)
+                        if (course.difficulty != null)
+                          _DifficultyBadge(difficulty: course.difficulty!),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 2),
+                    const SizedBox(height: 6),
 
-                  // 완주 여부 또는 완주율
-                  _CompletionText(
-                    isCompleted: course.isCompleted,
-                    score: course.completionScore,
-                  ),
-                ],
+                    // 거리 + 지역 정보
+                    Text(
+                      '${course.distance.toStringAsFixed(1)}km'
+                          '  ${course.regions.join(' ')}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+
+                    // 완주 여부 또는 완주율
+                    _CompletionText(
+                      isCompleted: course.isCompleted,
+                      score: course.completionScore,
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            // 삭제 버튼 (카드 우측 하단에 배치)
-            if (onDelete != null)
+              // 북마크 토글 버튼 (이전 삭제 버튼 자리).
+              // IconButton 의 탭은 부모 InkWell 로 버블링되지 않으므로
+              // 아이콘 탭 시 카드 본문의 onTap(상세 진입) 이 같이 발사되는 사고는 없다.
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: IconButton(
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 18,
-                    color: Colors.grey,
+                  icon: Icon(
+                    // 북마크된 상태면 채워진 아이콘, 아니면 외곽선.
+                    isBookmarked
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_border_rounded,
+                    size: 22,
+                    color: isBookmarked
+                        ? const Color(0xFFFFD60A)
+                        : const Color(0xFF9CA3AF),
                   ),
+                  tooltip: isBookmarked ? '북마크 해제' : '북마크 추가',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   visualDensity: VisualDensity.compact,
-                  onPressed: onDelete,
+                  onPressed: canBookmark
+                      ? () => ref
+                      .read(bookmarkedCourseIdsProvider.notifier)
+                      .toggle(course.id!)
+                      : null,
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
