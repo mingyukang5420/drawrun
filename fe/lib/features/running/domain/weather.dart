@@ -4,6 +4,7 @@ class Weather {
   final String gu;
   final String message;
   final String precipitation;
+  final String skyCondition;
 
   const Weather({
     required this.temperature,
@@ -11,6 +12,7 @@ class Weather {
     required this.gu,
     required this.message,
     required this.precipitation,
+    required this.skyCondition,
   });
 
   factory Weather.fromJson(Map<String, dynamic> json) => Weather(
@@ -19,7 +21,16 @@ class Weather {
         gu: json['gu'] as String,
         message: json['message'] as String,
         precipitation: json['precipitation'] as String,
+        skyCondition: json['skyCondition'] as String? ?? '',
       );
 
-  String get locationLine => '$sido $gu ${temperature.toStringAsFixed(0)}°C';
+  String get weatherEmoji => switch (skyCondition.toUpperCase()) {
+        'CLEAR' => '☀️',
+        'CLOUDY' => '⛅',
+        'OVERCAST' => '☁️',
+        _ => '🌤️',
+      };
+
+  String get locationLine =>
+      '$sido $gu ${temperature.toStringAsFixed(0)}°C $weatherEmoji';
 }
