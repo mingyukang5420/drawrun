@@ -424,8 +424,12 @@ class _DifficultyBadge extends StatelessWidget {
   }
 }
 
-// 완주 상태 텍스트 위젯
-// 완주 → "완주", 부분 완주 → "완주율 N%", 미도전 → 빈 공간
+// 코스 통계(전체 완주율) + 본인 완주 여부를 한 줄로 표시.
+//
+// isCompleted: 본인이 이 코스를 완주했는지 — 본인 정보(boolean).
+// score      : 이 코스를 시도한 전체 사용자 중 완주한 비율(0~100) — 코스 통계.
+//
+// 두 값은 독립이므로 같이 노출될 수도 있다 (내가 완주한 코스의 전체 완주율은 70% 같은 식).
 class _CompletionText extends StatelessWidget {
   final bool isCompleted;
   final int score;
@@ -434,19 +438,38 @@ class _CompletionText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isCompleted) {
-      return const Text(
-        '완주',
-        style: TextStyle(fontSize: 13, color: Colors.grey),
-      );
-    }
-    if (score > 0) {
-      return Text(
-        '완주율 $score%',
-        style: const TextStyle(fontSize: 13, color: Colors.grey),
-      );
-    }
-    // 미도전 코스는 완주 정보를 표시하지 않음
-    return const SizedBox.shrink();
+    final hasStat = score > 0;
+
+    // 노출할 정보가 둘 다 없으면 자리 차지하지 말고 빈 위젯.
+    if (!hasStat && !isCompleted) return const SizedBox.shrink();
+
+    return Row(
+      children: [
+        if (hasStat) ...[
+          // 사람 그룹 아이콘으로 "전체 사용자 통계" 임을 암시.
+          const Icon(
+            Icons.groups_outlined,
+            size: 13,
+            color: Colors.grey,
+          ),
+          const SizedBox(width: 2),
+          Text(
+            '완주율 $score%',
+            style: const TextStyle(fontSize: 13, color: Colors.grey),
+          ),
+        ],
+        if (isCompleted) ...[
+          if (hasStat) const SizedBox(width: 8),
+          const Text(
+            '완주 ✓',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF27AE60),
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }

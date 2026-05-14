@@ -352,9 +352,14 @@ class _CourseCard extends StatelessWidget {
     final diffColor =
         _difficultyColor[difficulty] ?? const Color(0xFF6B7280);
     final diffLabel = _difficultyLabel[difficulty] ?? difficulty;
-    final hasProgress =
-        course.completionScore > 0 && course.completionScore < 100;
-    final isCompleted = course.completionScore >= 100;
+
+    // 본인이 이 코스를 완주했는지 — 본인 개인 정보(boolean).
+    // completionScore 와는 무관하다 (그건 전체 사용자의 완주 비율).
+    final isCompleted = course.isCompleted;
+
+    // 코스 자체의 완주율 (0~100). 작은 텍스트로만 노출.
+    // 0 일 때는 "아무도 완주 안 함" 의미라 표기할 가치가 적어 숨긴다.
+    final hasCourseStat = course.completionScore > 0;
 
     // Material + InkWell:
     //   - Material 이 ripple 을 그릴 표면.
@@ -454,29 +459,42 @@ class _CourseCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    // 진행 중인 코스만 진행률 바.
-                    if (hasProgress)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: course.completionScore / 100,
-                          minHeight: 4,
-                          backgroundColor: const Color(0xFFE5E7EB),
-                          valueColor:
-                          AlwaysStoppedAnimation<Color>(diffColor),
-                        ),
-                      ),
-                    // 완주 텍스트.
-                    if (isCompleted)
-                      const Text(
-                        '완주 ✓',
-                        style: TextStyle(
-                          fontFamily: 'Pretendard',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF27AE60),
-                        ),
-                      ),
+                    // 코스 완주율(전체 사용자 통계) + 본인 완주 여부.
+                    // 두 값은 독립이라 한 줄에 같이 표시한다.
+                    //   - 좌측: "완주율 N%" — 이 코스를 시도한 사람들 중 완주 비율
+                    //   - 우측(본인이 완주한 경우만): "완주 ✓"
+                    Row(
+                      children: [
+                        if (hasCourseStat) ...[
+                          const Icon(
+                            Icons.groups_outlined,
+                            size: 12,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '완주율 ${course.completionScore}%',
+                            style: const TextStyle(
+                              fontFamily: 'Pretendard',
+                              fontSize: 11,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        ],
+                        if (isCompleted) ...[
+                          if (hasCourseStat) const SizedBox(width: 8),
+                          const Text(
+                            '완주 ✓',
+                            style: TextStyle(
+                              fontFamily: 'Pretendard',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF27AE60),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),

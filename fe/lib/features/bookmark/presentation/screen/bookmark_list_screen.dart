@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/bookmark/presentation/bookmark_list_viewmodel.dart';
 import 'package:running/features/bookmark/presentation/bookmark_provider.dart';
+import 'package:running/features/bookmark/presentation/bookmarked_course_ids_notifier.dart';
 import 'package:running/features/course/domain/course.dart';
 
 // 북마크 목록 화면.
@@ -69,6 +70,25 @@ class _BookmarkListScreenState extends ConsumerState<BookmarkListScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(bookmarkListProvider);
     final notifier = ref.read(bookmarkListProvider.notifier);
+
+    // IDs 캐시가 바뀔 때마다 호출되는 리스너.
+    // 사라진 ID(= 사용자가 막 북마크 해제한 코스) 들에 대해
+    // 목록의 그 행만 로컬에서 제거 — 스크롤 위치 유지가 목적.
+    //
+    // 추가된 ID(다른 화면에서 새 북마크) 는 여기서 다루지 않는다.
+    // 그건 사용자가 pull-to-refresh 하면 자연스럽게 채워진다 (이 화면의 책임 범위 밖).
+    ref.listen<BookmarkedCourseIdsState>(
+      bookmarkedCourseIdsProvider,
+          (prev, next) {
+        if (prev == null) return;
+        // 첫 로드 직후엔 prev.ids 가 빈 Set, next.ids 가 가득 채워진다.
+        // 이 경우 prev.difference(next) 가 빈 Set 이라 아무 일도 안 일어남 — 의도된 동작.
+        final removed = prev.ids.difference(next.ids);
+        for (final id in removed) {
+          notifier.removeCourseLocally(id);
+        }
+      },
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -177,9 +197,15 @@ class _BookmarkListScreenState extends ConsumerState<BookmarkListScreen> {
 
 // ─────────────────────────────────────────────────────────────────────
 // 북마크 목록의 한 줄. 코스 탐색 화면의 카드 모양과 같은 톤으로 맞춘다.
-// 시각 일관성을 위해 둥근 모서리 + 그림자 + 좌측 썸네일 + 텍스트 정보.
+// 시각 일관성을 위해 둥근 모서리 + 그림자 + 좌측 썸네일 + 텍스트 정보 + 우측 북마크 아이콘.
+//
+// 우측 북마크 아이콘은 항상 채워진 상태(노란색) 로 그려진다 — 이 목록의 모든 코스가
+// 이미 북마크된 상태라는 의미가 명시적으로 보이게. 탭하면 그 코스의 북마크가 해제되고
+// (BE DELETE 호출 + IDs 캐시 업데이트), 화면에서도 그 행이 사라진다.
+//
+// ConsumerWidget 인 이유: 우측 아이콘이 ref.read 로 토글 메서드를 호출해야 하기 때문.
 // ─────────────────────────────────────────────────────────────────────
-class _BookmarkRow extends StatelessWidget {
+class _BookmarkRow extends ConsumerWidget {
   final Course course;
   final VoidCallback? onTap;
 
@@ -194,7 +220,7 @@ class _BookmarkRow extends StatelessWidget {
   static const _diffLabel = {'EASY': '쉬움', 'NORMAL': '보통', 'HARD': '어려움'};
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final difficulty = course.difficulty ?? '';
     final color = _diffColor[difficulty] ?? const Color(0xFF6B7280);
     final label = _diffLabel[difficulty] ?? difficulty;
@@ -216,7 +242,7 @@ class _BookmarkRow extends StatelessWidget {
               // 좌측 정사각형 썸네일.
               _Thumb(url: course.thumbnailUrl),
               const SizedBox(width: 14),
-              // 우측 정보.
+              // 가운데 정보 영역.
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,6 +297,26 @@ class _BookmarkRow extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+
+              // 우측 북마크 아이콘 — 채워진 상태(이미 북마크됨) 만 보여준다.
+              // 탭 시 토글 → 해제 → IDs 캐시에서 빠짐 → 화면 listen 이 이 행 제거.
+              // course.id 가 null 이면 토글 호출이 의미 없으므로 onPressed 도 null.
+              IconButton(
+                tooltip: '북마크 해제',
+                icon: const Icon(
+                  Icons.bookmark_rounded,
+                  size: 22,
+                  color: Color(0xFFFFD60A),
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                visualDensity: VisualDensity.compact,
+                onPressed: course.id != null
+                    ? () => ref
+                    .read(bookmarkedCourseIdsProvider.notifier)
+                    .toggle(course.id!)
+                    : null,
               ),
             ],
           ),

@@ -123,4 +123,18 @@ class BookmarkListNotifier extends Notifier<BookmarkListState> {
     state = const BookmarkListState(isLoadingInitial: true);
     await _loadInitial();
   }
+
+  // 로컬 리스트에서 한 코스를 즉시 제거한다.
+  //
+  // 사용자가 행의 북마크 아이콘으로 북마크를 해제했을 때,
+  // 전체 페이지를 다시 받지 않고 그 한 행만 사라지게 하기 위한 진입점.
+  // BE 호출은 호출자(= bookmarkedCourseIdsProvider.toggle)가 이미 끝낸 상태로 가정한다 —
+  // 이 메서드는 순수 로컬 상태 갱신.
+  void removeCourseLocally(int courseId) {
+    state = state.copyWith(
+      // 새 리스트를 만들어야 Riverpod 가 변경을 인식한다.
+      // (in-place 로 list.remove() 하면 같은 참조라 변경 감지 못 함.)
+      courses: state.courses.where((c) => c.id != courseId).toList(),
+    );
+  }
 }
