@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -30,6 +31,21 @@ public abstract class MemberResponse {
 
         @JsonIgnore // refreshToken은 응답에서 구조적으로 제외함
         private String refreshToken;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class MyInfoResponse {
+
+        private String nickname;
+        private String email;
+        private String birthDate;
+        private String gender;
+        private Integer totalMyCourse;
+        private Integer totalMyRecord;
+        private Integer totalMyBookmark;
     }
 
     @Getter

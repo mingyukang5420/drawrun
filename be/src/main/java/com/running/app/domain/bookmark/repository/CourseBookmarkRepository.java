@@ -1,12 +1,11 @@
 package com.running.app.domain.bookmark.repository;
 
 import com.running.app.domain.bookmark.entity.CourseBookmark;
+import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-
-import java.util.Optional;
 
 public interface CourseBookmarkRepository extends JpaRepository<CourseBookmark, Long> {
 
@@ -32,4 +31,6 @@ public interface CourseBookmarkRepository extends JpaRepository<CourseBookmark, 
             Pageable pageable
     );
 
+    // 내 북마크 개수 조회
+    Integer countByMemberId(Long memberId);
 }
