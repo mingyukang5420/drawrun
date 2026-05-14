@@ -7,10 +7,14 @@ import 'package:running/features/auth/presentation/screen/intro_screen.dart';
 import 'package:running/features/auth/presentation/screen/login_screen.dart';
 import 'package:running/features/auth/presentation/screen/signup_screen.dart';
 
+// 개발 편의용 액세스 토큰
+// null 이 아니면: 토큰을 TokenStorage 에 주입하고 메인 탭으로 바로 진입
+// null 이면: 정상 인트로 → 로그인 플로우
+const String? kDevToken = null;
+
 // 앱 전체 화면 이동 규칙 관리
 final GoRouter appRouter = GoRouter(
-  // 앱 시작 시 가장 먼저 보여줄 화면
-  initialLocation: '/intro',
+  initialLocation: kDevToken != null ? '/main' : '/intro',
 
   routes: [
     // 인트로 화면
