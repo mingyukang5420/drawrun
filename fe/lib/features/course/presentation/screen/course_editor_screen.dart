@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,14 +8,57 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:running/features/course/presentation/course_editor_viewmodel.dart';
 import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/widgets/course_editor_map_view.dart';
+import 'package:running/shared/map/widgets/track_snapshot_map.dart';
+import 'package:running/shared/model/lat_lng.dart' as shared;
 
 // 코스 생성 편집 화면
 // Scaffold > Stack 구조로 전체화면 지도 위에 UI 레이어를 겹쳐 쌓는다
-class CourseEditorScreen extends ConsumerWidget {
+// 저장 흐름: 저장 버튼 → TrackSnapshotMap 캡처 → 이미지 업로드 → 코스 저장 API
+class CourseEditorScreen extends ConsumerStatefulWidget {
   const CourseEditorScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CourseEditorScreen> createState() => _CourseEditorScreenState();
+}
+
+class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
+  // 저장 버튼을 누른 뒤 TrackSnapshotMap 이 Stack 에 올라간 상태
+  bool _isCapturing = false;
+
+  // ── 저장 버튼 콜백 ─────────────────────────────────────────────────
+  // 1) Notifier 에 "캡처 시작" 을 알려 isSaving 플래그를 올린다
+  // 2) 로컬 _isCapturing 을 true 로 바꿔 Stack 에 TrackSnapshotMap 을 추가한다
+  void _onSavePressed() {
+    ref.read(courseEditorProvider.notifier).startCapture();
+    setState(() => _isCapturing = true);
+  }
+
+  // ── TrackSnapshotMap 캡처 성공 콜백 ───────────────────────────────
+  // PNG File 을 base64 로 변환한 뒤 thumbnailBase64 로 코스 저장 API 를 호출한다
+  Future<void> _onCaptured(File imageFile) async {
+    setState(() => _isCapturing = false);
+
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final base64Str = 'data:image/png;base64,${base64Encode(bytes)}';
+      if (!mounted) return;
+      await ref
+          .read(courseEditorProvider.notifier)
+          .saveCourse(thumbnailBase64: base64Str);
+    } catch (_) {
+      if (!mounted) return;
+      ref.read(courseEditorProvider.notifier).failSave('이미지 변환에 실패했습니다');
+    }
+  }
+
+  // ── TrackSnapshotMap 캡처 실패 콜백 ───────────────────────────────
+  void _onCaptureFailed(Object _) {
+    setState(() => _isCapturing = false);
+    ref.read(courseEditorProvider.notifier).failSave('경로 이미지 생성에 실패했습니다');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // state 변경 시 화면 전체가 다시 빌드된다
     final state = ref.watch(courseEditorProvider);
     final notifier = ref.read(courseEditorProvider.notifier);
@@ -21,15 +67,10 @@ class CourseEditorScreen extends ConsumerWidget {
     // 저장 성공이면 화면을 닫고, 실패면 스낵바를 표시한다
     ref.listen<CourseEditorState>(courseEditorProvider, (prev, next) {
       if (prev?.isSaving == true && !next.isSaving) {
-        // 비동기 저장이 완료되는 시점에 위젯이 이미 트리에서 제거됐을 수 있기때문에
-        // context 가 유효하지 않은 상태에서 Navigator/ScaffoldMessenger 를
-        // 호출하면 런타임 예외가 발생하므로 mounted 여부를 먼저 확인
         if (!context.mounted) return;
         if (next.saveError == null) {
-          // 저장 성공 → 편집 화면을 닫는다
           Navigator.of(context).pop();
         } else {
-          // 저장 실패 → 오류 메시지를 스낵바로 표시
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(next.saveError!)),
           );
@@ -37,18 +78,39 @@ class CourseEditorScreen extends ConsumerWidget {
       }
     });
 
+    // 에디터 경로 좌표(NLatLng) → TrackSnapshotMap 용 shared.LatLng 로 변환
+    final snapshotNodes = state.nodes
+        .map((n) => shared.LatLng(latitude: n.latitude, longitude: n.longitude))
+        .toList();
+
     return Scaffold(
-      // 키보드가 올라와도 지도 영역이 밀리지 않도록 false 설정
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // 1단계: 전체화면 지도 (가장 아래 레이어)
-          // 지도를 탭하면 CourseEditorMapView 가 notifier.addNode 를 호출한다
           const Positioned.fill(
             child: CourseEditorMapView(),
           ),
 
-          // 2단계: 상단 정보 바 (코스명·거리·저장 상태)
+          // 2단계: 캡처 전용 지도 (저장 버튼을 누른 동안만 Stack 에 올라간다)
+          // - Opacity(0): 사용자 눈에는 보이지 않지만 GPU 가 실제로 렌더링 → 스냅샷 가능
+          // - IgnorePointer: 캡처 중 편집 지도의 터치 이벤트를 막지 않는다
+          if (_isCapturing)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 0,
+                  child: TrackSnapshotMap(
+                    nodes: snapshotNodes,
+                    onCaptured: _onCaptured,
+                    onCaptureFailed: _onCaptureFailed,
+                    polylineColor: kCourseRouteColor,
+                  ),
+                ),
+              ),
+            ),
+
+          // 3단계: 상단 정보 바 (코스명·거리·저장 상태)
           Positioned(
             top: 0,
             left: 0,
@@ -56,13 +118,12 @@ class CourseEditorScreen extends ConsumerWidget {
             child: SafeArea(
               child: _TopInfoBar(
                 state: state,
-                onNameTap: () => _showNameDialog(context, ref, state.courseName),
+                onNameTap: () => _showNameDialog(state.courseName),
               ),
             ),
           ),
 
-          // 3단계: 도로 상태 안내 힌트 배너
-          // 하단 패널 바로 위에 떠서 사용자에게 현재 가능한 동작을 안내한다
+          // 4단계: 도로 상태 안내 힌트 배너
           if (state.nodes.isEmpty)
             Positioned(
               bottom: 90,
@@ -71,36 +132,35 @@ class CourseEditorScreen extends ConsumerWidget {
               child: _RoadHintBanner(hasWays: state.hasWays),
             ),
 
-          // 4단계: 오른쪽 플로팅 버튼 열 (검색·현재위치·자동경로)
-          // bottom: 120 으로 하단 패널과 겹치지 않도록 여백 확보
+          // 5단계: 오른쪽 플로팅 버튼 열 (검색·현재위치·자동경로)
           Positioned(
             right: 12,
             bottom: 120,
             child: _RightFabColumn(
               state: state,
               notifier: notifier,
-              onSearchTap: () => _showSearchSheet(context, notifier),
+              onSearchTap: () => _showSearchSheet(notifier),
             ),
           ),
 
-          // 5단계: 하단 컨트롤 패널 (실행취소·다시실행·초기화 + 저장 CTA)
+          // 6단계: 하단 컨트롤 패널 (실행취소·다시실행·초기화 + 저장 CTA)
+          // onSave 콜백으로 _onSavePressed 를 전달한다 (notifier.saveCourse 직접 호출 대신)
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: _BottomPanel(state: state, notifier: notifier),
+            child: _BottomPanel(
+              state: state,
+              notifier: notifier,
+              onSave: _onSavePressed,
+            ),
           ),
         ],
       ),
     );
   }
 
-  // 코스 이름 수정 다이얼로그를 표시한다
-  void _showNameDialog(
-    BuildContext context,
-    WidgetRef ref,
-    String currentName,
-  ) {
+  void _showNameDialog(String currentName) {
     final controller = TextEditingController(text: currentName);
     showDialog<void>(
       context: context,
@@ -131,14 +191,9 @@ class CourseEditorScreen extends ConsumerWidget {
     );
   }
 
-  // 장소 이동 바텀 시트를 표시한다
-  void _showSearchSheet(
-    BuildContext context,
-    CourseEditorNotifier notifier,
-  ) {
+  void _showSearchSheet(CourseEditorNotifier notifier) {
     showModalBottomSheet<void>(
       context: context,
-      // isScrollControlled: 키보드가 올라와도 시트가 올라올 수 있도록 허용
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -348,8 +403,13 @@ class _FabIconButton extends StatelessWidget {
 class _BottomPanel extends StatelessWidget {
   final CourseEditorState state;
   final CourseEditorNotifier notifier;
+  final VoidCallback onSave;
 
-  const _BottomPanel({required this.state, required this.notifier});
+  const _BottomPanel({
+    required this.state,
+    required this.notifier,
+    required this.onSave,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -399,9 +459,7 @@ class _BottomPanel extends StatelessWidget {
           SizedBox(
             height: 44,
             child: ElevatedButton(
-              onPressed: (hasNodes && !state.isSaving)
-                  ? notifier.saveCourse
-                  : null,
+              onPressed: (hasNodes && !state.isSaving) ? onSave : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: kCourseRouteColor,
                 foregroundColor: Colors.white,

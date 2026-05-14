@@ -29,10 +29,12 @@ class CourseRemoteDataSource {
   }
 
   // POST /api/v1/editor — 새 코스 저장
-  // 서버 응답 바디는 사용하지 않으므로 Future<void> 반환
-  Future<void> createCourse(Course course) async {
+  // thumbnailBase64: 경로 스냅샷 base64 문자열 (있을 때만 body 에 포함)
+  Future<void> createCourse(Course course, {String? thumbnailBase64}) async {
     try {
-      await _dio.post('/api/v1/editor', data: course.toJson());
+      final data = course.toJson();
+      if (thumbnailBase64 != null) data['thumbnailBase64'] = thumbnailBase64;
+      await _dio.post('/api/v1/editor', data: data);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
