@@ -21,5 +21,5 @@ class Weather {
         precipitation: json['precipitation'] as String,
       );
 
-  String get locationLine => '$sido $gu ${temperature.toStringAsFixed(0)}°C $precipitation';
+  String get locationLine => '$sido $gu ${temperature.toStringAsFixed(0)}°C';
 }
