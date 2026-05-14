@@ -47,11 +47,16 @@ class RunningScreen extends ConsumerWidget {
 }
 
 // ── 헤더: 프로필 아바타(좌) + 인사·날씨(우) 한 줄 ─────────────────
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weatherState = ref.watch(weatherProvider);
+
+    final messageText = weatherState.weather?.message ?? '오늘도 달리기 좋은 날씨예요!';
+    final locationText = weatherState.weather?.locationLine ?? '';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -70,13 +75,13 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           // 인사 + 날씨
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '오늘도 달리기 좋은 날씨예요! ☀️',
-                  style: TextStyle(
+                  messageText,
+                  style: const TextStyle(
                     fontFamily: 'Pretendard',
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -84,16 +89,22 @@ class _Header extends StatelessWidget {
                     letterSpacing: -0.3,
                   ),
                 ),
-                SizedBox(height: 3),
-                // TODO: 위치·날씨 API 연동 후 동적 데이터로 교체
-                Text(
-                  '서울특별시 강남구 18°C 맑음',
-                  style: TextStyle(
-                    fontFamily: 'Pretendard',
-                    fontSize: 13,
-                    color: Color(0xFF9CA3AF),
+                const SizedBox(height: 3),
+                if (weatherState.isLoading)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  )
+                else
+                  Text(
+                    locationText,
+                    style: const TextStyle(
+                      fontFamily: 'Pretendard',
+                      fontSize: 13,
+                      color: Color(0xFF9CA3AF),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
