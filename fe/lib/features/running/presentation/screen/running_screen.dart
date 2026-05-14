@@ -306,7 +306,7 @@ class _CourseCard extends StatelessWidget {
     'NORMAL': Color(0xFFE67E22),
     'HARD': Color(0xFFE74C3C),
   };
-  static const _difficultyLabel = {'EASY': '쉬움', 'NORMAL': '보통', 'HARD': '어려움'};
+  static const _difficultyLabel = {'BEGINNER': '입문','EASY': '쉬움', 'NORMAL': '보통', 'HARD': '어려움'};
 
   @override
   Widget build(BuildContext context) {
