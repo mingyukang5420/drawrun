@@ -4,6 +4,8 @@ import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/app/app.dart';
+import 'package:running/routes/app_router.dart';
+import 'package:running/shared/network/token_storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +18,10 @@ void main() async {
       debugPrint('네이버 지도 인증 오류: $ex');
     },
   );
+
+  if (kDevToken != null) {
+    TokenStorage.save(kDevToken!);
+  }
 
   runApp(
     const ProviderScope(
