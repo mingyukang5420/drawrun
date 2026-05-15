@@ -14,8 +14,13 @@ import 'package:running/shared/model/lat_lng.dart' as shared;
 // 코스 생성 편집 화면
 // Scaffold > Stack 구조로 전체화면 지도 위에 UI 레이어를 겹쳐 쌓는다
 // 저장 흐름: 저장 버튼 → TrackSnapshotMap 캡처 → 이미지 업로드 → 코스 저장 API
+//
+// initialNodes 를 넘기면 에디터에 기존 경로를 미리 채워 이어서 편집할 수 있다
 class CourseEditorScreen extends ConsumerStatefulWidget {
-  const CourseEditorScreen({super.key});
+  // 상세 조회에서 받은 기존 좌표 목록. null 이면 빈 상태로 시작
+  final List<shared.LatLng>? initialNodes;
+
+  const CourseEditorScreen({super.key, this.initialNodes});
 
   @override
   ConsumerState<CourseEditorScreen> createState() => _CourseEditorScreenState();
@@ -24,6 +29,21 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
 class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   // 저장 버튼을 누른 뒤 TrackSnapshotMap 이 Stack 에 올라간 상태
   bool _isCapturing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 기존 좌표가 있으면 지도 준비 후 에디터에 채운다
+    final initial = widget.initialNodes;
+    if (initial != null && initial.isNotEmpty) {
+      final nNodes = initial
+          .map((e) => NLatLng(e.latitude, e.longitude))
+          .toList();
+      Future.microtask(
+        () => ref.read(courseEditorProvider.notifier).loadNodes(nNodes),
+      );
+    }
+  }
 
   // ── 저장 버튼 콜백 ─────────────────────────────────────────────────
   // 1) Notifier 에 "캡처 시작" 을 알려 isSaving 플래그를 올린다
