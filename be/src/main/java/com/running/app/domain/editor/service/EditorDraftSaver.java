@@ -1,5 +1,7 @@
 package com.running.app.domain.editor.service;
 
+import com.running.app.domain.challenge.entity.Challenge;
+import com.running.app.domain.challenge.repository.ChallengeRepository;
 import com.running.app.domain.course.service.DifficultyService;
 import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
@@ -47,6 +49,7 @@ public class EditorDraftSaver {
     private final TrackService trackService;
     private final CourseDraftService courseDraftService;
     private final DifficultyService difficultyService;
+    private final ChallengeRepository challengeRepository;
 
     @Transactional
     public EditorResponse.SaveResponse save(
@@ -73,11 +76,21 @@ public class EditorDraftSaver {
 
         // 5. CourseDraft 영속화 (status=READY 로 시작)
         CourseDifficulty difficulty = difficultyService.calculate(track);
+
+        Challenge challenge = null;
+
+        // challengeId가 있는 경우
+        if (request.getChallengeId() != null) {
+            challenge = challengeRepository.findById(request.getChallengeId())
+                    .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+        }
+
         CourseDraft courseDraft = courseDraftService.createFromEditor(
                 memberId,
                 track,
                 request.getTitle(),
-                difficulty
+                difficulty,
+                challenge
         );
 
         return EditorConverter.toSaveResponse(courseDraft);

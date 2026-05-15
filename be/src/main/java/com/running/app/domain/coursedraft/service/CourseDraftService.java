@@ -1,5 +1,6 @@
 package com.running.app.domain.coursedraft.service;
 
+import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
@@ -24,7 +25,8 @@ public class CourseDraftService {
             Long memberId,
             Track track,
             String title,
-            CourseDifficulty difficulty
+            CourseDifficulty difficulty,
+            Challenge challenge
     ) {
         CourseDraft draft = CourseDraft.builder()
                 .memberId(memberId)
@@ -32,6 +34,7 @@ public class CourseDraftService {
                 .title(title)
                 .difficulty(difficulty)
                 .status(CourseDraftStatus.READY)
+                .challenge(challenge)
                 .build();
 
         return courseDraftRepository.save(draft);
