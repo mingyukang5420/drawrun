@@ -13,27 +13,6 @@ public abstract class RecordResponse {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class CreateResultDTO {
-
-        private Long recordId;
-        private Long trackId;
-        private Long courseId;
-        private Long courseDraftId;
-        private String title;
-        private Double distance;
-        private String trackImageUrl;
-        private Integer runningTime;
-        private Double avgPace;
-        private Integer calories;
-        private Integer cadence;
-        private Boolean isCompleted;
-        private Boolean isSafe;
-    }
-
-    @Getter
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class ListDTO {
 
         private Long recordId;
