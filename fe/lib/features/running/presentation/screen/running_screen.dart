@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/core/theme/app_text_style.dart';
+import 'package:running/features/bookmark/presentation/bookmark_provider.dart';
+import 'package:running/features/bookmark/presentation/bookmarked_courses_viewmodel.dart';
+import 'package:running/features/bookmark/presentation/screen/bookmark_list_screen.dart';
+import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/mypage/presentation/screen/mypage_screen.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
@@ -115,39 +119,16 @@ class _Header extends ConsumerWidget {
 }
 
 // ── 북마크한 코스 캐러셀: PageView + 인디케이터 ────────────────────
-class _BookmarkedCourses extends StatefulWidget {
+class _BookmarkedCourses extends ConsumerStatefulWidget {
   const _BookmarkedCourses();
 
   @override
-  State<_BookmarkedCourses> createState() => _BookmarkedCoursesState();
+  ConsumerState<_BookmarkedCourses> createState() => _BookmarkedCoursesState();
 }
 
-class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
-  // TODO: 북마크 API 연동 후 서버 데이터로 교체
-  static const _items = [
-    _CourseItem(
-      title: '한강 러닝코스',
-      difficulty: 'EASY',
-      distance: 3.5,
-      regions: ['성동구', '관악구'],
-      completionScore: 65,
-    ),
-    _CourseItem(
-      title: '석촌호수 코스',
-      difficulty: 'NORMAL',
-      distance: 3.8,
-      regions: ['송파구'],
-      completionScore: 0,
-    ),
-    _CourseItem(
-      title: '서울숲 코스',
-      difficulty: 'HARD',
-      distance: 6.2,
-      regions: ['성동구'],
-      completionScore: 100,
-    ),
-  ];
-
+class _BookmarkedCoursesState extends ConsumerState<_BookmarkedCourses> {
+  // 한 카드가 차지할 viewport 비율.
+  // 작을수록 한 화면에 카드가 좁게 그려지고 옆 카드의 일부가 함께 보인다.
   static const _viewportFraction = 0.78;
 
   late final PageController _controller;
@@ -171,9 +152,14 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
 
   @override
   Widget build(BuildContext context) {
+    // 서버에서 받은 최신 5개 북마크 (또는 그 이하).
+    final state = ref.watch(bookmarkedCoursesProvider);
+    final courses = state.courses;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── 섹션 헤더 ────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
           child: Row(
@@ -188,119 +174,171 @@ class _BookmarkedCoursesState extends State<_BookmarkedCourses> {
             ],
           ),
         ),
+
+        // ── 본체: 로딩 / 빈 상태 / 카드 리스트 분기 ───────────
         SizedBox(
           height: 96,
-          child: PageView.builder(
-            clipBehavior: Clip.none,
-            padEnds: false,
-            controller: _controller,
-            physics: _BoundedPageScrollPhysics(
-              maxPage: _items.length - 1,
-              viewportFraction: _viewportFraction,
-            ),
-            itemCount: _items.length + 1,
-            itemBuilder: (_, i) {
-              if (i == _items.length) {
-                return Padding(
-                  padding: const EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    top: 4,
-                    bottom: 4,
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () {},
-                      child: Container(
-                        width:
-                            MediaQuery.of(context).size.width *
-                                (1 - _viewportFraction) -
-                            40,
-                        height:
-                            MediaQuery.of(context).size.width *
-                                (1 - _viewportFraction) -
-                            40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color.fromARGB(255, 243, 243, 243),
-                        ),
-                        child: const Icon(
-                          Icons.add,
-                          color: Color(0xFF9CA3AF),
-                          size: 18,
-                        ),
-                      ),
-                    ),
+          child: _buildBody(state, courses),
+        ),
+
+        // ── 페이지 인디케이터 ────────────────────────────────
+        // 카드가 한 장도 없으면 인디케이터를 그리지 않는다.
+        if (courses.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(courses.length, (i) {
+                final active = i == _currentPage;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: active ? 18 : 6,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: active
+                        ? const Color(0xFF1C1C1E)
+                        : const Color(0xFF9CA3AF),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 );
-              }
-
-              return Padding(
-                padding: const EdgeInsets.only(
-                  left: 20,
-                  right: 4,
-                  top: 4,
-                  bottom: 4,
-                ),
-                child: _CourseCard(item: _items[i]),
-              );
-            },
+              }),
+            ),
           ),
-        ),
-        // 페이지 인디케이터
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_items.length, (i) {
-              final active = i == _currentPage;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: active ? 18 : 6,
-                height: 6,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: active
-                      ? const Color(0xFF1C1C1E)
-                      : const Color(0xFF9CA3AF),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              );
-            }),
-          ),
-        ),
       ],
+    );
+  }
+
+  // 로딩 / 에러 / 빈 / 카드 리스트 네 분기.
+  Widget _buildBody(BookmarkedCoursesState state, List<Course> courses) {
+    if (state.isLoading) {
+      return const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (state.errorMessage != null && courses.isEmpty) {
+      // 초기 로드 실패 — 재시도 버튼만 한 줄 노출.
+      return Center(
+        child: TextButton.icon(
+          onPressed: ref.read(bookmarkedCoursesProvider.notifier).load,
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('다시 불러오기'),
+        ),
+      );
+    }
+
+    // 빈 결과 + + 버튼 한 장만.
+    // 카드가 0개여도 사용자가 북마크 페이지로 갈 수 있게 + 버튼은 항상 그린다.
+    return PageView.builder(
+      clipBehavior: Clip.none,
+      padEnds: false,
+      controller: _controller,
+      physics: _BoundedPageScrollPhysics(
+        maxPage: courses.isEmpty ? 0 : courses.length - 1,
+        viewportFraction: _viewportFraction,
+      ),
+      itemCount: courses.length + 1,
+      itemBuilder: (_, i) {
+        if (i == courses.length) {
+          // 마지막 자리에 + 버튼 — 탭 시 북마크 목록 화면으로 이동.
+          // 마이페이지의 "북마크" 메뉴와 도착지가 같다.
+          return Padding(
+            padding: const EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 4,
+              bottom: 4,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const BookmarkListScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  width:
+                  MediaQuery.of(context).size.width *
+                      (1 - _viewportFraction) -
+                      40,
+                  height:
+                  MediaQuery.of(context).size.width *
+                      (1 - _viewportFraction) -
+                      40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color.fromARGB(255, 243, 243, 243),
+                  ),
+                  child: const Icon(
+                    Icons.add,
+                    color: Color(0xFF9CA3AF),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final course = courses[i];
+        // 카드 한 장 + 탭 시 상세 화면(placeholder).
+        return Padding(
+          padding: const EdgeInsets.only(
+            left: 20,
+            right: 4,
+            top: 4,
+            bottom: 4,
+          ),
+          child: _CourseCard(
+            course: course,
+            onTap: course.id != null
+                ? () => _openCourseDetail(context, course.id!)
+                : null,
+          ),
+        );
+      },
+    );
+  }
+
+  // 코스 상세 화면 진입 placeholder.
+  //
+  // 코스 상세 화면(CourseDetailScreen) 은 다른 팀원이 별도 PR 로 작업 중이다.
+  // 머지가 들어오면 아래 SnackBar 를 다음 한 줄로 교체:
+  //   Navigator.of(context).push(MaterialPageRoute(
+  //     builder: (_) => CourseDetailScreen(courseId: courseId),
+  //   ));
+  //
+  // 그 시점에 이 파일 상단에 CourseDetailScreen import 한 줄도 같이 추가하면 끝.
+  void _openCourseDetail(BuildContext context, int courseId) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('코스 상세 화면은 별도 작업 중입니다'),
+        duration: Duration(seconds: 2),
+      ),
     );
   }
 }
 
-// ── 코스 카드 데이터 (Course 도메인 필드 반영) ─────────────────────
-class _CourseItem {
-  final String title;
-  final String difficulty; // 'EASY' | 'NORMAL' | 'HARD'
-  final double distance; // km
-  final List<String> regions;
-  final String? thumbnailUrl;
-  final int completionScore; // 0~100
-
-  const _CourseItem({
-    required this.title,
-    required this.difficulty,
-    required this.distance,
-    required this.regions,
-    this.thumbnailUrl,
-    this.completionScore = 0,
-  });
-}
-
 // ── 코스 카드 위젯 ─────────────────────────────────────────────────
+// 러닝 메인 화면 상단 캐러셀에서 한 장씩 보여주는 카드.
+// 도메인 Course 를 그대로 받아 표현한다 (별도 _CourseItem 같은 가짜 모델 없음).
 class _CourseCard extends StatelessWidget {
-  final _CourseItem item;
+  final Course course;
 
-  const _CourseCard({required this.item});
+  // 카드 탭 시 실행할 콜백. null 이면 비활성(ripple 없음).
+  final VoidCallback? onTap;
 
-  // 난이도별 색상 및 한글 라벨
+  const _CourseCard({required this.course, this.onTap});
+
+  // 난이도별 색상 / 한글 라벨.
   static const _difficultyColor = {
     'EASY': Color(0xFF27AE60),
     'NORMAL': Color(0xFFE67E22),
@@ -310,138 +348,159 @@ class _CourseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final difficulty = course.difficulty ?? '';
     final diffColor =
-        _difficultyColor[item.difficulty] ?? const Color(0xFF6B7280);
-    final diffLabel = _difficultyLabel[item.difficulty] ?? item.difficulty;
-    final hasProgress = item.completionScore > 0 && item.completionScore < 100;
-    final isCompleted = item.completionScore >= 100;
+        _difficultyColor[difficulty] ?? const Color(0xFF6B7280);
+    final diffLabel = _difficultyLabel[difficulty] ?? difficulty;
 
-    return Container(
+    // 본인이 이 코스를 완주했는지 — 본인 개인 정보(boolean).
+    // completionScore 와는 무관하다 (그건 전체 사용자의 완주 비율).
+    final isCompleted = course.isCompleted;
+
+    // 코스 자체의 완주율 (0~100). 작은 텍스트로만 노출.
+    // 0 일 때는 "아무도 완주 안 함" 의미라 표기할 가치가 적어 숨긴다.
+    final hasCourseStat = course.completionScore > 0;
+
+    // Material + InkWell:
+    //   - Material 이 ripple 을 그릴 표면.
+    //   - InkWell 이 onTap 과 ripple 책임.
+    //   - 카드 모서리(16) 와 InkWell.borderRadius 를 같은 값으로 맞춰
+    //     ripple 이 카드 모서리를 넘지 않게 함.
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
+      shadowColor: Colors.black.withOpacity(0.07),
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.07),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // ── 소형 썸네일 (좌측 정사각형) ──
-          ClipRRect(
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(16),
-            ),
-            child: _Thumbnail(url: item.thumbnailUrl),
-          ),
-          // ── 텍스트 정보 (우측) ──
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // 코스명 + 난이도 배지
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontFamily: 'Pretendard',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1C1C1E),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: diffColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          diffLabel,
-                          style: TextStyle(
-                            fontFamily: 'Pretendard',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: diffColor,
+        child: Row(
+          children: [
+            // 좌측 정사각형 썸네일.
+            _Thumbnail(url: course.thumbnailUrl),
+            // 우측 텍스트 영역.
+            Expanded(
+              child: Padding(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 코스명 + 난이도 배지.
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            course.title,
+                            style: const TextStyle(
+                              fontFamily: 'Pretendard',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1C1C1E),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  // 지역 + 거리
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.place_outlined,
-                        size: 12,
-                        color: Color(0xFF9CA3AF),
-                      ),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(
-                          item.regions.join(' · '),
+                        if (course.difficulty != null) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: diffColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              diffLabel,
+                              style: TextStyle(
+                                fontFamily: 'Pretendard',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: diffColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    // 지역 + 거리.
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.place_outlined,
+                          size: 12,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                        const SizedBox(width: 2),
+                        Expanded(
+                          child: Text(
+                            course.regions.join(' · '),
+                            style: const TextStyle(
+                              fontFamily: 'Pretendard',
+                              fontSize: 12,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${course.distance.toStringAsFixed(1)} km',
                           style: const TextStyle(
-                            fontFamily: 'Pretendard',
+                            fontFamily: 'SUIT',
                             fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // 코스 완주율(전체 사용자 통계) + 본인 완주 여부.
+                    // 두 값은 독립이라 한 줄에 같이 표시한다.
+                    //   - 좌측: "완주율 N%" — 이 코스를 시도한 사람들 중 완주 비율
+                    //   - 우측(본인이 완주한 경우만): "완주 ✓"
+                    Row(
+                      children: [
+                        if (hasCourseStat) ...[
+                          const Icon(
+                            Icons.groups_outlined,
+                            size: 12,
                             color: Color(0xFF9CA3AF),
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        '${item.distance.toStringAsFixed(1)} km',
-                        style: const TextStyle(
-                          fontFamily: 'SUIT',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF6B7280),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // 진행률 바 (진행 중인 코스만)
-                  if (hasProgress)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: item.completionScore / 100,
-                        minHeight: 4,
-                        backgroundColor: const Color(0xFFE5E7EB),
-                        valueColor: AlwaysStoppedAnimation<Color>(diffColor),
-                      ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '완주율 ${course.completionScore}%',
+                            style: const TextStyle(
+                              fontFamily: 'Pretendard',
+                              fontSize: 11,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        ],
+                        if (isCompleted) ...[
+                          if (hasCourseStat) const SizedBox(width: 8),
+                          const Text(
+                            '완주 ✓',
+                            style: TextStyle(
+                              fontFamily: 'Pretendard',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF27AE60),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  // 완주 텍스트
-                  if (isCompleted)
-                    const Text(
-                      '완주 ✓',
-                      style: TextStyle(
-                        fontFamily: 'Pretendard',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF27AE60),
-                      ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
