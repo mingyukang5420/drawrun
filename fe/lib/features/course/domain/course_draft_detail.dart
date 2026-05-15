@@ -1,46 +1,29 @@
 import 'package:running/shared/model/lat_lng.dart';
 
+// GET /api/v1/editor/{editorId} 응답 result 필드에 대응하는 모델
+// 실제 응답: { editorId, title, status, coordinates:[{lat,lng}] }
+// 목록 API(CourseDraft)와 달리 difficulty/distance/trackImageUrl/createdAt 이 없다
 class CourseDraftDetail {
-  final int courseDraftId;
-  final int? courseId;
+  final int editorId;
   final String title;
-  final String? difficulty;
   final String? status;
-  final double distance;
-  final String? trackImageUrl;
-  final DateTime? createdAt;
   final List<LatLng> coordinates;
 
   const CourseDraftDetail({
-    required this.courseDraftId,
-    this.courseId,
+    required this.editorId,
     required this.title,
-    this.difficulty,
     this.status,
-    required this.distance,
-    this.trackImageUrl,
-    this.createdAt,
     this.coordinates = const [],
   });
 
   factory CourseDraftDetail.fromJson(Map<String, dynamic> json) {
     final rawCoords = json['coordinates'] as List<dynamic>? ?? [];
-    // order 필드가 null 로 내려오는 경우 0 으로 대체해 정렬 오류 방지
-    final sorted = List<Map<String, dynamic>>.from(rawCoords)
-      ..sort((a, b) => (a['order'] as int? ?? 0)
-          .compareTo(b['order'] as int? ?? 0));
     return CourseDraftDetail(
-      courseDraftId: json['courseDraftId'] as int,
-      courseId: json['courseId'] as int?,
+      editorId: json['editorId'] as int,
       title: json['title'] as String,
-      difficulty: json['difficulty'] as String?,
       status: json['status'] as String?,
-      distance: (json['distance'] as num).toDouble(),
-      trackImageUrl: json['trackImageUrl'] as String?,
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String)
-          : null,
-      coordinates: sorted
+      // 서버가 이미 순서대로 반환하므로 order 정렬 불필요
+      coordinates: rawCoords
           .map((e) => LatLng(
                 latitude: (e['lat'] as num).toDouble(),
                 longitude: (e['lng'] as num).toDouble(),
