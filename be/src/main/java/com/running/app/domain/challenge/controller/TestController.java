@@ -1,13 +1,16 @@
 package com.running.app.domain.challenge.controller;
 
+import com.running.app.domain.challenge.dto.TestDTO;
 import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
 import com.running.app.domain.challenge.service.TestService;
 import com.running.app.global.response.ApiResponse;
+import com.running.app.global.response.exception.GeneralException;
+import com.running.app.global.response.status.ErrorStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,14 +25,22 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RequiredArgsConstructor
 @Tag(name = "테스트", description = "테스트")
-public class Testcontroller {
+public class TestController {
 
     private final ChallengeImageGenerateService challengeImageGenerateService;
     private final TestService testService;
 
+    @Value("${TEST_KEY}")
+    private String TEST_KEY;
+
     @Operation(summary = "텍스트 생성 모델 호출")
-    @GetMapping("/text")
-    public ApiResponse<Void> textRequest() {
+    @PostMapping("/text")
+    public ApiResponse<Void> textRequest(
+            @RequestBody String testKey
+    ) {
+        log.info("{}", TEST_KEY);
+        log.info("{}", testKey);
+        isEqualsTestKey(testKey);
         challengeImageGenerateService.callTextModel();
         return ApiResponse.OK;
     }
@@ -37,18 +48,27 @@ public class Testcontroller {
     @Operation(summary = "이미지 생성 모델 호출")
     @PostMapping("/img")
     public ApiResponse<String> imgRequest(
-            @RequestBody String imgString
+            @RequestBody TestDTO request
     ) {
-        String s = challengeImageGenerateService.callImageModel(imgString);
+        isEqualsTestKey(request.getTestKey());
+        String s = challengeImageGenerateService.callImageModel(request.getImgString());
         return ApiResponse.onSuccess(s);
     }
 
     @Operation(summary = "전체 흐름 테스트")
     @PostMapping("pipeline")
-    public ApiResponse<Void> pipeline() {
-
+    public ApiResponse<Void> pipeline(
+            @RequestBody String testKey
+    ) {
+        isEqualsTestKey(testKey);
         testService.testPipeline();
 
         return ApiResponse.OK;
+    }
+
+    private void isEqualsTestKey(String key) {
+        if (!key.equals(TEST_KEY)) {
+            throw new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }
