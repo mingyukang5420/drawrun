@@ -7,6 +7,9 @@ app:
     track-image-dir: C:/Users/SSAFY/Desktop/uploads/tracks
     track-image-path-prefix: /api/uploads/tracks
     track-image-public-base-url: http://localhost:8080
+    challenge-image-dir: C:/Users/SSAFY/Desktop/uploads/challenge
+    challenge-image-path-prefix: /api/uploads/challenge
+
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/running

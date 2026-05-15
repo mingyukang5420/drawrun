@@ -38,6 +38,8 @@ app:
     track-image-dir: /home/ubuntu/uploads/tracks #서버에 저장할 실제 저장 디렉토리
     track-image-path-prefix: /uploads/tracks #nginx가 노출할 URL path
     track-image-public-base-url: https://k14a103.p.ssafy.io #DB에 저장할 도메인 포함 base URL
+    challenge-image-dir: /home/ubuntu/uploads/challenge
+    challenge-image-path-prefix: /uploads/challenge
 
 weather:
   api:
