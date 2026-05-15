@@ -2,18 +2,18 @@ package com.running.app.domain.record.dto;
 
 import com.running.app.domain.track.dto.TrackRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 public abstract class RecordRequest {
 
@@ -24,6 +24,8 @@ public abstract class RecordRequest {
 
         private Long courseId;
         private Long courseDraftId;
+        private Long challengeId;
+        private BigDecimal similarityScore;
 
         @NotBlank(message = "제목은 필수입니다.")
         @Size(max = 20, message = "제목은 20자 이하여야 합니다.")
