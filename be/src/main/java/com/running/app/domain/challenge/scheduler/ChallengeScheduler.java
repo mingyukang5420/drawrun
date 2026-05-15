@@ -23,7 +23,7 @@ public class ChallengeScheduler {
     private final ChallengeImageGenerateService challengeImageGenerateService;
     private final ChallengeService challengeService;
 
-    @Scheduled(cron = "0 0 0 * * *") // 매일 정각 실행
+    @Scheduled(cron = "0 0 0 * * 1") // 매주 월요일 실행
     public void generateChallenge() {
 
         LocalDateTime resentChallengeEndTime = challengeRepository.findResentChallenge();
