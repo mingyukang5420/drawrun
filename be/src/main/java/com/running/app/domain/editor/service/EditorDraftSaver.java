@@ -23,6 +23,7 @@ import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 // 분리 이유: @Transactional 안에서 디스크 IO 가 일어나면 트랜잭션 보유 시간이 IO 만큼 늘어나고
 //           DB 커넥션이 그 동안 점유된다. 영속화 책임만 별도 빈으로 빼서 self-invocation 없이
 //           Facade 에서 try-catch + 보상이 가능하도록 한다.
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class EditorDraftSaver {
@@ -83,6 +85,8 @@ public class EditorDraftSaver {
         if (request.getChallengeId() != null) {
             challenge = challengeRepository.findById(request.getChallengeId())
                     .orElseThrow(() -> new GeneralException(ErrorStatus.COURSE_NOT_FOUND));
+
+            log.info("challengeId: {}", challenge.getId());
         }
 
         CourseDraft courseDraft = courseDraftService.createFromEditor(

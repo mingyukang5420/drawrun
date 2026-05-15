@@ -112,8 +112,8 @@ public class EditorController {
             @Parameter(description = "페이지 번호(0-based). 기본값 0", example = "0")
             @RequestParam(defaultValue = "0") Integer page,
 
-            @Parameter(description = "Challenge ID / null able")
-            @RequestParam Long challengeId
+            @Parameter(description = "Challenge ID / null able", required = false)
+            @RequestParam(required = false) Long challengeId
     ) {
         DraftListResultResponse response = editorService.getDraftList(loginId, filter, page,
                 challengeId);

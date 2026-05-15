@@ -1,5 +1,6 @@
 package com.running.app.domain.editor.service;
 
+import com.running.app.domain.challenge.repository.ChallengeRepository;
 import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
@@ -40,6 +41,7 @@ public class EditorService {
     private final RunningRecordRepository runningRecordRepository;
     private final TrackImageStorageService trackImageStorageService;
     private final EditorDraftSaver editorDraftSaver;
+    private final ChallengeRepository challengeRepository;
 
     // 에디터 저장 흐름 — 트랜잭션 밖에서 동작.
     // 1) 디스크 IO 로 썸네일 저장 (트랜잭션 밖에서 끝내야 DB 커넥션이 IO 시간 동안 묶이지 않음)
@@ -196,6 +198,9 @@ public class EditorService {
                         courseDraftRepository.findRegisteredByMemberId(memberId, pageable);
             };
         } else {
+            if (!challengeRepository.existsById(challengeId)) {
+                throw new GeneralException(ErrorStatus.COURSE_NOT_FOUND);
+            }
             slice = courseDraftRepository.findAllByMemberIdAndChallengeId(
                     memberId, challengeId, pageable);
         }
