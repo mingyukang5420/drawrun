@@ -22,6 +22,7 @@ public abstract class ChallengeResponse {
         private LocalDateTime startedAt;
         private LocalDateTime endedAt;
         private int totalCount;
+        private RankEntryDTO prevRank;
         private RankEntryDTO myRank;
         private List<RankEntryDTO> rankings;
     }
