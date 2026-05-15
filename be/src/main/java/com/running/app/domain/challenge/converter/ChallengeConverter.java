@@ -39,9 +39,11 @@ public abstract class ChallengeConverter {
 
     public static Challenge toChallenge(String title, String imagePath) {
 
+        final int CHALLENGE_CYCLE = 7;
+
         // 14일 후 정각으로 세팅
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime end = now.plusDays(14).toLocalDate().atStartOfDay();
+        LocalDateTime end = now.plusDays(CHALLENGE_CYCLE).toLocalDate().atStartOfDay();
 
         return Challenge.builder()
                 .title(title)
@@ -50,5 +52,5 @@ public abstract class ChallengeConverter {
                 .endedAt(end)
                 .build();
     }
-    
+
 }
