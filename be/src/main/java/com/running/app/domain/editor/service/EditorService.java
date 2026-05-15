@@ -173,7 +173,8 @@ public class EditorService {
     public EditorResponse.DraftListResultResponse getDraftList(
             String loginId,
             CourseDraftFilterType filter,
-            Integer page
+            Integer page,
+            Long challengeId
     ) {
         Member member = memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
@@ -181,13 +182,23 @@ public class EditorService {
 
         Pageable pageable = PageRequest.of(page, DRAFT_LIST_PAGE_SIZE);
 
-        Slice<CourseDraftListItem> slice = switch (filter) {
-            case ALL -> courseDraftRepository.findAllByMemberId(memberId, pageable);
-            case READY -> courseDraftRepository.findAllByMemberIdAndStatus(
-                    memberId, CourseDraftStatus.READY, pageable);
-            case DONE -> courseDraftRepository.findUnregisteredDoneByMemberId(memberId, pageable);
-            case REGISTERED -> courseDraftRepository.findRegisteredByMemberId(memberId, pageable);
-        };
+        Slice<CourseDraftListItem> slice = null;
+
+        // challengeId 존재 여부에 따라 분기
+        if (challengeId == null) {
+            slice = switch (filter) {
+                case ALL -> courseDraftRepository.findAllByMemberId(memberId, pageable);
+                case READY -> courseDraftRepository.findAllByMemberIdAndStatus(
+                        memberId, CourseDraftStatus.READY, pageable);
+                case DONE ->
+                        courseDraftRepository.findUnregisteredDoneByMemberId(memberId, pageable);
+                case REGISTERED ->
+                        courseDraftRepository.findRegisteredByMemberId(memberId, pageable);
+            };
+        } else {
+            slice = courseDraftRepository.findAllByMemberIdAndChallengeId(
+                    memberId, challengeId, pageable);
+        }
 
         List<EditorResponse.DraftListResponse> content = slice.getContent().stream()
                 .map(EditorConverter::toDraftListResponse)

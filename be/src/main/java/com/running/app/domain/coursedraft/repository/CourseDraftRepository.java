@@ -27,11 +27,32 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
                    cd.createdAt as createdAt
             from CourseDraft cd
                 left join cd.track t
-            where cd.memberId = :memberId
+            where cd.memberId = :memberId AND Challenge IS NULL
             order by cd.createdAt desc
             """)
     Slice<CourseDraftListItem> findAllByMemberId(
             @Param("memberId") Long memberId,
+            Pageable pageable
+    );
+
+    // 사용자의 요청한 챌린지에 대한 에디터 목록만을 보여주는 쿼리
+    @Query("""
+            select cd.id as courseDraftId,
+                   cast(null as java.lang.Long) as courseId,
+                   cd.title as title,
+                   cd.difficulty as difficulty,
+                   cd.status as status,
+                   t.distance as distance,
+                   t.trackImageUrl as trackImageUrl,
+                   cd.createdAt as createdAt
+            from CourseDraft cd
+                left join cd.track t
+            where cd.memberId = :memberId AND cd.challenge.id = :challengeId
+            order by cd.createdAt desc
+            """)
+    Slice<CourseDraftListItem> findAllByMemberIdAndChallengeId(
+            @Param("memberId") Long memberId,
+            @Param("challengeId") Long challengeId,
             Pageable pageable
     );
 
@@ -49,6 +70,7 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
                 left join cd.track t
             where cd.memberId = :memberId
               and cd.status = :status
+              and Challenge IS NULL
             order by cd.createdAt desc
             """)
     Slice<CourseDraftListItem> findAllByMemberIdAndStatus(
@@ -82,7 +104,7 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
                               JOIN courses c ON c.source_record_id = r.record_id
                           WHERE r.course_draft_id = cd.course_draft_id
                             AND c.deleted_at IS NULL
-                      )
+                      ) AND cd.challenge_id IS NULL
                     ORDER BY cd.created_at DESC
                     """
     )
@@ -111,6 +133,7 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
                     WHERE cd.member_id = :memberId
                       AND c.course_id IS NOT NULL
                       AND c.deleted_at IS NULL
+                      AND cd.challenge_id IS NULL
                     ORDER BY cd.created_at DESC
                     """
     )
