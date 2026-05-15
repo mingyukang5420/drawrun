@@ -31,28 +31,8 @@ public class RecordConverter {
                 .title(request.getTitle())
                 .startedAt(request.getStartedAt())
                 .endedAt(request.getEndedAt())
-                .build();
-    }
-
-    public static RecordResponse.CreateResultDTO toCreateResultDTO(
-            RunningRecord runningRecord
-    ) {
-        Track track = runningRecord.getTrack();
-
-        return RecordResponse.CreateResultDTO.builder()
-                .recordId(runningRecord.getId())
-                .trackId(track.getTrackId())
-                .courseId(runningRecord.getCourseId())
-                .courseDraftId(runningRecord.getCourseDraftId())
-                .title(runningRecord.getTitle())
-                .distance(track.getDistance())
-                .trackImageUrl(track.getTrackImageUrl())
-                .runningTime(runningRecord.getRunningTime())
-                .avgPace(runningRecord.getAvgPace())
-                .calories(runningRecord.getCalories())
-                .cadence(runningRecord.getCadence())
-                .isCompleted(runningRecord.getIsCompleted())
-                .isSafe(runningRecord.getIsSafe())
+                .challengeId(request.getChallengeId())
+                .similarityScore(request.getSimilarityScore())
                 .build();
     }
 
