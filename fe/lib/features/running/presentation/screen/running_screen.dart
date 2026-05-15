@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/core/theme/app_text_style.dart';
+import 'package:running/features/challenge/data/mock_challenge_data.dart';
+import 'package:running/features/challenge/presentation/screen/challenge_screen.dart';
 import 'package:running/features/bookmark/presentation/bookmark_provider.dart';
 import 'package:running/features/bookmark/presentation/bookmarked_courses_viewmodel.dart';
 import 'package:running/features/bookmark/presentation/screen/bookmark_list_screen.dart';
@@ -26,6 +28,7 @@ class RunningScreen extends ConsumerWidget {
           children: [
             _Header(),
             _BookmarkedCourses(),
+            const _ChallengeEntry(),
             Expanded(
               child: Stack(
                 children: [const RunningMapView(), const _MapVignette()],
@@ -656,6 +659,156 @@ class _FreeRunButton extends StatelessWidget {
                 size: 22,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 챌린지 바로가기 배너 ────────────────────────────────────────────
+// 북마크 캐러셀 바로 아래에 들어가는 다크 배너.
+// 회차 라벨("이번 주 챌린지") + D-N + 챌린지 이름 + 참여/내 점수 요약.
+// 탭 시 ChallengeScreen 으로 이동.
+// 데이터는 서버 연동 없는 mock_challenge_data 의 kMockChallenge.
+class _ChallengeEntry extends StatelessWidget {
+  const _ChallengeEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    const challenge = kMockChallenge;
+
+    // 참여 인원 천 단위 콤마.
+    final formattedParticipants = challenge.participantCount
+        .toString()
+        .replaceAllMapped(
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]},',
+        );
+
+    // D-N 라벨. 0 이면 D-DAY, 음수면 진행 중.
+    final String dLabel;
+    if (challenge.daysUntilStart > 0) {
+      dLabel = 'D-${challenge.daysUntilStart}';
+    } else if (challenge.daysUntilStart == 0) {
+      dLabel = 'D-DAY';
+    } else {
+      dLabel = '진행 중';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Material(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ChallengeScreen()),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                // 좌측 노란 도장.
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD60A),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    challenge.stampIcon,
+                    color: const Color(0xFF1C1C1E),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // 가운데 — 회차 라벨 + D 배지 + 챌린지 이름 + 요약.
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 회차 라벨(노랑) + D-N 배지.
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              challenge.weekLabel,
+                              style: const TextStyle(
+                                fontFamily: 'Pretendard',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFFFD60A),
+                                letterSpacing: 0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFD60A).withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              dLabel,
+                              style: const TextStyle(
+                                fontFamily: 'Pretendard',
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFFFD60A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      // 챌린지 이름 (한 줄, 길면 ellipsis).
+                      Text(
+                        challenge.title,
+                        style: const TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      // 참여 인원 · 내 최고 점수 (현재 순위) 한 줄 요약.
+                      Text(
+                        '참여 $formattedParticipants명 · '
+                        '내 최고 ${challenge.myBestScore.toStringAsFixed(2)}점 '
+                        '(${challenge.myRank}위)',
+                        style: const TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 11,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 우측 화살표 — 탭 가능 시그널.
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFFFFD60A),
+                  size: 22,
+                ),
+              ],
+            ),
           ),
         ),
       ),
