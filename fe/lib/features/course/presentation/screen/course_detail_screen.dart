@@ -91,23 +91,16 @@ class _DetailAppBar extends StatelessWidget {
       pinned: true,
       backgroundColor: Colors.white,
       foregroundColor: Colors.white,
-      flexibleSpace: FlexibleSpaceBar(
-        background: detail.trackImageUrl != null
-            ? Image.network(
-                detail.trackImageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _placeholder(),
-              )
-            : _placeholder(),
+      // 상세 API 응답에 trackImageUrl 이 없으므로 항상 placeholder 표시
+      flexibleSpace: const FlexibleSpaceBar(
+        background: ColoredBox(
+          color: Color(0xFFE5E7EB),
+          child: Icon(Icons.landscape, color: Color(0xFFD1D5DB), size: 64),
+        ),
       ),
     );
   }
 
-  Widget _placeholder() => Container(
-        color: const Color(0xFFE5E7EB),
-        child: const Icon(Icons.landscape,
-            color: Color(0xFFD1D5DB), size: 64),
-      );
 }
 
 // ── 메타 정보 + 경로 지도 ───────────────────────────────────────────────
@@ -116,16 +109,7 @@ class _DetailBody extends StatelessWidget {
 
   const _DetailBody({required this.detail});
 
-  static const _difficultyColor = {
-    'EASY': Color(0xFF27AE60),
-    'NORMAL': Color(0xFFE67E22),
-    'HARD': Color(0xFFE74C3C),
-  };
-  static const _difficultyLabel = {
-    'EASY': '쉬움',
-    'NORMAL': '보통',
-    'HARD': '어려움',
-  };
+  // 상세 API 응답에 difficulty/distance/createdAt 이 없으므로 status 만 표시
   static const _statusColor = {
     'READY': Color(0xFF3B82F6),
     'DONE': Color(0xFF10B981),
@@ -139,9 +123,6 @@ class _DetailBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final diffColor =
-        _difficultyColor[detail.difficulty] ?? const Color(0xFF6B7280);
-    final diffLabel = _difficultyLabel[detail.difficulty] ?? '';
     final statusColor = _statusColor[detail.status];
     final statusLabel = _statusLabel[detail.status];
 
@@ -167,43 +148,9 @@ class _DetailBody extends StatelessWidget {
                 const SizedBox(width: 8),
                 _Badge(label: statusLabel, color: statusColor),
               ],
-              if (detail.difficulty != null && diffLabel.isNotEmpty) ...[
-                const SizedBox(width: 6),
-                _Badge(label: diffLabel, color: diffColor),
-              ],
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              const Icon(Icons.straighten,
-                  size: 14, color: Color(0xFF9CA3AF)),
-              const SizedBox(width: 4),
-              Text(
-                '${detail.distance.toStringAsFixed(1)} km',
-                style: const TextStyle(
-                  fontFamily: 'SUIT',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF6B7280),
-                ),
-              ),
-              if (detail.createdAt != null) ...[
-                const SizedBox(width: 16),
-                const Icon(Icons.calendar_today_outlined,
-                    size: 14, color: Color(0xFF9CA3AF)),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDate(detail.createdAt!),
-                  style: const TextStyle(
-                    fontFamily: 'Pretendard',
-                    fontSize: 13,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                ),
-              ],
-            ],
-          ),
           if (detail.coordinates.isNotEmpty) ...[
             const SizedBox(height: 24),
             const Text(
@@ -230,8 +177,6 @@ class _DetailBody extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime dt) =>
-      '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
 }
 
 class _Badge extends StatelessWidget {
@@ -331,9 +276,13 @@ class _BottomBar extends StatelessWidget {
           width: double.infinity,
           height: 52,
           child: ElevatedButton.icon(
+            // 기존 좌표를 에디터에 넘겨 이어서 편집할 수 있게 한다
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                  builder: (_) => const CourseEditorScreen()),
+                builder: (_) => CourseEditorScreen(
+                  initialNodes: detail.coordinates,
+                ),
+              ),
             ),
             icon: const Icon(Icons.edit_outlined),
             label: const Text(
