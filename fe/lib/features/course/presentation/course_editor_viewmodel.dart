@@ -179,9 +179,25 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
 
   // 지도 컨트롤러 등록 (onMapReady 콜백에서 1회 호출)
   // map_view.dart 에서 컨트롤러 등록을 카메라 이동보다 먼저 수행하므로
-  // 위치 이동 완료 후 발생하는 onCameraIdle 에서 loadWays 가 정상 실행된다
+  // 위치 이동 완료 후 발생하는 onCameraIdle 에서 loadWays 가 정상 실행된다.
+  // loadNodes 가 먼저 호출된 경우 여기서 경로를 그린다.
   void setMapController(NaverMapController controller) {
     _mapController = controller;
+    if (state.nodes.isNotEmpty) _drawRoute(state.nodes);
+  }
+
+  // 기존 코스의 좌표를 에디터에 미리 채운다 (이어서 편집 진입 시 호출)
+  // setMapController 보다 먼저 호출될 수 있으므로 컨트롤러 준비 여부를 확인한다
+  void loadNodes(List<NLatLng> nodes) {
+    if (nodes.isEmpty) return;
+    state = state.copyWith(
+      nodes: nodes,
+      undoStack: [],
+      redoStack: [],
+      totalDistanceKm: _calcDistance(nodes),
+    );
+    // 컨트롤러가 이미 준비된 경우에만 즉시 그린다
+    if (_mapController != null) _drawRoute(nodes);
   }
 
   // 코스 이름 변경 (상단 바 편집 다이얼로그에서 호출)
