@@ -4,7 +4,9 @@ import com.running.app.domain.challenge.dto.GmsImageDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.entity.Challenge;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
 public abstract class ChallengeConverter {
@@ -39,11 +41,13 @@ public abstract class ChallengeConverter {
 
     public static Challenge toChallenge(String title, String imagePath) {
 
-        final int CHALLENGE_CYCLE = 7;
-
-        // 14일 후 정각으로 세팅
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime end = now.plusDays(CHALLENGE_CYCLE).toLocalDate().atStartOfDay();
+
+        // 시작일과 무관하게 다음주 월요일로 끝나는 날 지정
+        LocalDateTime end = LocalDateTime.now()
+                .with(TemporalAdjusters.next(DayOfWeek.MONDAY))
+                .toLocalDate()
+                .atStartOfDay();
 
         return Challenge.builder()
                 .title(title)
