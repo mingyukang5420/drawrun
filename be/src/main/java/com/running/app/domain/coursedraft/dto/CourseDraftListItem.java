@@ -23,4 +23,6 @@ public interface CourseDraftListItem {
     String getTrackImageUrl();      // tracks.track_image_url. 현재는 sentinel 문자열로 채워져 있음
 
     LocalDateTime getCreatedAt();
+
+    Long getChallengeId();
 }

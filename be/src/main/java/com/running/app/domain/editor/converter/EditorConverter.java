@@ -111,6 +111,7 @@ public abstract class EditorConverter {
                 .distance(formatDistance(item.getDistance()))
                 .trackImageUrl(item.getTrackImageUrl())
                 .createdAt(formatDate(item.getCreatedAt()))
+                .challengeId(item.getChallengeId())
                 .build();
     }
 

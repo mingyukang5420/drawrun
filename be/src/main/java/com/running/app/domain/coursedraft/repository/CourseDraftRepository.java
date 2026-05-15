@@ -44,7 +44,8 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
                    cd.status as status,
                    t.distance as distance,
                    t.trackImageUrl as trackImageUrl,
-                   cd.createdAt as createdAt
+                   cd.createdAt as createdAt,
+                   cd.challenge.id as challengeId
             from CourseDraft cd
                 left join cd.track t
             where cd.memberId = :memberId AND cd.challenge.id = :challengeId

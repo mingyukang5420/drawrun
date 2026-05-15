@@ -199,7 +199,7 @@ public class EditorService {
             };
         } else {
             if (!challengeRepository.existsById(challengeId)) {
-                throw new GeneralException(ErrorStatus.COURSE_NOT_FOUND);
+                throw new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND);
             }
             slice = courseDraftRepository.findAllByMemberIdAndChallengeId(
                     memberId, challengeId, pageable);

@@ -173,6 +173,8 @@ public class EditorController {
             description = """
                     사용자가 에디터에서 그린 커스텀 러닝 코스를 저장.
                     
+                    - challengeId 유무에 따라 로직이 다르니 challengeId를 넣을 상황인지 아닌지 호출 시 구별 필요!!
+                    
                     처리 흐름:
                     1. 썸네일(base64) 을 디스크에 저장하고 공개 URL 확보 (트랜잭션 밖)
                     2. 좌표가 도보 가능한 길(osm_ways_split) buffer 내에 있는지 검증 (실패 시 400 INVALID_ROUTE)
@@ -200,7 +202,8 @@ public class EditorController {
                                                 { "lat": 37.54793, "lng": 126.91838, "order": 3 }
                                             
                                               ],
-                                              "thumbnailBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+                                              "thumbnailBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+                                              "challengeId": 10
                                             }
                                             """
                             )
