@@ -41,13 +41,22 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
     @Override
     public RankEntryDTO getMyChallengeRanking(String loginId, long challengeId) {
 
-        challengeRepository.findById(challengeId)
+        Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
 
         Member member = memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
         String key = "ranking:challenge:" + challengeId;
+
+        // Redis에 데이터 없으면 DB에서 가져와서 적재
+        if (!rankingRedisService.isHaveRank(key)) {
+            log.info("챌린지 Redis 데이터 없음. DB에서 적재 시작");
+            List<ChallengeRankingQueryResult> rankingResults =
+                    runningRecordRepository.findRankingByChallengeId(challengeId);
+            rankingRedisService.setChallengeRankingValue(rankingResults, challengeId,
+                    challenge.getEndedAt());
+        }
 
         // Redis에서 내 순위 인덱스 조회 (0부터 시작하므로 +1 처리)
         Long rawRank = rankingRedisService.getMyChallengeRank(member.getMemberId().longValue(),
@@ -73,13 +82,22 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
     @Override
     public RankEntryDTO getPrevRanking(String loginId, long challengeId) {
 
-        challengeRepository.findById(challengeId)
+        Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
 
         Member member = memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
         String key = "ranking:challenge:" + challengeId;
+
+        // Redis에 데이터 없으면 DB에서 가져와서 적재
+        if (!rankingRedisService.isHaveRank(key)) {
+            log.info("챌린지 Redis 데이터 없음. DB에서 적재 시작");
+            List<ChallengeRankingQueryResult> rankingResults =
+                    runningRecordRepository.findRankingByChallengeId(challengeId);
+            rankingRedisService.setChallengeRankingValue(rankingResults, challengeId,
+                    challenge.getEndedAt());
+        }
 
         Long rawRank = rankingRedisService.getMyChallengeRank(member.getMemberId().longValue(),
                 key);
@@ -89,7 +107,7 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
 
         int myRank = rawRank.intValue() + 1;
 
-        // 6위 이하면 이미 top5에 포함되므로 prevRank 불필요
+        // 바로 앞 순위가 이미 top5에 포함되므로 prevRank 불필요
         if (myRank <= 6) {
             return null;
         }
