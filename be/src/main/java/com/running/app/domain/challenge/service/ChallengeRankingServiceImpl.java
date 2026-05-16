@@ -77,7 +77,7 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
     }
 
     // 현재 로그인한 사용자 바로 앞 순위 조회
-    // myRank가 6위 이하면 이미 top5에 포함되므로 null 반환
+    // myRank가 6위 이하면 바로 앞 순위가 이미 top5에 포함되므로 null 반환
     // myRank가 7위 이상이면 myRank - 1 순위 사람 정보 반환
     @Override
     public RankEntryDTO getPrevRanking(String loginId, long challengeId) {
