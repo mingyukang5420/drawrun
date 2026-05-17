@@ -1,6 +1,7 @@
 package com.running.app.domain.record.repository;
 
 import com.running.app.domain.record.entity.RunningRecord;
+import com.running.app.domain.record.projection.ChallengeRankingQueryResult;
 import com.running.app.domain.record.projection.RankingQueryResult;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -78,4 +79,17 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
 
     // 내 기록 개수 조회
     Integer countByMemberId(Long memberId);
+
+    // 챌린지 참가 기록에서 사용자 별 최고 유사도를 내림차순(유사도 높은 순)으로 가져옴
+    @Query("""
+            SELECT r.memberId AS memberId, MAX(r.similarityScore) AS bestSimilarityScore
+            FROM RunningRecord r
+            WHERE r.challengeId = :challengeId
+            AND r.similarityScore IS NOT NULL
+            GROUP BY r.memberId
+            ORDER BY MAX(r.similarityScore) DESC
+            """)
+    List<ChallengeRankingQueryResult> findRankingByChallengeId(
+            @Param("challengeId") Long challengeId);
+
 }

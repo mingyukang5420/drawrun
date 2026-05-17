@@ -1,6 +1,9 @@
 package com.running.app.domain.ranking.service;
 
+import com.running.app.domain.record.projection.ChallengeRankingQueryResult;
 import com.running.app.domain.record.projection.RankingQueryResult;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,4 +104,59 @@ public class RankingRedisService {
     public void deleteRankValue(String key) {
         redisTemplate.delete(key);
     }
+
+    // 챌린지 랭킹 데이터를 (records 테이블) DB에서 가져와 Redis에 적재함
+    // key: ranking:challenge:{challengeId}, TTL: ended_at + 7일
+    public void setChallengeRankingValue(List<ChallengeRankingQueryResult> rankingResult,
+            long challengeId, LocalDateTime endedAt) {
+        log.info("챌린지 Redis 적재 요청");
+        ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
+        String key = "ranking:challenge:" + challengeId;
+
+        for (ChallengeRankingQueryResult result : rankingResult) {
+            zSetOps.add(key, result.getMemberId().toString(),
+                    result.getBestSimilarityScore().doubleValue());
+        }
+
+        long ttlSeconds = ChronoUnit.SECONDS.between(LocalDateTime.now(), endedAt.plusDays(7));
+        if (ttlSeconds > 0) {
+            redisTemplate.expire(key, ttlSeconds, TimeUnit.SECONDS);
+        }
+    }
+
+    // 챌린지 랭킹 상위 5명 조회 (유사도 높은 순 = 내림차순)
+    public Map<Long, Double> getChallengeRankingTopFive(String key) {
+        ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
+        Set<TypedTuple<String>> rank = zSetOps.reverseRangeWithScores(key, 0, 4);
+
+        Map<Long, Double> memberRankMap = new LinkedHashMap<>();
+        if (rank == null) {
+            return memberRankMap;
+        }
+
+        rank.forEach(tuple -> {
+            memberRankMap.put(Long.parseLong(tuple.getValue()), tuple.getScore());
+        });
+        return memberRankMap;
+    }
+
+    // 내 챌린지 순위 조회 (내림차순 기준 인덱스, 사용시 +1 처리 필요)
+    public Long getMyChallengeRank(Long memberId, String key) {
+        if (memberId == null) {
+            return null;
+        }
+        ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
+        return zSetOps.reverseRank(key, memberId.toString());
+    }
+
+    // prevRanking용 특정 순위의 memberId와 score 조회
+    public TypedTuple<String> getMemberAtRank(String key, long rankIndex) {
+        ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
+        Set<TypedTuple<String>> result = zSetOps.reverseRangeWithScores(key, rankIndex, rankIndex);
+        if (result == null || result.isEmpty()) {
+            return null;
+        }
+        return result.iterator().next();
+    }
+
 }
