@@ -3,8 +3,8 @@ import 'dart:math' show sqrt;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:running/features/mypage/presentation/screen/mypage_screen.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
+import 'package:running/features/running/presentation/screen/profile_stats_screen.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
 import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
@@ -76,11 +76,11 @@ class _Header extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 프로필 아바타 — 탭 시 마이페이지로 이동
+          // 프로필 아바타 — 탭 시 내 통계 바텀 시트 표시
           GestureDetector(
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const MypageScreen())),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfileStatsScreen()),
+            ),
             child: const CircleAvatar(
               radius: 24,
               backgroundColor: Color(0xFFE5E7EB),

@@ -10,7 +10,11 @@ import 'package:running/features/record/presentation/record_stats_viewmodel.dart
 // 상단 토글로 기간을 바꾸면 BE 에서 해당 기간의 통계를 받아와
 // 차트 + 4종 합계 카드를 갱신한다.
 class RecordStatsScreen extends ConsumerWidget {
-  const RecordStatsScreen({super.key});
+  // false 로 설정하면 합계 카드 중 달린 거리·러닝 횟수(상단 행)를 숨긴다
+  // 프로필 통계 페이지처럼 상단에 별도 카드로 이미 표시된 경우에 사용
+  final bool showDistanceAndCount;
+
+  const RecordStatsScreen({super.key, this.showDistanceAndCount = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -24,8 +28,6 @@ class RecordStatsScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── 1. 기간 토글 ──────────────────────────────────────────
-            // 4개 옵션을 가로로 균등 분할.
-            // 선택된 옵션은 검정 배경 + 흰 글씨, 나머지는 투명.
             _PeriodTabs(
               current: state.period,
               onChanged: (p) => notifier.load(p),
@@ -33,8 +35,6 @@ class RecordStatsScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // ── 2. 차트 영역 ──────────────────────────────────────────
-            // 로딩 중이면 차트 자리에 스피너만 표시 (4종 카드는 이전 값 그대로 둠).
-            // 에러 시 빨간 메시지 + 재시도 버튼.
             if (state.isLoading)
               const SizedBox(
                 height: 220,
@@ -50,8 +50,11 @@ class RecordStatsScreen extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
-            // ── 3. 4종 합계 카드 ─────────────────────────────────────
-            _SummaryCards(stats: state.data),
+            // ── 3. 합계 카드 ─────────────────────────────────────────
+            _SummaryCards(
+              stats: state.data,
+              showDistanceAndCount: showDistanceAndCount,
+            ),
           ],
         ),
       ),
@@ -272,44 +275,39 @@ class _ChartBar extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────
 class _SummaryCards extends StatelessWidget {
   final RecordStats stats;
+  final bool showDistanceAndCount;
 
-  const _SummaryCards({required this.stats});
+  const _SummaryCards({
+    required this.stats,
+    this.showDistanceAndCount = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // 달린 거리·러닝 횟수 행 — 상위에서 이미 표시 시 숨길 수 있음
+        if (showDistanceAndCount) ...[
+          Row(
+            children: [
+              _SummaryCell(
+                label: '달린 거리',
+                value: stats.totalDistance.toStringAsFixed(1),
+                unit: 'km',
+              ),
+              _SummaryCell(
+                label: '러닝 횟수',
+                value: '${stats.totalCount}',
+                unit: '회',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
         Row(
           children: [
-            _SummaryCell(
-              label: '달린 거리',
-              value: stats.totalDistance.toStringAsFixed(1),
-              unit: 'km',
-            ),
-            _SummaryCell(
-              label: '러닝 횟수',
-              value: '${stats.totalCount}',
-              unit: '회',
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            // 평균 페이스 — BE 가 "5'28''" 처럼 따옴표 포함 문자열을 주므로 단위 자리는 비워둔다.
-            _SummaryCell(
-              label: '평균 페이스',
-              value: stats.avgPace,
-              unit: '',
-            ),
-            // 달린 시간 — BE 가 "01:42:00" 같은 HH:MM:SS 를 줌.
-            // 디자인 시안의 "1h 42m" 보다 정밀도가 높은 표기지만,
-            // 추가 변환 없이 그대로 보여줘도 사용자 정보 손실이 없으므로 유지.
-            _SummaryCell(
-              label: '달린 시간',
-              value: stats.totalTime,
-              unit: '',
-            ),
+            _SummaryCell(label: '평균 페이스', value: stats.avgPace, unit: ''),
+            _SummaryCell(label: '달린 시간', value: stats.totalTime, unit: ''),
           ],
         ),
       ],
