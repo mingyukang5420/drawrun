@@ -6,6 +6,7 @@ import 'package:running/features/course/domain/course_draft.dart';
 import 'package:running/features/course/presentation/course_management_viewmodel.dart';
 import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
+import 'package:running/shared/network/api_exception.dart';
 
 class CourseManagementScreen extends ConsumerWidget {
   const CourseManagementScreen({super.key});
@@ -151,17 +152,63 @@ class _CourseList extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         itemCount: state.drafts.length,
         separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => _CourseDraftCard(draft: state.drafts[i]),
+        itemBuilder: (_, i) {
+          final draft = state.drafts[i];
+          return _CourseDraftCard(
+            draft: draft,
+            onDelete: () => _confirmDelete(context, ref, draft.courseDraftId),
+          );
+        },
       ),
     );
+  }
+}
+
+Future<void> _confirmDelete(
+    BuildContext context, WidgetRef ref, int courseDraftId) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('코스 삭제'),
+      content: const Text('이 코스를 삭제하면 되돌릴 수 없습니다.\n정말 삭제하시겠습니까?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('취소'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          style: TextButton.styleFrom(foregroundColor: Color(0xFFE74C3C)),
+          child: const Text('삭제'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true && context.mounted) {
+    try {
+      await ref.read(courseManagementProvider.notifier).deleteCourse(courseDraftId);
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('삭제에 실패했습니다')),
+        );
+      }
+    }
   }
 }
 
 // ── 코스 카드 ─────────────────────────────────────────────────────────
 class _CourseDraftCard extends StatelessWidget {
   final CourseDraft draft;
+  final VoidCallback onDelete;
 
-  const _CourseDraftCard({required this.draft});
+  const _CourseDraftCard({required this.draft, required this.onDelete});
 
   static const _difficultyColor = {
     'EASY': Color(0xFF27AE60),
@@ -321,6 +368,18 @@ class _CourseDraftCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: onDelete,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE74C3C),
+                        side: const BorderSide(color: Color(0xFFE74C3C)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                      ),
+                      child: const Icon(Icons.delete_outline, size: 18),
                     ),
                   ],
                 ),
