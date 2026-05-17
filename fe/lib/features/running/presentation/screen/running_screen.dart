@@ -1,3 +1,5 @@
+import 'dart:math' show sqrt;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,9 +29,7 @@ class RunningScreen extends ConsumerWidget {
 
             // 중간: 현재 위치 기반 지도 (전체 남은 공간 채움)
             Expanded(
-              child: Stack(
-                children: const [RunningMapView(), _MapVignette()],
-              ),
+              child: Stack(children: const [RunningMapView(), _MapVignette()]),
             ),
 
             // 하단: Easy·Hard 배틀 카드 + 자유 러닝 텍스트 버튼
@@ -81,9 +81,9 @@ class _Header extends ConsumerWidget {
         children: [
           // 프로필 아바타 — 탭 시 마이페이지로 이동
           GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MypageScreen()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const MypageScreen())),
             child: const CircleAvatar(
               radius: 24,
               backgroundColor: Color(0xFFE5E7EB),
@@ -153,12 +153,17 @@ class _VignettePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.longestSide * 0.6;
 
-    final shader = RadialGradient(
-      colors: const [Color(0x00FFFFFF), Colors.white],
-      stops: const [0.15, 0.7],
-    ).createShader(
-      Rect.fromCenter(center: center, width: radius * 2, height: radius * 2),
-    );
+    final shader =
+        RadialGradient(
+          colors: const [Color(0x00FFFFFF), Colors.white],
+          stops: const [0.15, 0.7],
+        ).createShader(
+          Rect.fromCenter(
+            center: center,
+            width: radius * 2,
+            height: radius * 2,
+          ),
+        );
 
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
@@ -179,10 +184,7 @@ class _ChallengeButtons extends StatelessWidget {
   final void Function(String difficulty, String title) onChallenge;
   final VoidCallback onFreeRun;
 
-  const _ChallengeButtons({
-    required this.onChallenge,
-    required this.onFreeRun,
-  });
+  const _ChallengeButtons({required this.onChallenge, required this.onFreeRun});
 
   @override
   Widget build(BuildContext context) {
@@ -190,52 +192,68 @@ class _ChallengeButtons extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Column(
         children: [
-          // ── 두 카드 나란히 ────────────────────────────────────
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 좌: Easy 카드
-                Expanded(
-                  child: _ChallengeCard(
-                    difficulty: 'EASY',
-                    label: 'Easy',
-                    description: '단순한 도형을\n따라 그려요',
-                    // Easy: 라벨 좌상단, 도형 우하단
-                    labelAlignment: CrossAxisAlignment.start,
-                    shapeAlignment: Alignment.bottomRight,
-                    accentColor: const Color(0xFF27AE60),
-                    // Easy 모드 대표 도형: 단순한 다각형 (집·화살표 형태)
-                    shapeIcon: Icons.change_history_outlined,
-                    // TODO: 백엔드에서 실제 도전 횟수 API 연동 필요
-                    attemptCount: '1,234명 도전',
-                    // TODO: 백엔드에서 내 최고 랭킹 API 연동 필요
-                    myBestInfo: '최고 기록 없음',
-                    onTap: () => onChallenge('EASY', 'Easy 챌린지'),
-                  ),
+          // ── 두 카드 맞닿기 ───────────────────────────────────
+          // ClipPath는 레이아웃 공간을 남기므로 Row+Expanded 방식으로는
+          // 사선 끝부분에 투명 공백이 생김.
+          // LayoutBuilder로 너비를 측정한 뒤 Stack+Positioned로 두 카드를
+          // _slant 픽셀만큼 겹쳐 배치 → 두 사선이 정확히 한 선에서 만남.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // 각 카드 너비 = 절반 + 사선/2
+              // → Easy 사선 하단: halfW - slant/2, Hard 사선 하단: halfW - slant/2 (일치)
+              const double s = _TrapezoidClipper._slant;
+              // gap: 두 사선 사이 시각적 간격 (픽셀) — 0 이면 사선이 완전히 맞닿음
+              const double gap = 12;
+              final double cardW = constraints.maxWidth / 2 + s / 2 - gap / 2;
+              return SizedBox(
+                height: 260,
+                child: Stack(
+                  children: [
+                    // 좌: Easy 카드 — 왼쪽 끝에서 시작
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: cardW,
+                      child: _ChallengeCard(
+                        difficulty: 'EASY',
+                        label: 'Easy',
+                        description: '단순한 도형을\n따라 그려요',
+                        labelAlignment: CrossAxisAlignment.start,
+                        shapeAlignment: Alignment.bottomRight,
+                        accentColor: const Color(0xFF27AE60),
+                        shapeIcon: Icons.change_history_outlined,
+                        // TODO: 백엔드 GET /v1/challenge/stats?difficulty=EASY 연동
+                        attemptCount: '1,234명 도전',
+                        myBestInfo: '최고 기록 없음',
+                        onTap: () => onChallenge('EASY', 'Easy 챌린지'),
+                      ),
+                    ),
+                    // 우: Hard 카드 — 오른쪽 끝에서 시작 (Easy와 s px 겹침)
+                    // 겹치는 영역은 양쪽 모두 ClipPath로 투명 처리되어 시각적 충돌 없음
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: cardW,
+                      child: _ChallengeCard(
+                        difficulty: 'HARD',
+                        label: 'Hard',
+                        description: '복잡한 도형에\n도전하세요',
+                        labelAlignment: CrossAxisAlignment.end,
+                        shapeAlignment: Alignment.topLeft,
+                        accentColor: const Color(0xFF1C1C1E),
+                        shapeIcon: Icons.directions_car_outlined,
+                        // TODO: 백엔드 GET /v1/challenge/stats?difficulty=HARD 연동
+                        attemptCount: '567명 도전',
+                        myBestInfo: '최고 기록 없음',
+                        onTap: () => onChallenge('HARD', 'Hard 챌린지'),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                // 우: Hard 카드
-                Expanded(
-                  child: _ChallengeCard(
-                    difficulty: 'HARD',
-                    label: 'Hard',
-                    description: '복잡한 도형에\n도전하세요',
-                    // Hard: 도형 좌상단, 라벨 우하단 (Easy와 대각선 반전)
-                    labelAlignment: CrossAxisAlignment.end,
-                    shapeAlignment: Alignment.topLeft,
-                    accentColor: const Color(0xFF1C1C1E),
-                    // Hard 모드 대표 도형: 복잡한 차량 형태 (스케치 참고)
-                    shapeIcon: Icons.directions_car_outlined,
-                    // TODO: 백엔드에서 실제 도전 횟수 API 연동 필요
-                    attemptCount: '567명 도전',
-                    // TODO: 백엔드에서 내 최고 랭킹 API 연동 필요
-                    myBestInfo: '최고 기록 없음',
-                    onTap: () => onChallenge('HARD', 'Hard 챌린지'),
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
 
           const SizedBox(height: 10),
@@ -276,15 +294,15 @@ class _ChallengeButtons extends StatelessWidget {
 // Easy·Hard 각각의 카드를 표현
 // 라벨과 도형 아이콘 위치를 서로 반전시켜 대각선 무게감을 표현
 class _ChallengeCard extends StatelessWidget {
-  final String difficulty;        // 'EASY' 또는 'HARD'
-  final String label;             // 카드 제목 텍스트
-  final String description;       // 한두 줄 설명
+  final String difficulty; // 'EASY' 또는 'HARD'
+  final String label; // 카드 제목 텍스트
+  final String description; // 한두 줄 설명
   final CrossAxisAlignment labelAlignment; // 라벨 정렬 (start=좌, end=우)
-  final Alignment shapeAlignment;          // 도형 아이콘 정렬 위치
-  final Color accentColor;        // 카드 배경·강조 색상
-  final IconData shapeIcon;       // 도형을 대표하는 아이콘 (실제 이미지 연동 전 사용)
-  final String attemptCount;      // 도전 횟수 텍스트 (목업)
-  final String myBestInfo;        // 내 최고 기록 텍스트 (목업)
+  final Alignment shapeAlignment; // 도형 아이콘 정렬 위치
+  final Color accentColor; // 카드 배경·강조 색상
+  final IconData shapeIcon; // 도형을 대표하는 아이콘 (실제 이미지 연동 전 사용)
+  final String attemptCount; // 도전 횟수 텍스트 (목업)
+  final String myBestInfo; // 내 최고 기록 텍스트 (목업)
   final VoidCallback onTap;
 
   const _ChallengeCard({
@@ -348,72 +366,71 @@ class _ChallengeCard extends StatelessWidget {
                   ),
                 ],
 
-              const SizedBox(height: 14),
-              // ── 구분선 ─────────────────────────────────────────
-              Divider(
-                color: Colors.white.withValues(alpha: 0.2),
-                height: 1,
-              ),
-              const SizedBox(height: 10),
+                const SizedBox(height: 14),
+                // ── 구분선 ─────────────────────────────────────────
+                Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
+                const SizedBox(height: 10),
 
-              // ── 통계 정보 (목업) ───────────────────────────────
-              // TODO: 백엔드에서 GET /v1/challenge/stats?difficulty=EASY 등 API 연동
-              Column(
-                crossAxisAlignment: labelAlignment,
-                children: [
-                  // 도전 횟수
-                  Row(
-                    mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
-                        ? MainAxisAlignment.start
-                        : MainAxisAlignment.end,
-                    children: [
-                      Icon(
-                        Icons.people_outline,
-                        size: 11,
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        attemptCount,
-                        style: TextStyle(
-                          fontFamily: 'Pretendard',
-                          fontSize: 11,
-                          color: Colors.white.withValues(alpha: 0.7),
+                // ── 통계 정보 (목업) ───────────────────────────────
+                // TODO: 백엔드에서 GET /v1/challenge/stats?difficulty=EASY 등 API 연동
+                Column(
+                  crossAxisAlignment: labelAlignment,
+                  children: [
+                    // 도전 횟수
+                    Row(
+                      mainAxisAlignment:
+                          labelAlignment == CrossAxisAlignment.start
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.end,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 11,
+                          color: Colors.white.withValues(alpha: 0.6),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  // 내 최고 기록
-                  Row(
-                    mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
-                        ? MainAxisAlignment.start
-                        : MainAxisAlignment.end,
-                    children: [
-                      Icon(
-                        Icons.emoji_events_outlined,
-                        size: 11,
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        myBestInfo,
-                        style: TextStyle(
-                          fontFamily: 'Pretendard',
-                          fontSize: 11,
-                          color: Colors.white.withValues(alpha: 0.7),
+                        const SizedBox(width: 3),
+                        Text(
+                          attemptCount,
+                          style: TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    // 내 최고 기록
+                    Row(
+                      mainAxisAlignment:
+                          labelAlignment == CrossAxisAlignment.start
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.end,
+                      children: [
+                        Icon(
+                          Icons.emoji_events_outlined,
+                          size: 11,
+                          color: Colors.white.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          myBestInfo,
+                          style: TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -477,11 +494,7 @@ class _ShapeIcon extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(
-        icon,
-        size: 34,
-        color: Colors.white.withValues(alpha: 0.85),
-      ),
+      child: Icon(icon, size: 34, color: Colors.white.withValues(alpha: 0.85)),
     );
   }
 }
@@ -503,28 +516,78 @@ class _TrapezoidClipper extends CustomClipper<Path> {
 
   const _TrapezoidClipper({required this.isLeft});
 
-  // 상단과 하단의 너비 차이 (픽셀 단위) — 값이 클수록 기울기가 심해짐
+  // 상단↔하단 너비 차이 (픽셀)
   static const double _slant = 20;
+
+  // 모든 코너에 적용할 둥근 반지름
+  static const double _radius = 10;
 
   @override
   Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    final r = _radius;
+    final s = _slant;
+
+    // 대각선 방향 단위 벡터 계산 (대각선: 수평 s, 수직 h)
+    final diagLen = sqrt(s * s + h * h);
+    final ddx = s / diagLen; // 대각선의 수평 단위 성분
+    final ddy = h / diagLen; // 대각선의 수직 단위 성분
+
+    // 대각선 코너의 접선점 오프셋
+    // 내각 θ 에서 cos(θ)=ddx, sin(θ)=ddy 이므로:
+    // offset = r / tan(θ/2) = r * (1 + cos θ) / sin θ = r * (1 + ddx) / ddy
+    final od = r * (1 + ddx) / ddy;
+
+    final rr = Radius.circular(r);
     final path = Path();
 
     if (isLeft) {
-      // Easy(좌): 우측 상단이 넓고, 우측 하단이 _slant 만큼 안으로 당겨짐
-      path.moveTo(0, 0);                               // 좌상단
-      path.lineTo(size.width, 0);                      // 우상단 (전체 너비)
-      path.lineTo(size.width - _slant, size.height);   // 우하단 (좁아진 쪽)
-      path.lineTo(0, size.height);                     // 좌하단
+      // Easy(좌) — 4개 코너 모두 라운드
+      // A(좌상단 90°)  B(우상단 대각선)  C(우하단 대각선)  D(좌하단 90°)
+      path.moveTo(0, r);
+      path.arcToPoint(Offset(r, 0), radius: rr, clockwise: true); // A
+      path.lineTo(w - od, 0);
+      path.arcToPoint(
+        // B
+        Offset(w - od * ddx, od * ddy),
+        radius: rr,
+        clockwise: true,
+      );
+      path.lineTo(w - s + od * ddx, h - od * ddy);
+      path.arcToPoint(
+        // C
+        Offset(w - s - od, h),
+        radius: rr,
+        clockwise: true,
+      );
+      path.lineTo(r, h);
+      path.arcToPoint(Offset(0, h - r), radius: rr, clockwise: true); // D
+      path.close();
     } else {
-      // Hard(우): 좌측 상단이 _slant 만큼 안으로 당겨지고, 좌측 하단은 넓음
-      path.moveTo(_slant, 0);                          // 좌상단 (좁아진 쪽)
-      path.lineTo(size.width, 0);                      // 우상단
-      path.lineTo(size.width, size.height);            // 우하단
-      path.lineTo(0, size.height);                     // 좌하단 (전체 너비)
+      // Hard(우) — 4개 코너 모두 라운드
+      // A(좌상단 대각선)  B(우상단 90°)  C(우하단 90°)  D(좌하단 대각선)
+      path.moveTo(s - od * ddx, od * ddy);
+      path.arcToPoint(
+        // A
+        Offset(s + od, 0),
+        radius: rr,
+        clockwise: true,
+      );
+      path.lineTo(w - r, 0);
+      path.arcToPoint(Offset(w, r), radius: rr, clockwise: true); // B
+      path.lineTo(w, h - r);
+      path.arcToPoint(Offset(w - r, h), radius: rr, clockwise: true); // C
+      path.lineTo(od, h);
+      path.arcToPoint(
+        // D
+        Offset(od * ddx, h - od * ddy),
+        radius: rr,
+        clockwise: true,
+      );
+      path.close();
     }
 
-    path.close();
     return path;
   }
 
