@@ -300,43 +300,53 @@ class _ChallengeCard extends StatelessWidget {
     required this.onTap,
   });
 
+  // Easy 카드는 isLeft=true, Hard 카드는 isLeft=false
+  bool get _isLeft => labelAlignment == CrossAxisAlignment.start;
+
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: accentColor,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: labelAlignment,
-            children: [
-              // ── 라벨 또는 도형: shapeAlignment 기준으로 순서 결정 ──
-              // shapeAlignment 가 bottomRight 면 라벨이 위, 도형이 아래
-              // shapeAlignment 가 topLeft 면 도형이 위, 라벨이 아래
-              if (shapeAlignment == Alignment.bottomRight) ...[
-                // Easy: 라벨 상단
-                _Label(label: label, description: description,
-                    alignment: labelAlignment),
-                const SizedBox(height: 12),
-                // Easy: 도형 이미지 우하단 정렬
-                Align(
-                  alignment: shapeAlignment,
-                  child: _ShapeIcon(icon: shapeIcon, color: accentColor),
-                ),
-              ] else ...[
-                // Hard: 도형 이미지 좌상단 정렬
-                Align(
-                  alignment: shapeAlignment,
-                  child: _ShapeIcon(icon: shapeIcon, color: accentColor),
-                ),
-                const SizedBox(height: 12),
-                // Hard: 라벨 하단
-                _Label(label: label, description: description,
-                    alignment: labelAlignment),
-              ],
+    // ClipPath 로 사다리꼴 모양을 적용
+    // Material 의 borderRadius 대신 CustomClipper 가 모양을 결정
+    return ClipPath(
+      clipper: _TrapezoidClipper(isLeft: _isLeft),
+      child: Material(
+        color: accentColor,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: labelAlignment,
+              children: [
+                // Easy: 라벨(상단) → 도형(하단) 순서
+                // Hard: 도형(상단) → 라벨(하단) 순서 — 대각선 반전 효과
+                if (_isLeft) ...[
+                  // Easy 라벨 — 상단 좌측에 배치 (넓은 쪽)
+                  _Label(
+                    label: label,
+                    description: description,
+                    alignment: labelAlignment,
+                  ),
+                  const SizedBox(height: 12),
+                  // Easy 도형 아이콘 — 하단 좌측 정렬 (우측 하단은 사다리꼴로 잘림)
+                  Align(
+                    alignment: Alignment.bottomLeft,
+                    child: _ShapeIcon(icon: shapeIcon, color: accentColor),
+                  ),
+                ] else ...[
+                  // Hard 도형 아이콘 — 상단 우측 정렬 (좌측 상단은 사다리꼴로 잘림)
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: _ShapeIcon(icon: shapeIcon, color: accentColor),
+                  ),
+                  const SizedBox(height: 12),
+                  // Hard 라벨 — 하단 우측에 배치 (넓은 쪽)
+                  _Label(
+                    label: label,
+                    description: description,
+                    alignment: labelAlignment,
+                  ),
+                ],
 
               const SizedBox(height: 14),
               // ── 구분선 ─────────────────────────────────────────
@@ -402,7 +412,8 @@ class _ChallengeCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -473,4 +484,51 @@ class _ShapeIcon extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 사다리꼴 클리퍼 ──────────────────────────────────────────────────
+// 카드의 상단과 하단 너비가 달라 보이도록 한쪽 모서리를 비스듬히 잘라냄
+//
+// Easy 카드 (isLeft=true):
+//   좌상단 → 우상단(넓음) → 우하단(좁음, slant 만큼 안쪽) → 좌하단
+//   → 우측이 위는 넓고 아래는 좁아지는 사다리꼴
+//
+// Hard 카드 (isLeft=false):
+//   좌상단(좁음, slant 만큼 안쪽) → 우상단 → 우하단 → 좌하단(넓음)
+//   → 좌측이 위는 좁고 아래는 넓어지는 사다리꼴 (Easy의 거울 대칭)
+class _TrapezoidClipper extends CustomClipper<Path> {
+  // true: Easy 카드(좌) — 우측이 위는 넓고 아래는 좁아지는 사다리꼴
+  // false: Hard 카드(우) — 좌측이 위는 좁고 아래는 넓어지는 사다리꼴 (Easy의 거울 대칭)
+  final bool isLeft;
+
+  const _TrapezoidClipper({required this.isLeft});
+
+  // 상단과 하단의 너비 차이 (픽셀 단위) — 값이 클수록 기울기가 심해짐
+  static const double _slant = 20;
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+
+    if (isLeft) {
+      // Easy(좌): 우측 상단이 넓고, 우측 하단이 _slant 만큼 안으로 당겨짐
+      path.moveTo(0, 0);                               // 좌상단
+      path.lineTo(size.width, 0);                      // 우상단 (전체 너비)
+      path.lineTo(size.width - _slant, size.height);   // 우하단 (좁아진 쪽)
+      path.lineTo(0, size.height);                     // 좌하단
+    } else {
+      // Hard(우): 좌측 상단이 _slant 만큼 안으로 당겨지고, 좌측 하단은 넓음
+      path.moveTo(_slant, 0);                          // 좌상단 (좁아진 쪽)
+      path.lineTo(size.width, 0);                      // 우상단
+      path.lineTo(size.width, size.height);            // 우하단
+      path.lineTo(0, size.height);                     // 좌하단 (전체 너비)
+    }
+
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _TrapezoidClipper oldClipper) =>
+      oldClipper.isLeft != isLeft;
 }
