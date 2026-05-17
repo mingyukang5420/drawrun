@@ -1,13 +1,17 @@
 package com.running.app.domain.challenge.converter;
 
+import com.running.app.domain.challenge.dto.ChallengeResponse;
 import com.running.app.domain.challenge.dto.GmsImageDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.entity.Challenge;
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public abstract class ChallengeConverter {
 
@@ -57,4 +61,34 @@ public abstract class ChallengeConverter {
                 .build();
     }
 
+    public static List<ChallengeResponse.RankEntryDTO> toRankEntryDTOList(
+            Map<Long, Double> rankingMap,
+            Map<Long, String> nicknameMap) {
+
+        List<ChallengeResponse.RankEntryDTO> rankingList = new ArrayList<>();
+
+        // 순서가 보장된 LinkedHashMap 순회
+        rankingMap.forEach((memberId, score) -> {
+            rankingList.add(ChallengeResponse.RankEntryDTO.builder()
+                    .rank(rankingList.size() + 1)
+                    .nickname(nicknameMap.get(memberId))
+                    .similarityScore(BigDecimal.valueOf(score))
+                    .build());
+        });
+
+        return rankingList;
+    }
+
+    public static ChallengeResponse.RankEntryDTO toRankEntryDTO(
+            int rank,
+            String nickname,
+            Double score) {
+
+        return ChallengeResponse.RankEntryDTO.builder()
+                .rank(rank)
+                .nickname(nickname)
+                .similarityScore(score != null ? BigDecimal.valueOf(score) : null)
+                .build();
+    }
+    
 }

@@ -1,6 +1,6 @@
 package com.running.app.domain.challenge.service;
 
-import com.running.app.domain.challenge.dto.ChallengeResponse;
+import com.running.app.domain.challenge.converter.ChallengeConverter;
 import com.running.app.domain.challenge.dto.ChallengeResponse.RankEntryDTO;
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
@@ -12,8 +12,6 @@ import com.running.app.domain.record.projection.ChallengeRankingQueryResult;
 import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
-import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,11 +67,7 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
         // 내 유사도 점수 조회
         Double myScore = rankingRedisService.getMyRecord(member.getMemberId(), key);
 
-        return ChallengeResponse.RankEntryDTO.builder()
-                .rank(myRank)
-                .nickname(member.getNickname())
-                .similarityScore(myScore != null ? BigDecimal.valueOf(myScore) : null)
-                .build();
+        return ChallengeConverter.toRankEntryDTO(myRank, member.getNickname(), myScore);
     }
 
     // 현재 로그인한 사용자 바로 앞 순위 조회
@@ -121,12 +115,11 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
         Long prevMemberId = Long.parseLong(prevTuple.getValue());
         Member prevMember = memberRepository.findById(prevMemberId.intValue()).orElse(null);
 
-        return RankEntryDTO.builder()
-                .rank(myRank - 1)
-                .nickname(prevMember != null ? prevMember.getNickname() : null)
-                .similarityScore(prevTuple.getScore() != null ?
-                        BigDecimal.valueOf(prevTuple.getScore()) : null)
-                .build();
+        return ChallengeConverter.toRankEntryDTO(
+                myRank - 1,
+                prevMember != null ? prevMember.getNickname() : null,
+                prevTuple.getScore()
+        );
     }
 
     // 챌린지 상위 5명 랭킹 조회
@@ -161,18 +154,7 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
             nicknameMap.put(member.getMemberId().longValue(), member.getNickname());
         }
 
-        // 순서 보장된 Map 순회하며 DTO 조립 (rank는 순서대로 1,2,3,4,5)
-        List<RankEntryDTO> rankings = new ArrayList<>();
-        topFiveMap.forEach((memberId, score) -> {
-            rankings.add(RankEntryDTO.builder()
-                    .rank(rankings.size() + 1)
-                    .nickname(nicknameMap.get(memberId))
-                    .similarityScore(BigDecimal.valueOf(score))
-                    .build());
-        });
-
-        return rankings;
+        // Converter를 통해 상위 5명 RankEntryDTO 리스트 조립
+        return ChallengeConverter.toRankEntryDTOList(topFiveMap, nicknameMap);
     }
-
-
 }
