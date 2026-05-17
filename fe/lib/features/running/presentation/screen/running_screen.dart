@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/mypage/presentation/screen/mypage_screen.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
-import 'package:running/features/running/presentation/screen/challenge_courses_screen.dart';
+import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
 import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 
@@ -46,13 +46,10 @@ class RunningScreen extends ConsumerWidget {
                 );
               },
               onChallenge: (difficulty, title) {
-                // 선택한 난이도의 챌린지 코스 목록으로 이동
+                // 챌린지 난이도에 맞는 코스를 에디터에서 그린 뒤 바로 달리기로 연결
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => ChallengeCoursesScreen(
-                      difficulty: difficulty,
-                      title: title,
-                    ),
+                    builder: (_) => CourseEditorScreen(difficulty: difficulty),
                   ),
                 );
               },
