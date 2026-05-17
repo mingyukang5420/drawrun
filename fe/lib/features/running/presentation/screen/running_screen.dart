@@ -1,16 +1,16 @@
+import 'dart:math' show sqrt;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:running/core/theme/app_text_style.dart';
-import 'package:running/features/bookmark/presentation/bookmark_provider.dart';
-import 'package:running/features/bookmark/presentation/bookmarked_courses_viewmodel.dart';
-import 'package:running/features/bookmark/presentation/screen/bookmark_list_screen.dart';
-import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/mypage/presentation/screen/mypage_screen.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
+import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
 import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 
+// 홈 탭 메인 화면
+// 상단: 프로필·날씨 헤더 / 중간: 현재 위치 지도 / 하단: 챌린지 모드 선택 + 자유 러닝
 class RunningScreen extends ConsumerWidget {
   const RunningScreen({super.key});
 
@@ -24,21 +24,32 @@ class RunningScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Header(),
-            _BookmarkedCourses(),
+            // 상단: 프로필 아바타 + 날씨·인사
+            const _Header(),
+
+            // 중간: 현재 위치 기반 지도 (전체 남은 공간 채움)
             Expanded(
-              child: Stack(
-                children: [const RunningMapView(), const _MapVignette()],
-              ),
+              child: Stack(children: const [RunningMapView(), _MapVignette()]),
             ),
-            _FreeRunButton(
-              onPressed: () async {
+
+            // 하단: Easy·Hard 배틀 카드 + 자유 러닝 텍스트 버튼
+            _ChallengeButtons(
+              onFreeRun: () async {
+                // 자유 러닝 시작 전 이전 세션 상태 초기화
                 await notifier.clear();
                 if (!context.mounted) return;
                 await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const RunningCountdownScreen(),
                     fullscreenDialog: true,
+                  ),
+                );
+              },
+              onChallenge: (difficulty, title) {
+                // 챌린지 난이도에 맞는 코스를 에디터에서 그린 뒤 바로 달리기로 연결
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => CourseEditorScreen(difficulty: difficulty),
                   ),
                 );
               },
@@ -50,14 +61,13 @@ class RunningScreen extends ConsumerWidget {
   }
 }
 
-// ── 헤더: 프로필 아바타(좌) + 인사·날씨(우) 한 줄 ─────────────────
+// ── 상단 헤더: 프로필 아바타 + 날씨·인사 ──────────────────────────────
 class _Header extends ConsumerWidget {
   const _Header();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final weatherState = ref.watch(weatherProvider);
-
     final messageText = weatherState.weather?.message ?? '오늘도 달리기 좋은 날씨예요!';
     final locationText = weatherState.weather?.locationLine ?? '';
 
@@ -68,9 +78,9 @@ class _Header extends ConsumerWidget {
         children: [
           // 프로필 아바타 — 탭 시 마이페이지로 이동
           GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MypageScreen()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const MypageScreen())),
             child: const CircleAvatar(
               radius: 24,
               backgroundColor: Color(0xFFE5E7EB),
@@ -78,7 +88,7 @@ class _Header extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 14),
-          // 인사 + 날씨
+          // 인사말 + 날씨 위치
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,426 +128,8 @@ class _Header extends ConsumerWidget {
   }
 }
 
-// ── 북마크한 코스 캐러셀: PageView + 인디케이터 ────────────────────
-class _BookmarkedCourses extends ConsumerStatefulWidget {
-  const _BookmarkedCourses();
-
-  @override
-  ConsumerState<_BookmarkedCourses> createState() => _BookmarkedCoursesState();
-}
-
-class _BookmarkedCoursesState extends ConsumerState<_BookmarkedCourses> {
-  // 한 카드가 차지할 viewport 비율.
-  // 작을수록 한 화면에 카드가 좁게 그려지고 옆 카드의 일부가 함께 보인다.
-  static const _viewportFraction = 0.78;
-
-  late final PageController _controller;
-  int _currentPage = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = PageController(viewportFraction: _viewportFraction);
-    _controller.addListener(() {
-      final page = _controller.page?.round() ?? 0;
-      if (page != _currentPage) setState(() => _currentPage = page);
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 서버에서 받은 최신 5개 북마크 (또는 그 이하).
-    final state = ref.watch(bookmarkedCoursesProvider);
-    final courses = state.courses;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── 섹션 헤더 ────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
-          child: Row(
-            children: [
-              Text('북마크한 코스', style: AppTextStyle.button),
-              const Spacer(),
-              const Icon(
-                Icons.chevron_right,
-                color: Color(0xFF6B7280),
-                size: 24,
-              ),
-            ],
-          ),
-        ),
-
-        // ── 본체: 로딩 / 빈 상태 / 카드 리스트 분기 ───────────
-        SizedBox(
-          height: 96,
-          child: _buildBody(state, courses),
-        ),
-
-        // ── 페이지 인디케이터 ────────────────────────────────
-        // 카드가 한 장도 없으면 인디케이터를 그리지 않는다.
-        if (courses.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(courses.length, (i) {
-                final active = i == _currentPage;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: active ? 18 : 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    color: active
-                        ? const Color(0xFF1C1C1E)
-                        : const Color(0xFF9CA3AF),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                );
-              }),
-            ),
-          ),
-      ],
-    );
-  }
-
-  // 로딩 / 에러 / 빈 / 카드 리스트 네 분기.
-  Widget _buildBody(BookmarkedCoursesState state, List<Course> courses) {
-    if (state.isLoading) {
-      return const Center(
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-    }
-
-    if (state.errorMessage != null && courses.isEmpty) {
-      // 초기 로드 실패 — 재시도 버튼만 한 줄 노출.
-      return Center(
-        child: TextButton.icon(
-          onPressed: ref.read(bookmarkedCoursesProvider.notifier).load,
-          icon: const Icon(Icons.refresh, size: 16),
-          label: const Text('다시 불러오기'),
-        ),
-      );
-    }
-
-    // 빈 결과 + + 버튼 한 장만.
-    // 카드가 0개여도 사용자가 북마크 페이지로 갈 수 있게 + 버튼은 항상 그린다.
-    return PageView.builder(
-      clipBehavior: Clip.none,
-      padEnds: false,
-      controller: _controller,
-      physics: _BoundedPageScrollPhysics(
-        maxPage: courses.isEmpty ? 0 : courses.length - 1,
-        viewportFraction: _viewportFraction,
-      ),
-      itemCount: courses.length + 1,
-      itemBuilder: (_, i) {
-        if (i == courses.length) {
-          // 마지막 자리에 + 버튼 — 탭 시 북마크 목록 화면으로 이동.
-          // 마이페이지의 "북마크" 메뉴와 도착지가 같다.
-          return Padding(
-            padding: const EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 4,
-              bottom: 4,
-            ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const BookmarkListScreen(),
-                    ),
-                  );
-                },
-                child: Container(
-                  width:
-                  MediaQuery.of(context).size.width *
-                      (1 - _viewportFraction) -
-                      40,
-                  height:
-                  MediaQuery.of(context).size.width *
-                      (1 - _viewportFraction) -
-                      40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color.fromARGB(255, 243, 243, 243),
-                  ),
-                  child: const Icon(
-                    Icons.add,
-                    color: Color(0xFF9CA3AF),
-                    size: 18,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-
-        final course = courses[i];
-        // 카드 한 장 + 탭 시 상세 화면(placeholder).
-        return Padding(
-          padding: const EdgeInsets.only(
-            left: 20,
-            right: 4,
-            top: 4,
-            bottom: 4,
-          ),
-          child: _CourseCard(
-            course: course,
-            onTap: course.id != null
-                ? () => _openCourseDetail(context, course.id!)
-                : null,
-          ),
-        );
-      },
-    );
-  }
-
-  // 코스 상세 화면 진입 placeholder.
-  //
-  // 코스 상세 화면(CourseDetailScreen) 은 다른 팀원이 별도 PR 로 작업 중이다.
-  // 머지가 들어오면 아래 SnackBar 를 다음 한 줄로 교체:
-  //   Navigator.of(context).push(MaterialPageRoute(
-  //     builder: (_) => CourseDetailScreen(courseId: courseId),
-  //   ));
-  //
-  // 그 시점에 이 파일 상단에 CourseDetailScreen import 한 줄도 같이 추가하면 끝.
-  void _openCourseDetail(BuildContext context, int courseId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('코스 상세 화면은 별도 작업 중입니다'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-}
-
-// ── 코스 카드 위젯 ─────────────────────────────────────────────────
-// 러닝 메인 화면 상단 캐러셀에서 한 장씩 보여주는 카드.
-// 도메인 Course 를 그대로 받아 표현한다 (별도 _CourseItem 같은 가짜 모델 없음).
-class _CourseCard extends StatelessWidget {
-  final Course course;
-
-  // 카드 탭 시 실행할 콜백. null 이면 비활성(ripple 없음).
-  final VoidCallback? onTap;
-
-  const _CourseCard({required this.course, this.onTap});
-
-  // 난이도별 색상 / 한글 라벨.
-  static const _difficultyColor = {
-    'EASY': Color(0xFF27AE60),
-    'NORMAL': Color(0xFFE67E22),
-    'HARD': Color(0xFFE74C3C),
-  };
-  static const _difficultyLabel = {'BEGINNER': '입문','EASY': '쉬움', 'NORMAL': '보통', 'HARD': '어려움'};
-
-  @override
-  Widget build(BuildContext context) {
-    final difficulty = course.difficulty ?? '';
-    final diffColor =
-        _difficultyColor[difficulty] ?? const Color(0xFF6B7280);
-    final diffLabel = _difficultyLabel[difficulty] ?? difficulty;
-
-    // 본인이 이 코스를 완주했는지 — 본인 개인 정보(boolean).
-    // completionScore 와는 무관하다 (그건 전체 사용자의 완주 비율).
-    final isCompleted = course.isCompleted;
-
-    // 코스 자체의 완주율 (0~100). 작은 텍스트로만 노출.
-    // 0 일 때는 "아무도 완주 안 함" 의미라 표기할 가치가 적어 숨긴다.
-    final hasCourseStat = course.completionScore > 0;
-
-    // Material + InkWell:
-    //   - Material 이 ripple 을 그릴 표면.
-    //   - InkWell 이 onTap 과 ripple 책임.
-    //   - 카드 모서리(16) 와 InkWell.borderRadius 를 같은 값으로 맞춰
-    //     ripple 이 카드 모서리를 넘지 않게 함.
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      shadowColor: Colors.black.withOpacity(0.07),
-      elevation: 2,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Row(
-          children: [
-            // 좌측 정사각형 썸네일.
-            _Thumbnail(url: course.thumbnailUrl),
-            // 우측 텍스트 영역.
-            Expanded(
-              child: Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // 코스명 + 난이도 배지.
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            course.title,
-                            style: const TextStyle(
-                              fontFamily: 'Pretendard',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1C1C1E),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (course.difficulty != null) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: diffColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              diffLabel,
-                              style: TextStyle(
-                                fontFamily: 'Pretendard',
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: diffColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    // 지역 + 거리.
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.place_outlined,
-                          size: 12,
-                          color: Color(0xFF9CA3AF),
-                        ),
-                        const SizedBox(width: 2),
-                        Expanded(
-                          child: Text(
-                            course.regions.join(' · '),
-                            style: const TextStyle(
-                              fontFamily: 'Pretendard',
-                              fontSize: 12,
-                              color: Color(0xFF9CA3AF),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          '${course.distance.toStringAsFixed(1)} km',
-                          style: const TextStyle(
-                            fontFamily: 'SUIT',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                      ],
-                    ),
-                    // 코스 완주율(전체 사용자 통계) + 본인 완주 여부.
-                    // 두 값은 독립이라 한 줄에 같이 표시한다.
-                    //   - 좌측: "완주율 N%" — 이 코스를 시도한 사람들 중 완주 비율
-                    //   - 우측(본인이 완주한 경우만): "완주 ✓"
-                    Row(
-                      children: [
-                        if (hasCourseStat) ...[
-                          const Icon(
-                            Icons.groups_outlined,
-                            size: 12,
-                            color: Color(0xFF9CA3AF),
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            '완주율 ${course.completionScore}%',
-                            style: const TextStyle(
-                              fontFamily: 'Pretendard',
-                              fontSize: 11,
-                              color: Color(0xFF9CA3AF),
-                            ),
-                          ),
-                        ],
-                        if (isCompleted) ...[
-                          if (hasCourseStat) const SizedBox(width: 8),
-                          const Text(
-                            '완주 ✓',
-                            style: TextStyle(
-                              fontFamily: 'Pretendard',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF27AE60),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// 썸네일 이미지: URL 있으면 네트워크, 없으면 플레이스홀더
-class _Thumbnail extends StatelessWidget {
-  final String? url;
-
-  const _Thumbnail({this.url});
-
-  @override
-  Widget build(BuildContext context) {
-    if (url != null) {
-      return Image.network(
-        url!,
-        width: 88,
-        height: 88,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _placeholder(),
-      );
-    }
-    return _placeholder();
-  }
-
-  Widget _placeholder() => Container(
-    width: 88,
-    height: 88,
-    color: const Color(0xFFE5E7EB),
-    child: const Icon(Icons.landscape, color: Color(0xFFD1D5DB), size: 32),
-  );
-}
-
-// ── 지도 원형 비네팅 ────────────────────────────────────────────────
-// 지도 중앙(= 사용자 위치)을 중심으로 원형으로 흰색이 자연스럽게 페이드인.
-// CustomPainter 로 직접 캔버스에 그려 위젯 크기 문제를 회피한다.
-// IgnorePointer 로 감싸 지도 터치 이벤트는 그대로 통과시킨다.
+// ── 지도 원형 비네팅 ──────────────────────────────────────────────────
+// 지도 가장자리를 흰색으로 자연스럽게 페이드아웃해 하단 버튼과 어색하지 않게 연결
 class _MapVignette extends StatelessWidget {
   const _MapVignette();
 
@@ -580,85 +172,423 @@ class _VignettePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ── 커스텀 스크롤 물리: maxPage 이후 스냅 방지 ─────────────────────────
-class _BoundedPageScrollPhysics extends PageScrollPhysics {
-  final int maxPage;
-  final double viewportFraction;
+// ── 챌린지 버튼 영역 ─────────────────────────────────────────────────
+// Easy(좌) · Hard(우) 두 카드를 나란히 배치
+// Easy: 라벨 좌상단 / 도형 우하단 배치 (스케치 기준)
+// Hard: 도형 좌상단 / 라벨 우하단 배치 — 대각선 반전으로 시각적 무게감 차별화
+// 각 카드 하단에는 도전 수·순위 정보를 표시 (목업 — 백엔드 API 연동 전)
+class _ChallengeButtons extends StatelessWidget {
+  final void Function(String difficulty, String title) onChallenge;
+  final VoidCallback onFreeRun;
 
-  const _BoundedPageScrollPhysics({
-    required this.maxPage,
-    required this.viewportFraction,
-    super.parent,
-  });
-
-  @override
-  _BoundedPageScrollPhysics applyTo(ScrollPhysics? ancestor) =>
-      _BoundedPageScrollPhysics(
-        maxPage: maxPage,
-        viewportFraction: viewportFraction,
-        parent: buildParent(ancestor),
-      );
-
-  double _maxExtent(ScrollMetrics pos) =>
-      maxPage * viewportFraction * pos.viewportDimension;
-
-  @override
-  double applyBoundaryConditions(ScrollMetrics position, double value) {
-    final maxExtent = _maxExtent(position);
-    if (value > maxExtent && position.pixels < maxExtent) {
-      return value - maxExtent;
-    }
-    if (value > maxExtent && position.pixels >= maxExtent) {
-      return value - position.pixels;
-    }
-    return super.applyBoundaryConditions(position, value);
-  }
-}
-
-// ── 자유 러닝 시작 버튼 ──────────────────────────────────────────────
-class _FreeRunButton extends StatelessWidget {
-  final VoidCallback onPressed;
-
-  const _FreeRunButton({required this.onPressed});
+  const _ChallengeButtons({required this.onChallenge, required this.onFreeRun});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: SizedBox(
-        width: double.infinity,
-        height: 60,
-        child: ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1C1C1E),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+      child: Column(
+        children: [
+          // ── 두 카드 맞닿기 ───────────────────────────────────
+          // ClipPath는 레이아웃 공간을 남기므로 Row+Expanded 방식으로는
+          // 사선 끝부분에 투명 공백이 생김.
+          // LayoutBuilder로 너비를 측정한 뒤 Stack+Positioned로 두 카드를
+          // _slant 픽셀만큼 겹쳐 배치 → 두 사선이 정확히 한 선에서 만남.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // 각 카드 너비 = 절반 + 사선/2
+              // → Easy 사선 하단: halfW - slant/2, Hard 사선 하단: halfW - slant/2 (일치)
+              const double s = _TrapezoidClipper._slant;
+              // gap: 두 사선 사이 시각적 간격 (픽셀) — 0 이면 사선이 완전히 맞닿음
+              const double gap = 12;
+              final double cardW = constraints.maxWidth / 2 + s / 2 - gap / 2;
+              return SizedBox(
+                height: 260,
+                child: Stack(
+                  children: [
+                    // 좌: Easy 카드 — 왼쪽 끝에서 시작
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: cardW,
+                      child: _ChallengeCard(
+                        difficulty: 'EASY',
+                        label: 'Easy',
+                        description: '단순한 도형을\n따라 그려요',
+                        labelAlignment: CrossAxisAlignment.start,
+                        shapeAlignment: Alignment.bottomRight,
+                        accentColor: const Color(0xFF27AE60),
+                        shapeIcon: Icons.change_history_outlined,
+                        // TODO: 백엔드 GET /v1/challenge/stats?difficulty=EASY 연동
+                        attemptCount: '1,234명 도전',
+                        myBestInfo: '최고 기록 없음',
+                        onTap: () => onChallenge('EASY', 'Easy 챌린지'),
+                      ),
+                    ),
+                    // 우: Hard 카드 — 오른쪽 끝에서 시작 (Easy와 s px 겹침)
+                    // 겹치는 영역은 양쪽 모두 ClipPath로 투명 처리되어 시각적 충돌 없음
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: cardW,
+                      child: _ChallengeCard(
+                        difficulty: 'HARD',
+                        label: 'Hard',
+                        description: '복잡한 도형에\n도전하세요',
+                        labelAlignment: CrossAxisAlignment.end,
+                        shapeAlignment: Alignment.topLeft,
+                        accentColor: const Color(0xFF1C1C1E),
+                        shapeIcon: Icons.directions_car_outlined,
+                        // TODO: 백엔드 GET /v1/challenge/stats?difficulty=HARD 연동
+                        attemptCount: '567명 도전',
+                        myBestInfo: '최고 기록 없음',
+                        onTap: () => onChallenge('HARD', 'Hard 챌린지'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 10),
+
+          // ── 자유 러닝 텍스트 버튼 ──────────────────────────────
+          GestureDetector(
+            onTap: onFreeRun,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.directions_run,
+                    size: 14,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    '자유 러닝 시작',
+                    style: TextStyle(
+                      fontFamily: 'Pretendard',
+                      fontSize: 13,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Text(
-                '자유 러닝',
-                style: TextStyle(
-                  fontFamily: 'SUIT',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFFFFD60A),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 챌린지 모드 개별 카드 ─────────────────────────────────────────────
+// Easy·Hard 각각의 카드를 표현
+// 라벨과 도형 아이콘 위치를 서로 반전시켜 대각선 무게감을 표현
+class _ChallengeCard extends StatelessWidget {
+  final String difficulty; // 'EASY' 또는 'HARD'
+  final String label; // 카드 제목 텍스트
+  final String description; // 한두 줄 설명
+  final CrossAxisAlignment labelAlignment; // 라벨 정렬 (start=좌, end=우)
+  final Alignment shapeAlignment; // 도형 아이콘 정렬 위치
+  final Color accentColor; // 카드 배경·강조 색상
+  final IconData shapeIcon; // 도형을 대표하는 아이콘 (실제 이미지 연동 전 사용)
+  final String attemptCount; // 도전 횟수 텍스트 (목업)
+  final String myBestInfo; // 내 최고 기록 텍스트 (목업)
+  final VoidCallback onTap;
+
+  const _ChallengeCard({
+    required this.difficulty,
+    required this.label,
+    required this.description,
+    required this.labelAlignment,
+    required this.shapeAlignment,
+    required this.accentColor,
+    required this.shapeIcon,
+    required this.attemptCount,
+    required this.myBestInfo,
+    required this.onTap,
+  });
+
+  // Easy 카드는 isLeft=true, Hard 카드는 isLeft=false
+  bool get _isLeft => labelAlignment == CrossAxisAlignment.start;
+
+  @override
+  Widget build(BuildContext context) {
+    // ClipPath 로 사다리꼴 모양을 적용
+    // Material 의 borderRadius 대신 CustomClipper 가 모양을 결정
+    return ClipPath(
+      clipper: _TrapezoidClipper(isLeft: _isLeft),
+      child: Material(
+        color: accentColor,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: labelAlignment,
+              children: [
+                // Easy: 라벨(상단) → 도형(하단) 순서
+                // Hard: 도형(상단) → 라벨(하단) 순서 — 대각선 반전 효과
+                if (_isLeft) ...[
+                  // Easy 라벨 — 상단 좌측에 배치 (넓은 쪽)
+                  _Label(
+                    label: label,
+                    description: description,
+                    alignment: labelAlignment,
+                  ),
+                  const SizedBox(height: 12),
+                  // Easy 도형 아이콘 — 하단 좌측 정렬 (우측 하단은 사다리꼴로 잘림)
+                  Align(
+                    alignment: Alignment.bottomLeft,
+                    child: _ShapeIcon(icon: shapeIcon, color: accentColor),
+                  ),
+                ] else ...[
+                  // Hard 도형 아이콘 — 상단 우측 정렬 (좌측 상단은 사다리꼴로 잘림)
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: _ShapeIcon(icon: shapeIcon, color: accentColor),
+                  ),
+                  const SizedBox(height: 12),
+                  // Hard 라벨 — 하단 우측에 배치 (넓은 쪽)
+                  _Label(
+                    label: label,
+                    description: description,
+                    alignment: labelAlignment,
+                  ),
+                ],
+
+                const SizedBox(height: 14),
+                // ── 구분선 ─────────────────────────────────────────
+                Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
+                const SizedBox(height: 10),
+
+                // ── 통계 정보 (목업) ───────────────────────────────
+                // TODO: 백엔드에서 GET /v1/challenge/stats?difficulty=EASY 등 API 연동
+                Column(
+                  crossAxisAlignment: labelAlignment,
+                  children: [
+                    // 도전 횟수
+                    Row(
+                      mainAxisAlignment:
+                          labelAlignment == CrossAxisAlignment.start
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.end,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 11,
+                          color: Colors.white.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          attemptCount,
+                          style: TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    // 내 최고 기록
+                    Row(
+                      mainAxisAlignment:
+                          labelAlignment == CrossAxisAlignment.start
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.end,
+                      children: [
+                        Icon(
+                          Icons.emoji_events_outlined,
+                          size: 11,
+                          color: Colors.white.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          myBestInfo,
+                          style: TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-              SizedBox(width: 6),
-              Icon(
-                Icons.play_arrow_rounded,
-                color: Color(0xFFFFD60A),
-                size: 22,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+// ── 카드 내 라벨 + 설명 텍스트 ───────────────────────────────────────
+class _Label extends StatelessWidget {
+  final String label;
+  final String description;
+  final CrossAxisAlignment alignment;
+
+  const _Label({
+    required this.label,
+    required this.description,
+    required this.alignment,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: alignment,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          description,
+          style: TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 11,
+            color: Colors.white.withValues(alpha: 0.75),
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 도형 대표 아이콘 (실제 이미지 연동 전 플레이스홀더) ─────────────
+// TODO: 백엔드에서 도형 이미지 URL 제공 시 Image.network 로 교체
+class _ShapeIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color; // 카드 배경색 — 아이콘 대비 색상 계산에 사용
+
+  const _ShapeIcon({required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        // 카드 배경보다 약간 밝게 해서 도형 영역임을 구분
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, size: 34, color: Colors.white.withValues(alpha: 0.85)),
+    );
+  }
+}
+
+// ── 사다리꼴 클리퍼 ──────────────────────────────────────────────────
+// 카드의 상단과 하단 너비가 달라 보이도록 한쪽 모서리를 비스듬히 잘라냄
+//
+// Easy 카드 (isLeft=true):
+//   좌상단 → 우상단(넓음) → 우하단(좁음, slant 만큼 안쪽) → 좌하단
+//   → 우측이 위는 넓고 아래는 좁아지는 사다리꼴
+//
+// Hard 카드 (isLeft=false):
+//   좌상단(좁음, slant 만큼 안쪽) → 우상단 → 우하단 → 좌하단(넓음)
+//   → 좌측이 위는 좁고 아래는 넓어지는 사다리꼴 (Easy의 거울 대칭)
+class _TrapezoidClipper extends CustomClipper<Path> {
+  // true: Easy 카드(좌) — 우측이 위는 넓고 아래는 좁아지는 사다리꼴
+  // false: Hard 카드(우) — 좌측이 위는 좁고 아래는 넓어지는 사다리꼴 (Easy의 거울 대칭)
+  final bool isLeft;
+
+  const _TrapezoidClipper({required this.isLeft});
+
+  // 상단↔하단 너비 차이 (픽셀)
+  static const double _slant = 20;
+
+  // 모든 코너에 적용할 둥근 반지름
+  static const double _radius = 10;
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    final r = _radius;
+    final s = _slant;
+
+    // 대각선 방향 단위 벡터 계산 (대각선: 수평 s, 수직 h)
+    final diagLen = sqrt(s * s + h * h);
+    final ddx = s / diagLen; // 대각선의 수평 단위 성분
+    final ddy = h / diagLen; // 대각선의 수직 단위 성분
+
+    // 대각선 코너의 접선점 오프셋
+    // 내각 θ 에서 cos(θ)=ddx, sin(θ)=ddy 이므로:
+    // offset = r / tan(θ/2) = r * (1 + cos θ) / sin θ = r * (1 + ddx) / ddy
+    final od = r * (1 + ddx) / ddy;
+
+    final rr = Radius.circular(r);
+    final path = Path();
+
+    if (isLeft) {
+      // Easy(좌) — 4개 코너 모두 라운드
+      // A(좌상단 90°)  B(우상단 대각선)  C(우하단 대각선)  D(좌하단 90°)
+      path.moveTo(0, r);
+      path.arcToPoint(Offset(r, 0), radius: rr, clockwise: true); // A
+      path.lineTo(w - od, 0);
+      path.arcToPoint(
+        // B
+        Offset(w - od * ddx, od * ddy),
+        radius: rr,
+        clockwise: true,
+      );
+      path.lineTo(w - s + od * ddx, h - od * ddy);
+      path.arcToPoint(
+        // C
+        Offset(w - s - od, h),
+        radius: rr,
+        clockwise: true,
+      );
+      path.lineTo(r, h);
+      path.arcToPoint(Offset(0, h - r), radius: rr, clockwise: true); // D
+      path.close();
+    } else {
+      // Hard(우) — 4개 코너 모두 라운드
+      // A(좌상단 대각선)  B(우상단 90°)  C(우하단 90°)  D(좌하단 대각선)
+      path.moveTo(s - od * ddx, od * ddy);
+      path.arcToPoint(
+        // A
+        Offset(s + od, 0),
+        radius: rr,
+        clockwise: true,
+      );
+      path.lineTo(w - r, 0);
+      path.arcToPoint(Offset(w, r), radius: rr, clockwise: true); // B
+      path.lineTo(w, h - r);
+      path.arcToPoint(Offset(w - r, h), radius: rr, clockwise: true); // C
+      path.lineTo(od, h);
+      path.arcToPoint(
+        // D
+        Offset(od * ddx, h - od * ddy),
+        radius: rr,
+        clockwise: true,
+      );
+      path.close();
+    }
+
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _TrapezoidClipper oldClipper) =>
+      oldClipper.isLeft != isLeft;
 }

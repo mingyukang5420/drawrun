@@ -9,18 +9,23 @@ import 'package:running/features/course/presentation/course_editor_viewmodel.dar
 import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/widgets/course_editor_map_view.dart';
 import 'package:running/shared/map/widgets/track_snapshot_map.dart';
+import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/shared/model/lat_lng.dart' as shared;
 
-// 코스 생성 편집 화면
+// 코스 생성·편집 화면
 // Scaffold > Stack 구조로 전체화면 지도 위에 UI 레이어를 겹쳐 쌓는다
 // 저장 흐름: 저장 버튼 → TrackSnapshotMap 캡처 → 이미지 업로드 → 코스 저장 API
 //
-// initialNodes 를 넘기면 에디터에 기존 경로를 미리 채워 이어서 편집할 수 있다
+// initialNodes 를 넘기면 에디터에 기존 경로를 미리 채워 이어서 편집할 수 있다.
+// difficulty 를 넘기면 챌린지 모드로 진입 — 저장 성공 시 달리기 시작 여부를 묻는다
 class CourseEditorScreen extends ConsumerStatefulWidget {
   // 상세 조회에서 받은 기존 좌표 목록. null 이면 빈 상태로 시작
   final List<shared.LatLng>? initialNodes;
 
-  const CourseEditorScreen({super.key, this.initialNodes});
+  // 챌린지 진입 난이도 ('EASY' | 'HARD'). null 이면 일반 코스 생성 모드
+  final String? difficulty;
+
+  const CourseEditorScreen({super.key, this.initialNodes, this.difficulty});
 
   @override
   ConsumerState<CourseEditorScreen> createState() => _CourseEditorScreenState();
@@ -77,6 +82,39 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     ref.read(courseEditorProvider.notifier).failSave('경로 이미지 생성에 실패했습니다');
   }
 
+  // ── 챌린지 저장 완료 후 달리기 시작 여부 확인 다이얼로그 ──────────────
+  void _askToStartRun(BuildContext ctx) {
+    showDialog<bool>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        title: const Text('코스 저장 완료'),
+        content: const Text('지금 바로 이 코스를 달릴까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx)
+              ..pop() // 다이얼로그 닫기
+              ..pop(), // 에디터 닫기
+            child: const Text('나중에'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx)
+                ..pop() // 다이얼로그 닫기
+                ..pop(); // 에디터 닫기
+              Navigator.of(ctx).push(
+                MaterialPageRoute(
+                  builder: (_) => const RunningCountdownScreen(),
+                  fullscreenDialog: true,
+                ),
+              );
+            },
+            child: const Text('달리기 시작'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // state 변경 시 화면 전체가 다시 빌드된다
@@ -84,12 +122,17 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     final notifier = ref.read(courseEditorProvider.notifier);
 
     // isSaving 이 true → false 로 바뀌는 순간을 감지해
-    // 저장 성공이면 화면을 닫고, 실패면 스낵바를 표시한다
+    // 저장 성공이면 챌린지 여부에 따라 다이얼로그 또는 팝, 실패면 스낵바를 표시한다
     ref.listen<CourseEditorState>(courseEditorProvider, (prev, next) {
       if (prev?.isSaving == true && !next.isSaving) {
         if (!context.mounted) return;
         if (next.saveError == null) {
-          Navigator.of(context).pop();
+          if (widget.difficulty != null) {
+            // 챌린지 모드: 저장 성공 후 달리기 시작 여부 확인
+            _askToStartRun(context);
+          } else {
+            Navigator.of(context).pop();
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(next.saveError!)),
