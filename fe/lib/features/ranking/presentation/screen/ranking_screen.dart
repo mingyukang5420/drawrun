@@ -121,23 +121,23 @@ const _hardWeeks = [
   ),
 ];
 
-// 난이도별 목업 랭킹 데이터
+// 난이도별 목업 랭킹 데이터 (상위 5위 + 내 순위)
+// TODO: 백엔드 API 연동 시 top5 / myEntry 분리해서 받아올 것
 const _easyRankings = [
   _RankingEntry(rank: 1, username: '달리기왕', similarityPct: 97.3, duration: '18:42'),
   _RankingEntry(rank: 2, username: '스피드런', similarityPct: 95.1, duration: '21:05'),
   _RankingEntry(rank: 3, username: '나', similarityPct: 91.8, duration: '24:33', isMe: true),
   _RankingEntry(rank: 4, username: '조깅러버', similarityPct: 88.4, duration: '27:11'),
   _RankingEntry(rank: 5, username: '마라토너', similarityPct: 85.0, duration: '29:54'),
-  _RankingEntry(rank: 6, username: '운동매니아', similarityPct: 82.6, duration: '31:20'),
-  _RankingEntry(rank: 7, username: '헬스왕', similarityPct: 80.1, duration: '33:48'),
 ];
 
 const _hardRankings = [
   _RankingEntry(rank: 1, username: '울트라러너', similarityPct: 93.5, duration: '31:07'),
   _RankingEntry(rank: 2, username: '철인', similarityPct: 90.2, duration: '34:22'),
-  _RankingEntry(rank: 3, username: '나', similarityPct: 85.7, duration: '39:14', isMe: true),
-  _RankingEntry(rank: 4, username: '도전자', similarityPct: 81.3, duration: '43:58'),
-  _RankingEntry(rank: 5, username: '페이스킵', similarityPct: 77.9, duration: '47:30'),
+  _RankingEntry(rank: 3, username: '도전자', similarityPct: 85.7, duration: '39:14'),
+  _RankingEntry(rank: 4, username: '페이스킵', similarityPct: 81.3, duration: '43:58'),
+  _RankingEntry(rank: 5, username: '산악러너', similarityPct: 77.9, duration: '47:30'),
+  _RankingEntry(rank: 13, username: '나', similarityPct: 54.2, duration: '01:12:44', isMe: true),
 ];
 
 // ── 난이도별 랭킹 탭 본문 ─────────────────────────────────────────────
@@ -240,14 +240,63 @@ class _ChallengeRankingTabState extends State<_ChallengeRankingTab> {
 
         // ── 랭킹 목록 ─────────────────────────────────────────────
         Expanded(
+          child: _RankingList(rankings: _rankings, accentColor: accentColor),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 상위 5위 목록 + 내 순위 고정 바 ──────────────────────────────────────
+class _RankingList extends StatelessWidget {
+  final List<_RankingEntry> rankings;
+  final Color accentColor;
+
+  const _RankingList({required this.rankings, required this.accentColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final top5 = rankings.where((e) => e.rank <= 5).toList()
+      ..sort((a, b) => a.rank.compareTo(b.rank));
+
+    // 내 순위가 상위 5위 밖인 경우에만 하단에 별도 표시
+    final myEntry = rankings.where((e) => e.isMe && e.rank > 5).firstOrNull;
+
+    return Column(
+      children: [
+        Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            itemCount: _rankings.length,
+            itemCount: top5.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (_, i) =>
-                _RankingCard(entry: _rankings[i], accentColor: accentColor),
+                _RankingCard(entry: top5[i], accentColor: accentColor),
           ),
         ),
+        if (myEntry != null) ...[
+          // 생략된 순위(6위 ~ 내 순위 직전)를 점 세 개로 표현
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              children: [
+                for (int i = 0; i < 3; i++)
+                  Container(
+                    width: 4,
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFD1D5DB),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: _RankingCard(entry: myEntry, accentColor: accentColor),
+          ),
+        ],
       ],
     );
   }
