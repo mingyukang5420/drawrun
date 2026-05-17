@@ -12,8 +12,7 @@ class CourseDetailScreen extends ConsumerStatefulWidget {
   const CourseDetailScreen({super.key, required this.courseDraftId});
 
   @override
-  ConsumerState<CourseDetailScreen> createState() =>
-      _CourseDetailScreenState();
+  ConsumerState<CourseDetailScreen> createState() => _CourseDetailScreenState();
 }
 
 class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
@@ -22,9 +21,7 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
     super.initState();
     // Provider 인스턴스가 생성된 직후 데이터 로드
     Future.microtask(
-      () => ref
-          .read(courseDetailProvider.notifier)
-          .load(widget.courseDraftId),
+      () => ref.read(courseDetailProvider.notifier).load(widget.courseDraftId),
     );
   }
 
@@ -33,9 +30,7 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
     final state = ref.watch(courseDetailProvider);
 
     if (state.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (state.errorMessage != null || state.detail == null) {
@@ -45,8 +40,11 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline,
-                  size: 48, color: Color(0xFF9CA3AF)),
+              const Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Color(0xFF9CA3AF),
+              ),
               const SizedBox(height: 12),
               Text(
                 state.errorMessage ?? '데이터를 불러오지 못했습니다',
@@ -78,7 +76,7 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
   }
 }
 
-// ── 앱바 (썸네일 이미지 확장) ───────────────────────────────────────────
+// ── 앱바 (경로 지도 or placeholder) ────────────────────────────────────
 class _DetailAppBar extends StatelessWidget {
   final CourseDraftDetail detail;
 
@@ -87,20 +85,24 @@ class _DetailAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverAppBar(
-      expandedHeight: 220,
+      expandedHeight: 280,
       pinned: true,
       backgroundColor: Colors.white,
       foregroundColor: Colors.white,
-      // 상세 API 응답에 trackImageUrl 이 없으므로 항상 placeholder 표시
-      flexibleSpace: const FlexibleSpaceBar(
-        background: ColoredBox(
-          color: Color(0xFFE5E7EB),
-          child: Icon(Icons.landscape, color: Color(0xFFD1D5DB), size: 64),
-        ),
+      flexibleSpace: FlexibleSpaceBar(
+        background: detail.coordinates.isNotEmpty
+            ? _RouteMap(detail: detail)
+            : const ColoredBox(
+                color: Color(0xFFE5E7EB),
+                child: Icon(
+                  Icons.landscape,
+                  color: Color(0xFFD1D5DB),
+                  size: 64,
+                ),
+              ),
       ),
     );
   }
-
 }
 
 // ── 메타 정보 + 경로 지도 ───────────────────────────────────────────────
@@ -151,32 +153,11 @@ class _DetailBody extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (detail.coordinates.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            const Text(
-              '경로',
-              style: TextStyle(
-                fontFamily: 'Pretendard',
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1C1C1E),
-              ),
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: SizedBox(
-                height: 280,
-                child: _RouteMap(detail: detail),
-              ),
-            ),
-          ],
           const SizedBox(height: 24),
         ],
       ),
     );
   }
-
 }
 
 class _Badge extends StatelessWidget {
@@ -279,9 +260,8 @@ class _BottomBar extends StatelessWidget {
             // 기존 좌표를 에디터에 넘겨 이어서 편집할 수 있게 한다
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => CourseEditorScreen(
-                  initialNodes: detail.coordinates,
-                ),
+                builder: (_) =>
+                    CourseEditorScreen(initialNodes: detail.coordinates),
               ),
             ),
             icon: const Icon(Icons.edit_outlined),
