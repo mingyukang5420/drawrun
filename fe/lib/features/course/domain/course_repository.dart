@@ -1,5 +1,6 @@
 import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/course/domain/course_draft.dart';
+import 'package:running/features/course/domain/course_draft_detail.dart';
 import 'package:running/features/course/domain/way.dart';
 
 // 코스 저장소 추상 인터페이스 (계약)
@@ -17,6 +18,9 @@ abstract class CourseRepository {
   // 새 코스를 서버에 저장 (응답 바디 불필요)
   // thumbnailBase64: 경로 스냅샷 base64 인코딩 문자열 (신규 에디터에서는 필수)
   Future<void> saveCourse(Course course, {String? thumbnailBase64});
+
+  // GET /api/v1/editor/{courseDraftId} — 에디터 코스 상세 조회
+  Future<CourseDraftDetail> getEditorDetail(int courseDraftId);
 
   // id 에 해당하는 코스 삭제
   Future<void> deleteCourse(int id);
