@@ -2,11 +2,13 @@ package com.running.app.domain.challenge.controller;
 
 import com.running.app.domain.challenge.dto.ChallengeResponse.ChallengeListDTO;
 import com.running.app.domain.challenge.dto.ChallengeResponse.ChallengeRankingResponse;
+import com.running.app.domain.challenge.dto.ChallengeResponse.ParticipatedChallengeGroupDTO;
 import com.running.app.domain.challenge.service.ChallengeRankingService;
 import com.running.app.domain.challenge.service.ChallengeService;
 import com.running.app.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,5 +46,15 @@ public class ChallengeController {
     ) {
         return ApiResponse.onSuccess(
                 challengeRankingService.getChallengeRanking(loginId, challengeId));
+    }
+
+    @Operation(summary = "참여한 챌린지 목록 조회")
+    @GetMapping("/participated")
+    public ApiResponse<List<ParticipatedChallengeGroupDTO>> getParticipatedChallenges(
+            @AuthenticationPrincipal String loginId
+    ) {
+        return ApiResponse.onSuccess(
+                challengeService.getParticipatedChallenges(loginId)
+        );
     }
 }

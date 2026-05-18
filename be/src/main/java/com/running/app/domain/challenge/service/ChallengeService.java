@@ -5,6 +5,8 @@ import com.running.app.domain.challenge.dto.ChallengeResponse;
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
 import com.running.app.domain.challenge.type.ChallengeDifficulty;
+import com.running.app.domain.member.entity.Member;
+import com.running.app.domain.member.repository.MemberRepository;
 import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
@@ -22,6 +24,7 @@ public class ChallengeService {
     private final ChallengeRepository challengeRepository;
     private final RunningRecordRepository runningRecordRepository;
     private final ChallengeRankingService challengeRankingService;
+    private final MemberRepository memberRepository;
 
     @Transactional
     public Challenge create(Challenge challenge) {
@@ -75,5 +78,18 @@ public class ChallengeService {
                 );
 
         return ChallengeConverter.toChallengeListDTO(easy, hard);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChallengeResponse.ParticipatedChallengeGroupDTO> getParticipatedChallenges(
+            String loginId
+    ) {
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Long memberId = member.getMemberId().longValue();
+
+        return ChallengeConverter.toParticipatedChallengeGroupDTOList(
+                runningRecordRepository.findParticipatedChallengesByMemberId(memberId)
+        );
     }
 }
