@@ -25,7 +25,19 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
   // 챌린지 진입 난이도 ('EASY' | 'HARD'). null 이면 일반 코스 생성 모드
   final String? difficulty;
 
-  const CourseEditorScreen({super.key, this.initialNodes, this.difficulty});
+  // 코스에 대응하는 폴리곤 이미지 URL. null 이면 빈 placeholder 를 표시
+  final String? polygonImageUrl;
+
+  // 폴리곤 이미지 버튼 전용 타이틀 (코스명과 별개). null 이면 기본 텍스트 표시
+  final String? polygonTitle;
+
+  const CourseEditorScreen({
+    super.key,
+    this.initialNodes,
+    this.difficulty,
+    this.polygonImageUrl,
+    this.polygonTitle,
+  });
 
   @override
   ConsumerState<CourseEditorScreen> createState() => _CourseEditorScreenState();
@@ -173,18 +185,46 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
               ),
             ),
 
-          // 3단계: 상단 정보 바 (코스명·거리·저장 상태)
+          // 3단계: 상단 타이틀 바 (뒤로가기 + 코스명 + 저장 상태)
           Positioned(
             top: 0,
             left: 0,
-            right: 0,
+            right: 56,
             child: SafeArea(
-              child: _TopInfoBar(
+              child: _TitleBar(
                 state: state,
                 onNameTap: () => _showNameDialog(state.courseName),
               ),
             ),
           ),
+
+          // 3-2단계: 폴리곤 미리보기 버튼 (타이틀 바와 분리된 독립 영역)
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, right: 8),
+                child: _PolygonPreviewButton(
+                  imageUrl: widget.polygonImageUrl,
+                  title: widget.polygonTitle,
+                ),
+              ),
+            ),
+          ),
+
+          // 3-3단계: 총 거리 뱃지 (경로가 있을 때 타이틀 바 하단에 표시)
+          if (state.nodes.isNotEmpty)
+            Positioned(
+              top: 0,
+              left: 12,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 64),
+                  child: _KmBadge(km: state.totalDistanceKm),
+                ),
+              ),
+            ),
 
           // 4단계: 도로 상태 안내 힌트 배너
           if (state.nodes.isEmpty)
@@ -267,36 +307,32 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 상단 정보 바
-// 뒤로 가기 버튼 · 편집 가능한 코스 이름 · 총 거리 · 저장 상태 표시
+// 상단 타이틀 바
+// 뒤로 가기 버튼 · 편집 가능한 코스 이름 · 저장 상태 표시
+// 폴리곤 버튼은 별도 Positioned 로 분리됨
 // ─────────────────────────────────────────────────────────────────────
-class _TopInfoBar extends StatelessWidget {
+class _TitleBar extends StatelessWidget {
   final CourseEditorState state;
-
-  // 코스 이름 영역을 탭했을 때 이름 수정 다이얼로그를 여는 콜백
   final VoidCallback onNameTap;
 
-  const _TopInfoBar({required this.state, required this.onNameTap});
+  const _TitleBar({required this.state, required this.onNameTap});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      height: 48,
+      margin: const EdgeInsets.only(left: 12, top: 8, bottom: 8, right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.93),
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
         ],
       ),
       child: Row(
         children: [
-          // 뒤로 가기 버튼 (AppBar 가 없으므로 직접 구현)
+          // 뒤로 가기 버튼
           IconButton(
             icon: const Icon(Icons.arrow_back),
             padding: EdgeInsets.zero,
@@ -324,7 +360,6 @@ class _TopInfoBar extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  // 이름을 수정할 수 있음을 나타내는 작은 편집 아이콘
                   const Icon(Icons.edit, size: 14, color: Colors.grey),
                 ],
               ),
@@ -332,7 +367,7 @@ class _TopInfoBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          // 저장 진행 중일 때 로딩 스피너, 아닐 때는 저장 완료 아이콘
+          // 저장 진행 중이면 스피너, 완료 노드가 있으면 체크 아이콘
           if (state.isSaving)
             const SizedBox(
               width: 16,
@@ -343,18 +378,6 @@ class _TopInfoBar extends StatelessWidget {
             const Icon(Icons.check_circle_outline, size: 16, color: Colors.green)
           else
             const SizedBox(width: 16),
-          const SizedBox(width: 8),
-
-          // 실시간 총 거리 (노드가 늘어날 때마다 자동 갱신)
-          Text(
-            '${state.totalDistanceKm.toStringAsFixed(2)} km',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              // 경로 폴리라인 색상과 동일하게 통일
-              color: kCourseRouteColor,
-            ),
-          ),
           const SizedBox(width: 4),
         ],
       ),
@@ -461,6 +484,7 @@ class _FabIconButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────
 // 하단 컨트롤 패널
 // 왼쪽: 실행취소 · 다시실행 · 초기화 버튼
+// 가운데: 총 거리 뱃지
 // 오른쪽: 저장(CTA) 버튼
 // ─────────────────────────────────────────────────────────────────────
 class _BottomPanel extends StatelessWidget {
@@ -479,58 +503,53 @@ class _BottomPanel extends StatelessWidget {
     final hasNodes = state.nodes.isNotEmpty;
 
     return Container(
-      color: Colors.white,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
-        top: 12,
-        // SafeArea 하단(홈 인디케이터) 여백만큼 추가 패딩
-        bottom: MediaQuery.of(context).padding.bottom + 12,
+        top: 8,
+        bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 실행취소 버튼 (undoStack 이 비어있으면 비활성)
           _ControlButton(
-            icon: Icons.undo,
+            icon: Icons.undo_rounded,
             label: '취소',
             enabled: state.undoStack.isNotEmpty,
             onTap: notifier.undo,
           ),
           const SizedBox(width: 8),
-
-          // 다시실행 버튼 (redoStack 이 비어있으면 비활성)
           _ControlButton(
-            icon: Icons.redo,
+            icon: Icons.redo_rounded,
             label: '복원',
             enabled: state.redoStack.isNotEmpty,
             onTap: notifier.redo,
           ),
           const SizedBox(width: 8),
-
-          // 전체 초기화 버튼 (노드가 없으면 비활성)
           _ControlButton(
-            icon: Icons.delete_outline,
+            icon: Icons.delete_outline_rounded,
             label: '초기화',
             enabled: hasNodes,
             onTap: notifier.reset,
           ),
           const Spacer(),
-
-          // 저장 CTA 버튼
-          // · 노드가 없거나 저장 중이면 비활성
-          // · 저장 완료 or 실패는 ref.listen 이 처리 (screen 레벨)
           SizedBox(
-            height: 44,
+            height: 48,
             child: ElevatedButton(
               onPressed: (hasNodes && !state.isSaving) ? onSave : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: kCourseRouteColor,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade300,
+                disabledBackgroundColor: Colors.grey.shade200,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 28),
               ),
               child: state.isSaving
                   ? const SizedBox(
@@ -543,7 +562,10 @@ class _BottomPanel extends StatelessWidget {
                     )
                   : const Text(
                       '저장',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
             ),
           ),
@@ -553,7 +575,7 @@ class _BottomPanel extends StatelessWidget {
   }
 }
 
-// 하단 패널의 소형 컨트롤 버튼 (아이콘 + 라벨 텍스트)
+// 하단 패널 소형 컨트롤 버튼 — 둥근 사각 배경에 아이콘 + 라벨
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -569,18 +591,65 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 비활성 상태면 회색, 활성이면 어두운 색상으로 표시
-    final color = enabled ? Colors.black87 : Colors.grey.shade400;
+    final iconColor = enabled ? Colors.black87 : Colors.grey.shade400;
+    final labelColor = enabled ? Colors.black54 : Colors.grey.shade400;
+    final bgColor = enabled ? Colors.grey.shade100 : Colors.grey.shade50;
+
     return GestureDetector(
       onTap: enabled ? onTap : null,
-      child: Column(
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: iconColor),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: labelColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 총 거리 표시 뱃지
+class _KmBadge extends StatelessWidget {
+  final double km;
+
+  const _KmBadge({required this.km});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0x1AFF5722), // kCourseRouteColor 10% opacity
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 24, color: color),
-          const SizedBox(height: 2),
+          const Icon(Icons.straighten_rounded, size: 13, color: kCourseRouteColor),
+          const SizedBox(width: 4),
           Text(
-            label,
-            style: TextStyle(fontSize: 11, color: color),
+            '${km.toStringAsFixed(2)} km',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: kCourseRouteColor,
+            ),
           ),
         ],
       ),
@@ -635,6 +704,114 @@ class _RoadHintBanner extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 경로 다각형 미리보기 버튼
+// 노드가 없으면 회색 아이콘을 표시하고, 있으면 실제 경로를 축소해서 그린다.
+// 탭하면 Dialog 에서 확대된 경로 모양을 보여준다.
+// ─────────────────────────────────────────────────────────────────────
+class _PolygonPreviewButton extends StatelessWidget {
+  final String? imageUrl;
+  final String? title;
+
+  const _PolygonPreviewButton({this.imageUrl, this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null;
+    return GestureDetector(
+      onTap: () => _showPreview(context),
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: hasImage ? kCourseRouteColor : Colors.grey.shade400,
+            width: 1.5,
+          ),
+          boxShadow: const [
+            BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1)),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6.5),
+          child: hasImage
+              ? Image.network(
+                  imageUrl!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (ctx, err, st) => _placeholder(),
+                )
+              : _placeholder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Icon(Icons.pentagon_outlined, size: 20, color: Colors.grey.shade500);
+  }
+
+  void _showPreview(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title ?? '코스 폴리곤',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              AspectRatio(
+                aspectRatio: 1,
+                child: imageUrl != null
+                    ? Image.network(
+                        imageUrl!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (ctx, err, st) => Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            size: 48,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.pentagon_outlined,
+                          size: 80,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
