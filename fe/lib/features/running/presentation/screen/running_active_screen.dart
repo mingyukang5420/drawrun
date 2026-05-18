@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/running/presentation/running_provider.dart';
-import 'package:running/features/running/presentation/widgets/running_metric_focus.dart';
+import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 import 'package:running/features/running/presentation/widgets/running_metric_top_bar.dart';
 import 'package:running/features/running/presentation/widgets/running_pause_map_sheet.dart';
 import 'package:running/features/running/presentation/widgets/running_pause_metric_grid.dart';
@@ -93,8 +93,12 @@ class _RunningBody extends StatelessWidget {
       children: [
         // 상단 3분할 (시간 / 거리 / 페이스)
         const RunningMetricTopBar(),
-        // 가운데: 큰 값 표시. Expanded 로 가용 높이를 모두 차지
-        const Expanded(child: RunningMetricFocus()),
+        // 가운데: 실시간 지도
+        // trackRoute: true 로 넘기면 RunningMapView 가 NaverMapController 를
+        // RunningNotifier 에 등록하고, VM 이 누적된 경로(파란 폴리라인) 와
+        // 참조 노드(회색 폴리라인) 를 자동으로 그려준다
+        // Expanded 로 상단 바와 하단 버튼 사이 가용 높이를 모두 차지하게 한다
+        const Expanded(child: RunningMapView(trackRoute: true)),
         // 하단: 일시정지 버튼 (가로 꽉 채우기)
         Padding(
           padding: const EdgeInsets.all(16),
