@@ -53,7 +53,11 @@ public class TestService {
         String base64 = challengeImageStorageService.readAsBase64(challenge.getPolygonImageUrl());
         String polygonPoints = challengeOutlineExtractService.extract(base64);
         challenge.updatePolygonPoints(polygonPoints);
-        log.info("polygon_points 백필 완료. challengeId={}, points={}", challengeId, polygonPoints);
+        if (polygonPoints != null) {
+            log.info("polygon_points 백필 완료. challengeId={}", challengeId);
+        } else {
+            log.warn("polygon_points 백필 실패(추출 결과 null). challengeId={}", challengeId);
+        }
     }
 
     public Double testSimilarity(Long challengeId, List<TrackRequest.NodeDTO> nodes) {
