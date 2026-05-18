@@ -57,7 +57,7 @@ public abstract class ChallengeResponse {
         private String title;
         private String polygonImageUrl;
         private Integer totalParticipantCount;
-        private BigDecimal myBestSimilarityScore;
+        private Double myBestSimilarityScore;
         private Integer myBestRank;
 
     }
