@@ -28,6 +28,10 @@ class MapView extends StatefulWidget {
   // false 로 설정하면 사용자의 드래그·스크롤로 지도가 이동하지 않는다
   final bool scrollGesturesEnable;
 
+  // 지도의 논리적 중심을 이동시키는 내부 여백
+  // 예: EdgeInsets.only(bottom: 200) 이면 현재 위치 핀이 화면 상단 쪽으로 올라간다
+  final EdgeInsets contentPadding;
+
   const MapView({
     super.key,
     this.onMapReady,
@@ -36,6 +40,7 @@ class MapView extends StatefulWidget {
     this.onCameraIdle,
     this.onLocationError,
     this.scrollGesturesEnable = true,
+    this.contentPadding = EdgeInsets.zero,
   });
 
   @override
@@ -99,6 +104,7 @@ class _MapViewState extends State<MapView> {
           zoom: 14,
         ),
         scrollGesturesEnable: widget.scrollGesturesEnable,
+        contentPadding: widget.contentPadding,
       ),
       onMapReady: (mapController) async {
         // 컨트롤러 등록을 먼저 수행해야 이후 카메라 이동으로 발생하는

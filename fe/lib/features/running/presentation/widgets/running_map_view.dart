@@ -66,6 +66,10 @@ class _RunningMapViewState extends ConsumerState<RunningMapView> {
       showCurrentLocation: true,
       // 홈 화면(trackRoute=false)에서는 지도 스크롤 비활성화
       scrollGesturesEnable: widget.trackRoute,
+      // 홈 화면에서 현재 위치 핀이 하단 버튼에 가리지 않도록 위쪽으로 올림
+      contentPadding: widget.trackRoute
+          ? EdgeInsets.zero
+          : const EdgeInsets.only(bottom: 220),
       onMapReady: (mapController) {
         if (widget.trackRoute) {
           ref
