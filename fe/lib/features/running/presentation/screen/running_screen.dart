@@ -533,34 +533,28 @@ class _ChallengeCard extends StatelessWidget {
                 // Easy: 라벨(상단) → 도형(하단) 순서
                 // Hard: 도형(상단) → 라벨(하단) 순서 — 대각선 반전 효과
                 if (_isLeft) ...[
-                  // Easy 라벨 — 상단 좌측에 배치 (넓은 쪽)
+                  // Easy: 라벨(상단) → 큰 폴리곤 이미지(하단)
                   _Label(
                     label: label,
                     description: description,
                     alignment: labelAlignment,
                   ),
-                  const SizedBox(height: 12),
-                  // Easy 도형 아이콘 — 하단 좌측 정렬 (우측 하단은 사다리꼴로 잘림)
-                  Align(
-                    alignment: Alignment.bottomLeft,
-                    child: _ShapeIcon(
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: _LargePolygonImage(
                       icon: shapeIcon,
-                      color: accentColor,
                       imageUrl: polygonImageUrl,
                     ),
                   ),
                 ] else ...[
-                  // Hard 도형 아이콘 — 상단 우측 정렬 (좌측 상단은 사다리꼴로 잘림)
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: _ShapeIcon(
+                  // Hard: 큰 폴리곤 이미지(상단) → 라벨(하단)
+                  Expanded(
+                    child: _LargePolygonImage(
                       icon: shapeIcon,
-                      color: accentColor,
                       imageUrl: polygonImageUrl,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  // Hard 라벨 — 하단 우측에 배치 (넓은 쪽)
+                  const SizedBox(height: 8),
                   _Label(
                     label: label,
                     description: description,
@@ -678,51 +672,37 @@ class _Label extends StatelessWidget {
   }
 }
 
-// ── 도형 대표 아이콘 / 폴리곤 이미지 영역 ────────────────────────────
-// imageUrl 이 있으면 BE 의 polygonImageUrl 을 Image.network 로 표시,
-// 없거나 네트워크 실패 시에는 fallback 아이콘(icon) 으로 채워 디자인 일관성 유지.
-class _ShapeIcon extends StatelessWidget {
-  final IconData icon; // imageUrl 없거나 로드 실패 시 보여 줄 fallback 아이콘
-  final Color color; // 카드 배경색 — 향후 색 보정 시 사용 가능
-  final String? imageUrl; // 폴리곤 이미지 URL — null 이면 icon fallback
-  final double size; // 박스 변의 길이 (기본 60)
+// ── 폴리곤 이미지 (카드 내 확장 영역) ───────────────────────────────
+// Expanded 안에서 카드의 남은 공간을 모두 채워 폴리곤 이미지를 크게 표시.
+// imageUrl 이 없거나 로드 실패 시 fallback 아이콘으로 대체.
+class _LargePolygonImage extends StatelessWidget {
+  final IconData icon;
+  final String? imageUrl;
 
-  const _ShapeIcon({
-    required this.icon,
-    required this.color,
-    this.imageUrl,
-    this.size = 60,
-  });
+  const _LargePolygonImage({required this.icon, this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        // 카드 배경보다 약간 밝게 해서 도형 영역임을 구분
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      // URL 없으면 기존 아이콘 그대로 — 로딩/에러 상태에서 자연스럽게 fallback
-      child: imageUrl == null
-          ? Icon(icon,
-              size: 34, color: Colors.white.withValues(alpha: 0.85))
-          : Padding(
-              // 박스 가장자리에서 6px 들여 폴리곤 도형에 호흡 공간을 둠
-              // (박스 60 × 60 안쪽 약 48 × 48 영역에 이미지가 그려진다)
-              padding: const EdgeInsets.all(6),
-              child: Image.network(
-                imageUrl!,
-                fit: BoxFit.contain,
-                // 네트워크 오류 시 fallback — 빈 박스 대신 기존 아이콘으로 채움
-                errorBuilder: (_, __, ___) => Icon(
-                  icon,
-                  size: 34,
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
-              ),
+    if (imageUrl == null) {
+      return Center(
+        child: Icon(icon, size: 72, color: Colors.white.withValues(alpha: 0.3)),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox.expand(
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Center(
+            child: Icon(
+              icon,
+              size: 72,
+              color: Colors.white.withValues(alpha: 0.3),
             ),
+          ),
+        ),
+      ),
     );
   }
 }
