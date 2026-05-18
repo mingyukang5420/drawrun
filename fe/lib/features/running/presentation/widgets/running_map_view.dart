@@ -11,12 +11,23 @@ import 'package:running/shared/map/widgets/map_view.dart';
 //   - true  → 이 지도에 폴리라인을 그린다. setMapController 호출.
 //   - false → 위치 핀만 표시. ViewModel 에 controller 를 등록하지 않음.
 //
-// 메인 RunningScreen 의 지도는 "시작 화면 = 현재 위치만 표시" 역할이라 false.
-// 일시정지 시트의 지도는 누적 경로 표시 역할이라 true.
+// contentPadding:
+//   - 지도의 논리적 중심을 이동시키는 내부 여백을 MapView 로 그대로 전달한다
+//   - 일시정지 모드 A 처럼 화면 아래쪽을 오버레이가 덮을 때 bottom 패딩을 주면
+//     카메라가 자리 잡을 때 현재 위치 핀이 위쪽 노출 영역의 중앙에 표시된다
+//   - 기본값 EdgeInsets.zero — 다른 사용처는 변화 없음
+//
+// 메인 RunningScreen 의 지도는 "시작 화면 = 현재 위치만 표시" 역할이라 trackRoute false.
+// 일시정지 화면의 지도는 누적 경로 표시 역할이라 trackRoute true.
 class RunningMapView extends ConsumerStatefulWidget {
   final bool trackRoute;
+  final EdgeInsets contentPadding;
 
-  const RunningMapView({super.key, this.trackRoute = false});
+  const RunningMapView({
+    super.key,
+    this.trackRoute = false,
+    this.contentPadding = EdgeInsets.zero,
+  });
 
   @override
   ConsumerState<RunningMapView> createState() => _RunningMapViewState();
@@ -64,6 +75,10 @@ class _RunningMapViewState extends ConsumerState<RunningMapView> {
     return MapView(
       key: ValueKey(_mapRetryKey),
       showCurrentLocation: true,
+      // contentPadding 을 그대로 MapView 에 전달
+      // 부모(_PausedBody) 가 _showOverlay 토글로 이 값을 바꾸면 NaverMap 이
+      // 내부적으로 _updateOptions 를 호출해 contentPadding 만 갈아끼운다 — PlatformView 재생성 없음
+      contentPadding: widget.contentPadding,
       onMapReady: (mapController) {
         if (widget.trackRoute) {
           ref

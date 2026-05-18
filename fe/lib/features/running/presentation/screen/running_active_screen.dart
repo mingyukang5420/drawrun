@@ -4,13 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 import 'package:running/features/running/presentation/widgets/running_metric_top_bar.dart';
-import 'package:running/features/running/presentation/widgets/running_pause_metric_grid.dart';
 import 'package:running/features/running/presentation/widgets/running_stop_long_press_button.dart';
+import 'package:running/features/running/presentation/widgets/running_pause_metric_column.dart';
 import 'package:running/features/running/presentation/screen/running_result_screen.dart';
 
 // 러닝 진행 화면. isPaused 값에 따라 두 모드를 분기 렌더링한다.
-//   - false: _RunningBody (상단 메트릭 + 가운데 큰 값 + 하단 일시정지 버튼)
-//   - true : _PausedBody  (그리드 + 정지(롱프레스)/재생 + 위로 끄는 지도 시트)
+//   - false: _RunningBody (상단 메트릭 + 가운데 지도 + 하단 일시정지 버튼)
+//   - true : _PausedBody  (지도 단일 마운트 + 오버레이 토글)
 class RunningActiveScreen extends ConsumerStatefulWidget {
   const RunningActiveScreen({super.key});
 
@@ -73,9 +73,6 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
           )
               : _RunningBody(
             onPause: notifier.pause,
-            // VM 의 카메라 이동 메서드를 그대로 넘긴다
-            // 메서드 참조(notifier.centerOnCurrentLocation) 로 넘기면 매 빌드마다
-            // 새 람다가 생성되지 않아 자식 위젯 입장에서 const 처럼 안정적이다
             onRecenter: notifier.centerOnCurrentLocation,
           ),
         ),
@@ -183,69 +180,149 @@ class _RecenterButton extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// 일시정지 모드: 그리드 + 정지/재생 버튼 + (z-축 위로) DraggableScrollableSheet.
-// Stack 으로 시트를 위에 띄워야 그리드/버튼을 가리지 않으면서 끌어올릴 수 있다.
-// ─────────────────────────────────────────────────────────────────────
-class _PausedBody extends StatelessWidget {
+// StatelessWidget → StatefulWidget
+// 오버레이 표시/숨김 상태를 위젯 내부에 들고, setState 한 번으로 토글
+// 중요: 이 토글은 0번 자식인 RunningMapView 의 widget identity 를 절대 흔들지 않는다
+//       → NaverMap PlatformView 가 재생성되지 않아 저사양 기기에서 끊김이 없음
+class _PausedBody extends StatefulWidget {
   // Future 반환: 정지 → 화면 이동을 직렬로 보장하기 위해 VoidCallback 이 아닌 Future 사용
   final Future<void> Function() onStop;
   final VoidCallback onResume;
-  const _PausedBody({required this.onStop, required this.onResume});
+
+  const _PausedBody({
+    required this.onStop,
+    required this.onResume,
+  });
+
+  @override
+  State<_PausedBody> createState() => _PausedBodyState();
+}
+
+class _PausedBodyState extends State<_PausedBody> {
+  // 메트릭/버튼 오버레이 표시 여부
+  // true  → 모드 A (오버레이 ON, 지도 위쪽 일부만 노출, 지도 제스처 잠금)
+  // false → 모드 B (오버레이 OFF, 지도 전체 노출, 자유 제스처, 우측 하단 [내위치]/[X] 버튼)
+  bool _showOverlay = true;
 
   @override
   Widget build(BuildContext context) {
-    // z-순서 뒤집기: 지도를 화면 전체 배경으로 깔고, 그리드와 버튼을 그 위에 띄운다
-    // Stack 자식 리스트는 [앞쪽=뒤(아래), 뒤쪽=앞(위)] 순으로 그려진다
+    // 시스템 UI(홈 인디케이터 / 제스처 바) 영역만큼 버튼을 위로 띄울 보정값
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
+    // 오버레이 패널 높이 — 화면의 57% (지도가 위쪽 ~43% 노출되도록)
+    final overlayHeight = MediaQuery.of(context).size.height * 0.57;
+
     return Stack(
       children: [
-        // 1번 자식 (z 최하단) — 화면 전체를 채우는 실시간 지도
-        // Positioned.fill 은 Stack 부모 영역 전부를 자식이 차지하게 만드는 단축형
-        // trackRoute: true — 진행 중에 그리던 파란 폴리라인을 그대로 이어서 보여 준다
-        const Positioned.fill(
-          child: RunningMapView(trackRoute: true),
-        ),
-
-        // 2번 자식 — 6분할 메트릭 그리드를 화면 상단에 가로 풀폭으로 띄운다
-        // top: 0, left: 0, right: 0 — 양옆·위 가장자리까지 가득 채워 그 아래 지도를 가린다
-        // 진행 중 화면의 RunningMetricTopBar 와 동일한 시각 톤 (둥근 모서리 / 그림자 없음)
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: Container(
-            // 흰 배경으로 지도를 가려 그리드 텍스트가 또렷이 읽히게 한다
-            // 하단 경계선 한 줄(black12) 로 지도와 시각 구분 — 진행 중 상단 바와 동일 패턴
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Colors.black12)),
+        // 1번 자식 — 항상 화면 전체 크기로 마운트되어 있는 지도
+        // _showOverlay 토글에도 이 자리는 절대 흔들리지 않는다 → PlatformView 재생성 없음
+        // IgnorePointer 의 ignoring 과 RunningMapView 의 contentPadding 만 변경되며,
+        // RunningMapView 의 State (그리고 NaverMapController 참조) 는 동일하게 유지된다
+        Positioned.fill(
+          child: IgnorePointer(
+            // 모드 A 에서는 지도 제스처 차단, 모드 B 에서는 자유 제스처
+            ignoring: _showOverlay,
+            // contentPadding 으로 지도의 "실효 가시 영역" 을 정의 — 카메라가 그 영역의
+            // 중앙에 target 을 놓는다
+            //   모드 A: bottom = overlayHeight → 위쪽 ~43% 영역의 중앙에 내 위치 핀이 표시됨
+            //   모드 B: zero → 전체 화면 기준
+            child: RunningMapView(
+              trackRoute: true,
+              contentPadding: _showOverlay
+                  ? EdgeInsets.only(bottom: overlayHeight)
+                  : EdgeInsets.zero,
             ),
-            // 내부 여백 — 그리드 셀이 바 가장자리에 너무 붙지 않게
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-            child: const RunningPauseMetricGrid(),
           ),
         ),
 
-        // 3번 자식 (z 최상단) — 정지(롱프레스) / 재생 버튼을 화면 하단에 띄운다
-        // bottom: 0 / left: 0 / right: 0 — Stack 밑변에 가로 폭 가득
-        // ElevatedButton 은 자체 elevation 을 갖고 있어 별도 Material 래핑 불필요
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: Padding(
-            // 화면 하단에서 16px 여백 — 진행 중 화면의 일시정지 버튼과 동일
-            padding: const EdgeInsets.all(16),
+        // 2번 자식 — 모드 A 일 때만 활성화되는 투명 탭 감지 레이어
+        // 화면 전체를 덮지만, z-순서상 아래의 오버레이 패널(3번 자식)이 자기 영역 탭을 먼저 가로채므로
+        // 결과적으로 "지도가 보이는 위쪽 영역" 의 탭만 잡힌다
+        if (_showOverlay)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _showOverlay = false),
+            ),
+          ),
+
+        // 3번 자식 — 메트릭 + 정지/재생 버튼 오버레이 패널 (모드 A)
+        // 화면 아래 57% 를 흰 패널로 덮어 지도를 가린다
+        // 패널 안 메트릭은 위쪽, 버튼은 아래쪽에 배치하고 그 사이는 Spacer 로 호흡
+        if (_showOverlay)
+          Positioned(
+            left: 0, right: 0, bottom: 0,
+            child: SizedBox(
+              height: overlayHeight,
+              child: _OverlayPanel(
+                onStop: widget.onStop,
+                onResume: widget.onResume,
+                bottomSafe: bottomSafe,
+              ),
+            ),
+          ),
+
+        // 4번 자식 — 모드 B 일 때만 보이는 우측 하단 액션 버튼 묶음
+        // [내 위치로] (위) / [X 닫기 = 오버레이 다시 표시] (아래)
+        if (!_showOverlay)
+          Positioned(
+            right: 16,
+            bottom: 16 + bottomSafe,
+            child: _ActionButtonsColumn(
+              onClose: () => setState(() => _showOverlay = true),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// 일시정지 화면 모드 A 의 흰 오버레이 패널
+// 메트릭 컬럼(상단) + 빈 공간(Spacer) + 정지/재생 버튼(하단)
+class _OverlayPanel extends StatelessWidget {
+  final Future<void> Function() onStop;
+  final VoidCallback onResume;
+  // 시스템 UI(홈 인디케이터) 보정값 — 부모에서 받아온다
+  final double bottomSafe;
+
+  const _OverlayPanel({
+    required this.onStop,
+    required this.onResume,
+    required this.bottomSafe,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      // 흰 배경으로 그 아래 지도를 가린다
+      // 상단 경계선 한 줄로 지도와 시각 구분
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.black12)),
+      ),
+      child: Column(
+        children: [
+          // 메트릭 컬럼 — 패널 상단에 배치
+          // 상하 24 / 좌우 16 패딩으로 가장자리 호흡
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: RunningPauseMetricColumn(),
+          ),
+
+          // 빈 공간 — 메트릭과 버튼 사이 호흡
+          const Spacer(),
+
+          // 정지(롱프레스) / 재생 버튼
+          // 누르기 편한 위치로 — 하단 가장자리에서 48px 추가로 더 위
+          // 16(기본) + bottomSafe(시스템 UI) + 48(추가 띄움) = 약 80~104px 위
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomSafe + 48),
             child: Row(
               children: [
-                // Expanded 로 두 버튼을 화면 폭에 맞춰 균등 분할
                 Expanded(
                   child: RunningStopLongPressButton(onLongPressed: onStop),
                 ),
-                // 두 버튼 사이 12px 간격
                 const SizedBox(width: 12),
                 Expanded(
-                  // 정지 버튼 높이와 맞추기 위해 SizedBox 로 56px 고정
                   child: SizedBox(
                     height: 56,
                     child: ElevatedButton(
@@ -257,8 +334,75 @@ class _PausedBody extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// 일시정지 화면 모드 B 의 우측 하단 액션 버튼 묶음
+// [내 위치로] (위) / [X 닫기] (아래)
+// ConsumerWidget — viewmodel 의 centerOnCurrentLocation 호출용으로 ref 필요
+class _ActionButtonsColumn extends ConsumerWidget {
+  // X 닫기 콜백 — 부모(_PausedBodyState) 에서 setState 로 오버레이를 다시 켠다
+  final VoidCallback onClose;
+  const _ActionButtonsColumn({required this.onClose});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(runningViewModelProvider.notifier);
+
+    return Column(
+      // 자식 합만큼만 높이를 차지하도록 — Positioned 안에서 위로 늘어나지 않게
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // 내 위치로 — viewmodel 의 centerOnCurrentLocation 재사용
+        _RoundIconButton(
+          icon: Icons.my_location,
+          onTap: notifier.centerOnCurrentLocation,
+        ),
+        // 두 버튼 사이 간격
+        const SizedBox(height: 12),
+        // X 닫기 — 모드 A 로 되돌리는 토글 + 내 위치 자동 재중앙
+        // 모드 B 에서 자유 패닝한 뒤 X 를 누르면 카메라가 패닝된 위치에 멈춰 있어
+        // 모드 A 위쪽 노출 영역에 내 위치 핀이 안 보일 수 있다 — 이걸 막기 위해
+        // 오버레이 토글과 동시에 내 위치로 카메라를 가져온다
+        _RoundIconButton(
+          icon: Icons.close,
+          onTap: () {
+            notifier.centerOnCurrentLocation();
+            onClose();
+          },
         ),
       ],
+    );
+  }
+}
+
+// 흰 배경 + 그림자가 있는 원형 아이콘 버튼
+// 진행 중 화면의 _RecenterButton 과 동일 디자인 — 시각 톤 통일
+class _RoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _RoundIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    // Material + InkWell — 탭 리플 효과와 그림자를 함께 얻기 위한 정석
+    return Material(
+      color: Colors.white,
+      elevation: 4,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(icon, size: 22, color: Colors.black87),
+        ),
+      ),
     );
   }
 }
