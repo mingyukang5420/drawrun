@@ -526,64 +526,72 @@ class _ChallengeCard extends StatelessWidget {
         color: accentColor,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: labelAlignment,
-              children: [
-                if (_isLeft) ...[
-                  _Label(label: label, description: description, alignment: labelAlignment),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: _LargePolygonImage(
-                      icon: shapeIcon,
-                      imageUrl: polygonImageUrl,
-                      alignment: Alignment.centerRight,
-                      flipX: true,
-                    ),
-                  ),
-                ] else ...[
-                  Expanded(
-                    child: _LargePolygonImage(
-                      icon: shapeIcon,
-                      imageUrl: polygonImageUrl,
-                      alignment: Alignment.topRight,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _Label(label: label, description: description, alignment: labelAlignment),
-                ],
-                const SizedBox(height: 14),
-                Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
-                const SizedBox(height: 10),
-                Column(
-                  crossAxisAlignment: labelAlignment,
-                  children: [
-                    Row(
-                      mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.end,
-                      children: [
-                        Icon(Icons.people_outline, size: 11, color: Colors.white.withValues(alpha: 0.6)),
-                        const SizedBox(width: 3),
-                        Text(attemptCount, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.end,
-                      children: [
-                        Icon(Icons.emoji_events_outlined, size: 11, color: Colors.white.withValues(alpha: 0.6)),
-                        const SizedBox(width: 3),
-                        Text(myBestInfo, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
-                      ],
-                    ),
-                  ],
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 폴리곤 이미지 — 좌(Easy)/우(Hard) 가장자리에 절반씩 걸침
+              Positioned(
+                left: _isLeft ? -40 : null,
+                right: _isLeft ? null : -40,
+                top: _isLeft ? null : -16,
+                bottom: _isLeft ? 24 : null,
+                width: 160,
+                height: 160,
+                child: _LargePolygonImage(
+                  icon: shapeIcon,
+                  imageUrl: polygonImageUrl,
+                  alignment: Alignment.center,
+                  flipX: _isLeft,
                 ),
-              ],
-            ),
+              ),
+              // 텍스트·통계 오버레이
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: labelAlignment,
+                    children: [
+                      if (_isLeft) ...[
+                        _Label(label: label, description: description, alignment: labelAlignment),
+                        const Spacer(),
+                      ] else ...[
+                        const Spacer(),
+                        _Label(label: label, description: description, alignment: labelAlignment),
+                      ],
+                      const SizedBox(height: 14),
+                      Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
+                      const SizedBox(height: 10),
+                      Column(
+                        crossAxisAlignment: labelAlignment,
+                        children: [
+                          Row(
+                            mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
+                                ? MainAxisAlignment.start
+                                : MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.people_outline, size: 11, color: Colors.white.withValues(alpha: 0.6)),
+                              const SizedBox(width: 3),
+                              Text(attemptCount, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
+                                ? MainAxisAlignment.start
+                                : MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.emoji_events_outlined, size: 11, color: Colors.white.withValues(alpha: 0.6)),
+                              const SizedBox(width: 3),
+                              Text(myBestInfo, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -623,7 +631,7 @@ class _Label extends StatelessWidget {
           description,
           style: TextStyle(
             fontFamily: 'Pretendard',
-            fontSize: 11,
+            fontSize: 13,
             color: Colors.white.withValues(alpha: 0.75),
             height: 1.4,
           ),
@@ -668,7 +676,7 @@ class _LargePolygonImage extends StatelessWidget {
       );
     }
     final image = ImageFiltered(
-      imageFilter: ImageFilter.dilate(radiusX: 3, radiusY: 3),
+      imageFilter: ImageFilter.dilate(radiusX: 1, radiusY: 1),
       child: ColorFiltered(
         colorFilter: _toWhite,
         child: Image.network(
@@ -682,7 +690,7 @@ class _LargePolygonImage extends StatelessWidget {
       ),
     );
     return Opacity(
-      opacity: 0.45,
+      opacity: 0.3,
       child: SizedBox.expand(
         child: flipX
             ? Transform.scale(scaleX: -1, child: image)
