@@ -77,6 +77,7 @@ public class EditorDraftSaver {
                 memberId,
                 track,
                 request.getTitle(),
+                request.getChallengeId(),
                 difficulty
         );
 
