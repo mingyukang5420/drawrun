@@ -5,6 +5,7 @@ import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
 import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
 import com.running.app.domain.challenge.service.ChallengeService;
+import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +39,8 @@ public class ChallengeScheduler {
             String object = challengeImageGenerateService.callTextModel();
             String imageStorePath = challengeImageGenerateService.callImageModel(object);
 
-            Challenge challenge = ChallengeConverter.toChallenge(object, imageStorePath);
+            Challenge challenge = ChallengeConverter.toChallenge(object, imageStorePath,
+                    ChallengeDifficulty.EASY);
 
             // challenge 저장 로직 호출
             Challenge saveChallenge = challengeService.create(challenge);
