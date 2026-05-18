@@ -66,7 +66,7 @@ class CourseEditorState {
   final bool hasWays;
 
   const CourseEditorState({
-    this.courseName = '새 코스',
+    this.courseName = '5월 3주차 EASY 코스',
     this.nodes = const [],
     this.undoStack = const [],
     this.redoStack = const [],

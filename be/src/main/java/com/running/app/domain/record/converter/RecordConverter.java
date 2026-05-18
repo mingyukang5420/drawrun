@@ -5,6 +5,7 @@ import com.running.app.domain.record.dto.RecordResponse;
 import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.track.converter.TrackConverter;
 import com.running.app.domain.track.entity.Track;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -15,7 +16,7 @@ public class RecordConverter {
             Track track,
             Boolean isCompleted,
             Boolean isSafe,
-            Double similarityScore,
+            BigDecimal similarityScore,
             RecordRequest.CreateDTO request
 
     ) {

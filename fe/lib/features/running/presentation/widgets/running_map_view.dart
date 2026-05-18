@@ -12,21 +12,21 @@ import 'package:running/shared/map/widgets/map_view.dart';
 //   - false → 위치 핀만 표시. ViewModel 에 controller 를 등록하지 않음.
 //
 // contentPadding:
-//   - 지도의 논리적 중심을 이동시키는 내부 여백을 MapView 로 그대로 전달한다
-//   - 일시정지 모드 A 처럼 화면 아래쪽을 오버레이가 덮을 때 bottom 패딩을 주면
-//     카메라가 자리 잡을 때 현재 위치 핀이 위쪽 노출 영역의 중앙에 표시된다
-//   - 기본값 EdgeInsets.zero — 다른 사용처는 변화 없음
+//   - null (미명시) — trackRoute 에 따라 자동:
+//       trackRoute=false (홈 화면) → bottom 220 (위치 핀을 화면 상단으로 올려 하단 버튼에 안 가리게)
+//       trackRoute=true (러닝 화면) → zero
+//   - 명시값을 받으면 그대로 사용 — 일시정지 모드 A 처럼 외부에서 동적 패딩을 줘야 할 때
 //
 // 메인 RunningScreen 의 지도는 "시작 화면 = 현재 위치만 표시" 역할이라 trackRoute false.
 // 일시정지 화면의 지도는 누적 경로 표시 역할이라 trackRoute true.
 class RunningMapView extends ConsumerStatefulWidget {
   final bool trackRoute;
-  final EdgeInsets contentPadding;
+  final EdgeInsets? contentPadding;
 
   const RunningMapView({
     super.key,
     this.trackRoute = false,
-    this.contentPadding = EdgeInsets.zero,
+    this.contentPadding,
   });
 
   @override
@@ -75,10 +75,15 @@ class _RunningMapViewState extends ConsumerState<RunningMapView> {
     return MapView(
       key: ValueKey(_mapRetryKey),
       showCurrentLocation: true,
-      // contentPadding 을 그대로 MapView 에 전달
-      // 부모(_PausedBody) 가 _showOverlay 토글로 이 값을 바꾸면 NaverMap 이
-      // 내부적으로 _updateOptions 를 호출해 contentPadding 만 갈아끼운다 — PlatformView 재생성 없음
-      contentPadding: widget.contentPadding,
+      // 홈 화면(trackRoute=false)에서는 지도 스크롤 비활성화
+      scrollGesturesEnable: widget.trackRoute,
+      // contentPadding 결정:
+      //   1) 외부에서 명시적으로 받았으면(예: 일시정지 active 화면이 동적 패딩 전달) 그대로 사용
+      //   2) 안 받았으면 trackRoute 에 따라 자동 — 홈 화면은 핀이 하단 버튼에 가리지 않게 위로 올림
+      contentPadding: widget.contentPadding ??
+          (widget.trackRoute
+              ? EdgeInsets.zero
+              : const EdgeInsets.only(bottom: 220)),
       onMapReady: (mapController) {
         if (widget.trackRoute) {
           ref
