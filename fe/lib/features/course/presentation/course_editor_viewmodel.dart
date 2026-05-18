@@ -292,11 +292,13 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   }
 
   // 검색으로 선택한 좌표로 카메라 이동 (바텀 시트에서 호출)
+  // 애니메이션 없이 즉시 이동 후 도로 오버레이를 바로 로드한다
   Future<void> moveCameraTo(NLatLng target) async {
     if (_mapController == null) return;
-    await _mapController!.updateCamera(
-      NCameraUpdate.scrollAndZoomTo(target: target, zoom: 16),
-    );
+    final update = NCameraUpdate.scrollAndZoomTo(target: target, zoom: 16)
+      ..setAnimation(animation: NCameraAnimation.none, duration: Duration.zero);
+    await _mapController!.updateCamera(update);
+    await loadWays();
   }
 
   // ── 저장 1단계: 화면이 캡처를 시작하기 직전에 호출 ──────────────────

@@ -988,8 +988,9 @@ class _SearchSheetState extends State<_SearchSheet> {
                           )
                         : null,
                     onTap: () {
-                      widget.notifier.moveCameraTo(NLatLng(r.lat, r.lng));
+                      final target = NLatLng(r.lat, r.lng);
                       Navigator.pop(context);
+                      widget.notifier.moveCameraTo(target);
                     },
                   );
                 },
