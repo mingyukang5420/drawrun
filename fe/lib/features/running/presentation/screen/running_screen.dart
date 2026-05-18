@@ -532,7 +532,7 @@ class _ChallengeCard extends StatelessWidget {
                 child: _LargePolygonImage(
                   icon: shapeIcon,
                   imageUrl: polygonImageUrl,
-                  alignment: _isLeft ? Alignment.centerLeft : Alignment.centerRight,
+                  alignment: _isLeft ? Alignment.centerRight : Alignment.centerLeft,
                 ),
               ),
               // 텍스트 + 통계 오버레이
