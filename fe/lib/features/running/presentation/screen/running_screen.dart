@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/running/presentation/running_provider.dart';
+import 'package:running/features/running/presentation/screen/challenge_courses_screen.dart';
 import 'package:running/features/running/presentation/screen/profile_stats_screen.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
@@ -34,16 +35,97 @@ class RunningScreen extends StatelessWidget {
                 const _Header(),
                 const Spacer(),
                 _ChallengeButtons(
-                  onChallenge: (difficulty, title) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CourseEditorScreen(difficulty: difficulty),
-                      ),
-                    );
-                  },
+                  onChallenge: (difficulty, title) =>
+                      _showChallengeStartDialog(context, difficulty, title),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChallengeStartDialog(
+    BuildContext context,
+    String difficulty,
+    String title,
+  ) {
+    final isEasy = difficulty == 'EASY';
+    final accentColor =
+        isEasy ? const Color(0xFF27AE60) : const Color(0xFF1C1C1E);
+
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              width: 8,
+              height: 24,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          '어떻게 시작할까요?',
+          style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+          // 바로 시작: 기존 챌린지 코스 목록에서 선택
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChallengeCoursesScreen(
+                    difficulty: difficulty,
+                    title: title,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.play_circle_outline, size: 18),
+            label: const Text('바로 시작'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: accentColor,
+              side: BorderSide(color: accentColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          // 직접 그리기: 에디터에서 코스 작성
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      CourseEditorScreen(difficulty: difficulty),
+                ),
+              );
+            },
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: const Text('직접 그리기'),
+            style: FilledButton.styleFrom(
+              backgroundColor: accentColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ],
