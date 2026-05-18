@@ -79,6 +79,8 @@ public abstract class EditorRequest {
         @NotBlank(message = "썸네일은 빈 값일 수 없습니다.")
         private String thumbnailBase64;
 
+        private Long challengeId;
+
         @Getter
         @NoArgsConstructor
         @AllArgsConstructor

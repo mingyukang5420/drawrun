@@ -1,5 +1,7 @@
 package com.running.app.domain.coursedraft.service;
 
+import com.running.app.domain.challenge.entity.Challenge;
+import com.running.app.domain.challenge.repository.ChallengeRepository;
 import com.running.app.domain.course.type.CourseDifficulty;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CourseDraftService {
 
     private final CourseDraftRepository courseDraftRepository;
+    private final ChallengeRepository challengeRepository;
 
     // 에디터 저장 시 호출 — course_drafts INSERT (status=READY 로 시작)
     @Transactional
@@ -24,14 +27,20 @@ public class CourseDraftService {
             Long memberId,
             Track track,
             String title,
+            Long challengeId,
             CourseDifficulty difficulty
     ) {
+
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+
         CourseDraft draft = CourseDraft.builder()
                 .memberId(memberId)
                 .track(track)
                 .title(title)
                 .difficulty(difficulty)
                 .status(CourseDraftStatus.READY)
+                .challenge(challenge)
                 .build();
 
         return courseDraftRepository.save(draft);

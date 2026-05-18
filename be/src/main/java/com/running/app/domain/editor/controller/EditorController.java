@@ -168,21 +168,25 @@ public class EditorController {
             summary = "에디터 저장 — 사용자 커스텀 코스 등록",
             description = """
                     사용자가 에디터에서 그린 커스텀 러닝 코스를 저장.
-                    
+
                     처리 흐름:
                     1. 썸네일(base64) 을 디스크에 저장하고 공개 URL 확보 (트랜잭션 밖)
                     2. 좌표가 도보 가능한 길(osm_ways_split) buffer 내에 있는지 검증 (실패 시 400 INVALID_ROUTE)
                     3. Track 생성 (거리는 PostGIS ST_Length 로 자동 계산, trackImageUrl = 1단계에서 받은 URL)
-                    4. CourseDraft 생성 (검증런 전이므로 status=READY)
-                    5. 2~4 단계 중 어느 하나라도 실패하면 1단계에서 만든 디스크 파일을 보상 삭제
-                    
+                    4. challengeId 로 Challenge 조회 (없으면 404 CHALLENGE_NOT_FOUND) → CourseDraft 와 연결
+                    5. CourseDraft 생성 (검증런 전이므로 status=READY, 위 Challenge 참조 포함)
+                    6. 2~5 단계 중 어느 하나라도 실패하면 1단계에서 만든 디스크 파일을 보상 삭제
+
                     thumbnailBase64 형식:
                     - "data:image/png;base64,...." 또는 "data:image/jpeg;base64,...." (data URI 형식)
                     - 다른 mime 또는 prefix 누락 시 400 INVALID_IMAGE_FILE
+
+                    challengeId:
+                    - 이 드래프트가 어떤 챌린지에 속하는지 식별 (해당 챌린지의 후보 코스로 등록)
                     """,
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
-                    description = "에디터 저장 요청 바디 — 제목, 사용자가 그린 좌표 시퀀스(order 기준 정렬), 썸네일 base64",
+                    description = "에디터 저장 요청 바디 — 제목, 사용자가 그린 좌표 시퀀스(order 기준 정렬), 썸네일 base64, 연결할 challengeId",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
@@ -194,9 +198,10 @@ public class EditorController {
                                                 { "lat": 37.5480598, "lng": 126.9177061, "order": 1 },
                                                 { "lat": 37.5479675, "lng": 126.9181941, "order": 2 },
                                                 { "lat": 37.54793, "lng": 126.91838, "order": 3 }
-                                            
+
                                               ],
-                                              "thumbnailBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+                                              "thumbnailBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+                                              "challengeId": 1
                                             }
                                             """
                             )
@@ -224,7 +229,7 @@ public class EditorController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
-                    description = "사용자 없음 — MEMBER_NOT_FOUND"
+                    description = "대상 없음 — 사용자(MEMBER_NOT_FOUND) 또는 챌린지(CHALLENGE_NOT_FOUND)"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
