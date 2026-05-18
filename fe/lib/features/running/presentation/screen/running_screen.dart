@@ -3,6 +3,7 @@ import 'dart:math' show sqrt;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:running/features/challenge/presentation/challenge_provider.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/screen/profile_stats_screen.dart';
 import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
@@ -359,14 +360,54 @@ class _VignettePainter extends CustomPainter {
 // Easy(좌) · Hard(우) 두 카드를 나란히 배치
 // Easy: 라벨 좌상단 / 도형 우하단 배치 (스케치 기준)
 // Hard: 도형 좌상단 / 라벨 우하단 배치 — 대각선 반전으로 시각적 무게감 차별화
-// 각 카드 하단에는 도전 수·순위 정보를 표시 (목업 — 백엔드 API 연동 전)
-class _ChallengeButtons extends StatelessWidget {
+// 각 카드 하단의 도전 수·내 최고 순위는 GET /v1/challenge 응답으로 채워진다
+// (로딩/에러 중에는 placeholder 텍스트를 보여 시각적 길이 보전)
+class _ChallengeButtons extends ConsumerWidget {
   final void Function(String difficulty, String title) onChallenge;
 
   const _ChallengeButtons({required this.onChallenge});
 
+  // 로딩/에러 중 보여 줄 placeholder 문자열 — 카드 폭/줄 수 유지를 위해 mock 길이와 비슷하게 둠
+  static const String _placeholderAttempt = '—명 도전';
+  static const String _placeholderBest = '최고 기록 없음';
+
+  // 참가자 수 포맷 — 천 단위 콤마 등 추가 가공 없이 그대로 노출
+  // (BE 가 이미 숫자로 내려주므로 추가 변환 불필요. 디자인 시안에 콤마 형식이 있다면
+  //  intl 의존성을 새로 추가하기보다 별도 헬퍼로 처리하는 게 가볍다.)
+  String _formatAttemptCount(int count) => '$count명 도전';
+
+  // 내 최고 순위 포맷 — null 이면 미참여로 간주
+  // 점수(myBestSimilarityScore) 는 본 작업에선 카드에 노출하지 않는다
+  String _formatBestInfo(int? rank) {
+    if (rank == null) return '최고 기록 없음';
+    return '$rank위';
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 챌린지 목록 조회 결과 — ChallengeListState (loading / data / error 단일 객체)
+    // state.list 가 null 이면 (로딩/에러) placeholder, 채워졌으면 실제 값 포맷
+    final state = ref.watch(challengeListViewModelProvider);
+    final list = state.list;
+
+    // 카드 두 장에 들어갈 텍스트 4개 + 폴리곤 이미지 URL 2개를 미리 계산해 둔다
+    // (LayoutBuilder 안에서 분기하면 가독성이 나빠지므로 빌드 시작부에 모아 둔다)
+    final easyAttempt = list == null
+        ? _placeholderAttempt
+        : _formatAttemptCount(list.easy.totalParticipantCount);
+    final easyBest = list == null
+        ? _placeholderBest
+        : _formatBestInfo(list.easy.myBestRank);
+    final hardAttempt = list == null
+        ? _placeholderAttempt
+        : _formatAttemptCount(list.hard.totalParticipantCount);
+    final hardBest = list == null
+        ? _placeholderBest
+        : _formatBestInfo(list.hard.myBestRank);
+    // 폴리곤 이미지 URL — 로딩/에러 중에는 null 이라 카드 안에서 자동으로 기존 아이콘 fallback
+    final easyImageUrl = list?.easy.polygonImageUrl;
+    final hardImageUrl = list?.hard.polygonImageUrl;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Column(
@@ -402,9 +443,9 @@ class _ChallengeButtons extends StatelessWidget {
                         shapeAlignment: Alignment.bottomRight,
                         accentColor: const Color(0xFF27AE60),
                         shapeIcon: Icons.change_history_outlined,
-                        // TODO: 백엔드 GET /v1/challenge/stats?difficulty=EASY 연동
-                        attemptCount: '1,234명 도전',
-                        myBestInfo: '최고 기록 없음',
+                        attemptCount: easyAttempt,
+                        myBestInfo: easyBest,
+                        polygonImageUrl: easyImageUrl,
                         onTap: () => onChallenge('EASY', 'Easy 챌린지'),
                       ),
                     ),
@@ -423,9 +464,9 @@ class _ChallengeButtons extends StatelessWidget {
                         shapeAlignment: Alignment.topLeft,
                         accentColor: const Color(0xFF1C1C1E),
                         shapeIcon: Icons.directions_car_outlined,
-                        // TODO: 백엔드 GET /v1/challenge/stats?difficulty=HARD 연동
-                        attemptCount: '567명 도전',
-                        myBestInfo: '최고 기록 없음',
+                        attemptCount: hardAttempt,
+                        myBestInfo: hardBest,
+                        polygonImageUrl: hardImageUrl,
                         onTap: () => onChallenge('HARD', 'Hard 챌린지'),
                       ),
                     ),
@@ -454,6 +495,7 @@ class _ChallengeCard extends StatelessWidget {
   final IconData shapeIcon; // 도형을 대표하는 아이콘 (실제 이미지 연동 전 사용)
   final String attemptCount; // 도전 횟수 텍스트 (목업)
   final String myBestInfo; // 내 최고 기록 텍스트 (목업)
+  final String? polygonImageUrl; // BE 의 폴리곤 이미지 URL — null 이면 shapeIcon 으로 fallback
   final VoidCallback onTap;
 
   const _ChallengeCard({
@@ -466,6 +508,7 @@ class _ChallengeCard extends StatelessWidget {
     required this.shapeIcon,
     required this.attemptCount,
     required this.myBestInfo,
+    this.polygonImageUrl,
     required this.onTap,
   });
 
@@ -500,13 +543,21 @@ class _ChallengeCard extends StatelessWidget {
                   // Easy 도형 아이콘 — 하단 좌측 정렬 (우측 하단은 사다리꼴로 잘림)
                   Align(
                     alignment: Alignment.bottomLeft,
-                    child: _ShapeIcon(icon: shapeIcon, color: accentColor),
+                    child: _ShapeIcon(
+                      icon: shapeIcon,
+                      color: accentColor,
+                      imageUrl: polygonImageUrl,
+                    ),
                   ),
                 ] else ...[
                   // Hard 도형 아이콘 — 상단 우측 정렬 (좌측 상단은 사다리꼴로 잘림)
                   Align(
                     alignment: Alignment.topRight,
-                    child: _ShapeIcon(icon: shapeIcon, color: accentColor),
+                    child: _ShapeIcon(
+                      icon: shapeIcon,
+                      color: accentColor,
+                      imageUrl: polygonImageUrl,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   // Hard 라벨 — 하단 우측에 배치 (넓은 쪽)
@@ -627,25 +678,51 @@ class _Label extends StatelessWidget {
   }
 }
 
-// ── 도형 대표 아이콘 (실제 이미지 연동 전 플레이스홀더) ─────────────
-// TODO: 백엔드에서 도형 이미지 URL 제공 시 Image.network 로 교체
+// ── 도형 대표 아이콘 / 폴리곤 이미지 영역 ────────────────────────────
+// imageUrl 이 있으면 BE 의 polygonImageUrl 을 Image.network 로 표시,
+// 없거나 네트워크 실패 시에는 fallback 아이콘(icon) 으로 채워 디자인 일관성 유지.
 class _ShapeIcon extends StatelessWidget {
-  final IconData icon;
-  final Color color; // 카드 배경색 — 아이콘 대비 색상 계산에 사용
+  final IconData icon; // imageUrl 없거나 로드 실패 시 보여 줄 fallback 아이콘
+  final Color color; // 카드 배경색 — 향후 색 보정 시 사용 가능
+  final String? imageUrl; // 폴리곤 이미지 URL — null 이면 icon fallback
+  final double size; // 박스 변의 길이 (기본 60)
 
-  const _ShapeIcon({required this.icon, required this.color});
+  const _ShapeIcon({
+    required this.icon,
+    required this.color,
+    this.imageUrl,
+    this.size = 60,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 60,
-      height: 60,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         // 카드 배경보다 약간 밝게 해서 도형 영역임을 구분
         color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(icon, size: 34, color: Colors.white.withValues(alpha: 0.85)),
+      // URL 없으면 기존 아이콘 그대로 — 로딩/에러 상태에서 자연스럽게 fallback
+      child: imageUrl == null
+          ? Icon(icon,
+              size: 34, color: Colors.white.withValues(alpha: 0.85))
+          : Padding(
+              // 박스 가장자리에서 6px 들여 폴리곤 도형에 호흡 공간을 둠
+              // (박스 60 × 60 안쪽 약 48 × 48 영역에 이미지가 그려진다)
+              padding: const EdgeInsets.all(6),
+              child: Image.network(
+                imageUrl!,
+                fit: BoxFit.contain,
+                // 네트워크 오류 시 fallback — 빈 박스 대신 기존 아이콘으로 채움
+                errorBuilder: (_, __, ___) => Icon(
+                  icon,
+                  size: 34,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+            ),
     );
   }
 }
