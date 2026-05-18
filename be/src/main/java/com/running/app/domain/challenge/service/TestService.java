@@ -38,6 +38,7 @@ public class TestService {
                 .startedAt(LocalDateTime.now())
                 .polygonPoints(polygonPoints)
                 .polygonImageUrl(imageResult.storedPath())
+                .polygonPoints(polygonPoints)
                 .difficulty(ChallengeDifficulty.EASY)
                 .build();
 
