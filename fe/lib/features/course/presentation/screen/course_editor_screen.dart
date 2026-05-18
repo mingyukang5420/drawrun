@@ -213,6 +213,19 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             ),
           ),
 
+          // 3-3단계: 총 거리 뱃지 (경로가 있을 때 타이틀 바 하단에 표시)
+          if (state.nodes.isNotEmpty)
+            Positioned(
+              top: 0,
+              left: 12,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 64),
+                  child: _KmBadge(km: state.totalDistanceKm),
+                ),
+              ),
+            ),
+
           // 4단계: 도로 상태 안내 힌트 배너
           if (state.nodes.isEmpty)
             Positioned(
@@ -307,7 +320,7 @@ class _TitleBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 40,
+      height: 48,
       margin: const EdgeInsets.only(left: 12, top: 8, bottom: 8, right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
@@ -490,108 +503,71 @@ class _BottomPanel extends StatelessWidget {
     final hasNodes = state.nodes.isNotEmpty;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 16,
-            offset: Offset(0, -4),
-          ),
-        ],
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
       ),
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 16,
+        left: 16,
+        right: 16,
+        top: 8,
+        bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 드래그 핸들 (바텀 시트 느낌)
-          Container(
-            width: 36,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
+          _ControlButton(
+            icon: Icons.undo_rounded,
+            label: '취소',
+            enabled: state.undoStack.isNotEmpty,
+            onTap: notifier.undo,
           ),
-
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // 실행취소
-              _ControlButton(
-                icon: Icons.undo_rounded,
-                label: '취소',
-                enabled: state.undoStack.isNotEmpty,
-                onTap: notifier.undo,
-              ),
-              const SizedBox(width: 8),
-
-              // 다시실행
-              _ControlButton(
-                icon: Icons.redo_rounded,
-                label: '복원',
-                enabled: state.redoStack.isNotEmpty,
-                onTap: notifier.redo,
-              ),
-              const SizedBox(width: 8),
-
-              // 초기화
-              _ControlButton(
-                icon: Icons.delete_outline_rounded,
-                label: '초기화',
-                enabled: hasNodes,
-                onTap: notifier.reset,
-              ),
-
-              const Spacer(),
-
-              // 총 거리 뱃지 (노드가 있을 때만)
-              if (hasNodes) ...[
-                _KmBadge(km: state.totalDistanceKm),
-                const SizedBox(width: 12),
-              ],
-
-              // 저장 CTA 버튼
-              SizedBox(
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: (hasNodes && !state.isSaving) ? onSave : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kCourseRouteColor,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade200,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                  ),
-                  child: state.isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          '저장',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+          const SizedBox(width: 8),
+          _ControlButton(
+            icon: Icons.redo_rounded,
+            label: '복원',
+            enabled: state.redoStack.isNotEmpty,
+            onTap: notifier.redo,
+          ),
+          const SizedBox(width: 8),
+          _ControlButton(
+            icon: Icons.delete_outline_rounded,
+            label: '초기화',
+            enabled: hasNodes,
+            onTap: notifier.reset,
+          ),
+          const Spacer(),
+          SizedBox(
+            height: 48,
+            child: ElevatedButton(
+              onPressed: (hasNodes && !state.isSaving) ? onSave : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kCourseRouteColor,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade200,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                padding: const EdgeInsets.symmetric(horizontal: 28),
               ),
-            ],
+              child: state.isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      '저장',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
           ),
         ],
       ),
@@ -751,8 +727,8 @@ class _PolygonPreviewButton extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showPreview(context),
       child: Container(
-        width: 44,
-        height: 40,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
           color: Colors.black,
           borderRadius: BorderRadius.circular(8),
