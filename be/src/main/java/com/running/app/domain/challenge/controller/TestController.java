@@ -5,6 +5,7 @@ import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
 import com.running.app.domain.challenge.service.TestService;
 import com.running.app.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v1/call/test")
 @RequiredArgsConstructor
 @Tag(name = "테스트", description = "테스트")
+@SecurityRequirement(name = "X-Test-Key")
 public class TestController {
 
     private final ChallengeImageGenerateService challengeImageGenerateService;
