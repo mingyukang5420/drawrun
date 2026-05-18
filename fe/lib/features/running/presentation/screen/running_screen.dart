@@ -6,18 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/screen/profile_stats_screen.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
-import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 
 // 홈 탭 메인 화면
-// 상단: 프로필·날씨 헤더 / 중간: 현재 위치 지도 / 하단: 챌린지 모드 선택 + 자유 러닝
-class RunningScreen extends ConsumerWidget {
+// 상단: 프로필·날씨 헤더 / 중간: 현재 위치 지도 / 하단: 챌린지 모드 선택
+class RunningScreen extends StatelessWidget {
   const RunningScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(runningViewModelProvider.notifier);
-
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -32,19 +29,8 @@ class RunningScreen extends ConsumerWidget {
               child: Stack(children: const [RunningMapView(), _MapVignette()]),
             ),
 
-            // 하단: Easy·Hard 배틀 카드 + 자유 러닝 텍스트 버튼
+            // 하단: Easy·Hard 챌린지 카드
             _ChallengeButtons(
-              onFreeRun: () async {
-                // 자유 러닝 시작 전 이전 세션 상태 초기화
-                await notifier.clear();
-                if (!context.mounted) return;
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const RunningCountdownScreen(),
-                    fullscreenDialog: true,
-                  ),
-                );
-              },
               onChallenge: (difficulty, title) {
                 // 챌린지 난이도에 맞는 코스를 에디터에서 그린 뒤 바로 달리기로 연결
                 Navigator.of(context).push(
@@ -179,9 +165,8 @@ class _VignettePainter extends CustomPainter {
 // 각 카드 하단에는 도전 수·순위 정보를 표시 (목업 — 백엔드 API 연동 전)
 class _ChallengeButtons extends StatelessWidget {
   final void Function(String difficulty, String title) onChallenge;
-  final VoidCallback onFreeRun;
 
-  const _ChallengeButtons({required this.onChallenge, required this.onFreeRun});
+  const _ChallengeButtons({required this.onChallenge});
 
   @override
   Widget build(BuildContext context) {
@@ -253,34 +238,6 @@ class _ChallengeButtons extends StatelessWidget {
             },
           ),
 
-          const SizedBox(height: 10),
-
-          // ── 자유 러닝 텍스트 버튼 ──────────────────────────────
-          GestureDetector(
-            onTap: onFreeRun,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.directions_run,
-                    size: 14,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    '자유 러닝 시작',
-                    style: TextStyle(
-                      fontFamily: 'Pretendard',
-                      fontSize: 13,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
