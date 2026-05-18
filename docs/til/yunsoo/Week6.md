@@ -106,3 +106,32 @@
 - 백엔드 팀원들과 상의하고 챌린지 구현 작업 나누기
 
 ---
+
+### 📘 0515 · Fri
+
+#### 오늘 한 일 (What I did)
+- 챌린지 랭킹 조회 서비스 구현 (S14P31A103-475)
+  - `ChallengeRankingServiceImpl` 구현체 생성
+  - `RankingRedisService`에 챌린지용 메서드 4개 추가 (적재, 상위5조회, 내순위조회, 특정인덱스조회)
+  - `RunningRecordRepository`에 `findRankingByChallengeId` 쿼리 추가
+  - `ChallengeRankingQueryResult` projection 추가
+  - `ErrorStatus`에 `CHALLENGE_NOT_FOUND` 추가
+
+#### 배운 것 (What I learned)
+- Redis Sorted Set `reverseRank`는 0부터 시작하는 인덱스 반환 — 실제 순위는 사용 측에서 +1 처리 필요
+- `reverseRangeWithScores(key, n, n)` 으로 특정 인덱스 1명만 꺼낼 수 있음
+- Redis TTL을 `ended_at + 7일`로 설정하면 챌린지 종료 후 자동 삭제 가능
+- Redis에 데이터 없을 때 DB에서 lazy load 후 적재하는 패턴
+
+#### 문제 & 해결 (Problem & Solution)
+- **문제:** `prevRank` 처리 기준 — 내 순위가 6위 이하면 바로 앞 순위가 이미 top5에 포함됨
+- **해결:** `myRank <= 6`이면 null 반환, 7위 이상이면 `rawRank - 1` 인덱스 멤버 정보 반환
+
+#### 인사이트 (Insight)
+- 팀원이 바로 쓸 수 있게 인터페이스 구현체 만드는 게 생각보다 고려할 게 많음 — 경계 케이스(null, 미로그인, 인덱스 범위)를 구현 측에서 다 챙겨야 함
+
+#### 다음 할 것 (What's Next)
+- MR 리뷰 반영
+- 챌린지 랭킹 조회 API 연동 확인
+
+---
