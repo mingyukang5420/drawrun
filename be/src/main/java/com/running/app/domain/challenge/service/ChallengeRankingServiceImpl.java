@@ -149,4 +149,19 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
                 prevTuple.getScore()
         );
     }
+
+    // 챌린지 목록 조회 시 내 순위 단독 조회
+    // ChallengeService에서 Easy/Hard 각각 호출
+    @Override
+    public RankEntryDTO getMyChallengeRanking(String loginId, long challengeId) {
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        String key = "ranking:challenge:" + challengeId;
+        ensureRedisLoaded(key, challengeId, challenge);
+        Long rawRank = rankingRedisService.getMyChallengeRank(
+                member.getMemberId().longValue(), key);
+        return getMyRank(member, rawRank, key);
+    }
 }
