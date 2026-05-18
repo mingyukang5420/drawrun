@@ -15,7 +15,9 @@ public class RecordConverter {
             Track track,
             Boolean isCompleted,
             Boolean isSafe,
+            Double similarityScore,
             RecordRequest.CreateDTO request
+
     ) {
         return RunningRecord.builder()
                 .memberId(memberId)
@@ -32,7 +34,7 @@ public class RecordConverter {
                 .startedAt(request.getStartedAt())
                 .endedAt(request.getEndedAt())
                 .challengeId(request.getChallengeId())
-                .similarityScore(request.getSimilarityScore())
+                .similarityScore(similarityScore)
                 .build();
     }
 

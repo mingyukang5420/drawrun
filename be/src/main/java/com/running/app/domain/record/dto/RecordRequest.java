@@ -8,7 +8,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -25,7 +24,6 @@ public abstract class RecordRequest {
         private Long courseId;
         private Long courseDraftId;
         private Long challengeId;
-        private BigDecimal similarityScore;
 
         @NotBlank(message = "제목은 필수입니다.")
         @Size(max = 20, message = "제목은 20자 이하여야 합니다.")

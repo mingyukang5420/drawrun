@@ -61,7 +61,6 @@ public class RunController {
                                               "startedAt": "2026-04-29T12:30:00",
                                               "endedAt": "2026-04-29T13:00:00",
                                               "challengeId": null,
-                                              "similarityScore": null,
                                               "nodes": [
                                                 {
                                                   "lat": 37.50238,

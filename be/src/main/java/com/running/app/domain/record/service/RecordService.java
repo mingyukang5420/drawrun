@@ -85,12 +85,14 @@ public class RecordService {
 
         boolean isCompleted = determineIsCompleted(request, track);
         boolean isSafe = determineIsSafe(track);
+        double similarityScore = 1.0;
 
         RunningRecord runningRecord = RecordConverter.toRunningRecord(
                 memberId,
                 track,
                 isCompleted,
                 isSafe,
+                similarityScore,
                 request
         );
 
@@ -639,5 +641,6 @@ public class RecordService {
 
         courseService.updateCompletionScore(runningRecord.getCourseId());
     }
+
 }
 
