@@ -37,7 +37,7 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
     private final ChallengeRepository challengeRepository;
 
     // 챌린지 랭킹 화면에 필요한 모든 데이터를 조립하여 반환
-    // 비로그인 시 loginId null → myRank, prevRank, myRunDistance, myRunStartedAt null 반환
+    // 챌린지 미참가 시 myRunDistance, myRunStartedAt null 반환
     @Override
     public ChallengeRankingResponse getChallengeRanking(String loginId, long challengeId) {
 
@@ -57,33 +57,26 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
         Long countRaw = rankingRedisService.getChallengeRankingTotalCount(key);
         int totalCount = countRaw != null ? countRaw.intValue() : 0;
 
-        // 비로그인 시 개인 데이터 null 처리
-        RankEntryDTO myRank = null;
-        RankEntryDTO prevRank = null;
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        Long rawRank = rankingRedisService.getMyChallengeRank(
+                member.getMemberId().longValue(), key);
+        RankEntryDTO myRank = getMyRank(member, rawRank, key);
+        RankEntryDTO prevRank = getPrevRank(member, rawRank, key);
+
+        // 챌린지 미참가 시 null 가능
         Double myRunDistance = null;
         LocalDateTime myRunStartedAt = null;
 
-        if (loginId != null) {
-            // Member 1번만 조회 → myRank, prevRank, myRunInfo에 재사용
-            Member member = memberRepository.findByLoginId(loginId)
-                    .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        RunningRecord myRecord = runningRecordRepository
+                .findTopByMemberIdAndChallengeIdOrderBySimilarityScoreDesc(
+                        member.getMemberId().longValue(), challengeId)
+                .orElse(null);
 
-            // rawRank 1번만 조회해서 두 메서드에 넘김
-            Long rawRank = rankingRedisService.getMyChallengeRank(
-                    member.getMemberId().longValue(), key);
-            myRank = getMyRank(member, rawRank, key);
-            prevRank = getPrevRank(member, rawRank, key);
-
-            // 내 최고 유사도 기록에서 거리, 참여 시간 조회
-            RunningRecord myRecord = runningRecordRepository
-                    .findTopByMemberIdAndChallengeIdOrderBySimilarityScoreDesc(
-                            member.getMemberId().longValue(), challengeId)
-                    .orElse(null);
-
-            if (myRecord != null) {
-                myRunDistance = myRecord.getTrack().getDistance();
-                myRunStartedAt = myRecord.getStartedAt();
-            }
+        if (myRecord != null) {
+            myRunDistance = myRecord.getTrack().getDistance();
+            myRunStartedAt = myRecord.getStartedAt();
         }
 
         return ChallengeRankingResponse.builder()
@@ -123,7 +116,7 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
     }
 
     // 내 순위 조회 (Redis reverseRank → 0-index이므로 +1 처리)
-// 챌린지 미참가 시 null 반환
+    // 챌린지 미참가 시 null 반환
     private RankEntryDTO getMyRank(Member member, Long rawRank, String key) {
         if (rawRank == null) {
             return null;
