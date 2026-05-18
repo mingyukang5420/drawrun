@@ -5,6 +5,7 @@ import com.running.app.domain.challenge.dto.GmsImageDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.entity.Challenge;
+import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
@@ -43,7 +44,8 @@ public abstract class ChallengeConverter {
 
     }
 
-    public static Challenge toChallenge(String title, String imagePath) {
+    public static Challenge toChallenge(String title, String imagePath,
+            ChallengeDifficulty difficulty) {
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -58,6 +60,7 @@ public abstract class ChallengeConverter {
                 .polygonImageUrl(imagePath)
                 .startedAt(now)
                 .endedAt(end)
+                .difficulty(difficulty)
                 .build();
     }
 
@@ -90,5 +93,34 @@ public abstract class ChallengeConverter {
                 .similarityScore(score != null ? BigDecimal.valueOf(score) : null)
                 .build();
     }
-    
+
+    public static ChallengeResponse.ChallengeSummaryDTO toChallengeSummaryDTO(
+            Challenge challenge,
+            Integer totalParticipantCount,
+            ChallengeResponse.RankEntryDTO myRank
+    ) {
+        return ChallengeResponse.ChallengeSummaryDTO.builder()
+                .challengeId(challenge.getId())
+                .title(challenge.getTitle())
+                .polygonImageUrl(challenge.getPolygonImageUrl())
+                .totalParticipantCount(totalParticipantCount)
+                .myBestSimilarityScore(
+                        myRank != null ? myRank.getSimilarityScore() : null
+                )
+                .myBestRank(
+                        myRank != null ? myRank.getRank() : null
+                )
+                .build();
+    }
+
+    public static ChallengeResponse.ChallengeListDTO toChallengeListDTO(
+            ChallengeResponse.ChallengeSummaryDTO easy,
+            ChallengeResponse.ChallengeSummaryDTO hard
+    ) {
+        return ChallengeResponse.ChallengeListDTO.builder()
+                .easy(easy)
+                .hard(hard)
+                .build();
+    }
+
 }
