@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/running/presentation/running_provider.dart';
-import 'package:running/features/running/presentation/screen/challenge_courses_screen.dart';
 import 'package:running/features/running/presentation/screen/profile_stats_screen.dart';
+import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 
@@ -85,16 +85,14 @@ class RunningScreen extends StatelessWidget {
         ),
         actionsAlignment: MainAxisAlignment.spaceEvenly,
         actions: [
-          // 바로 시작: 기존 챌린지 코스 목록에서 선택
+          // 바로 시작: 카운트다운 후 즉시 달리기 시작
           OutlinedButton.icon(
             onPressed: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => ChallengeCoursesScreen(
-                    difficulty: difficulty,
-                    title: title,
-                  ),
+                  builder: (_) => const RunningCountdownScreen(),
+                  fullscreenDialog: true,
                 ),
               );
             },
