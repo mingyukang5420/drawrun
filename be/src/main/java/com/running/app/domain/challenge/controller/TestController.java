@@ -1,5 +1,6 @@
 package com.running.app.domain.challenge.controller;
 
+import com.running.app.domain.challenge.dto.GmsImageDTO.ImageRequestBody;
 import com.running.app.domain.challenge.dto.TestDTO;
 import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
 import com.running.app.domain.challenge.service.TestService;
@@ -42,12 +43,16 @@ public class TestController {
 
     @Operation(summary = "이미지 생성 모델 호출")
     @PostMapping("/img")
-    public ApiResponse<String> imgRequest(
+    public ApiResponse<Void> imgRequest(
             @RequestBody TestDTO request
     ) {
-        ChallengeImageGenerateService.ImageModelResult result =
-                challengeImageGenerateService.callImageModel(request.getImgString());
-        return ApiResponse.onSuccess(result.storedPath());
+        ImageRequestBody imageRequestBody = challengeImageGenerateService.ImageRequestBodyBuilder(
+                request.getEasy(), request.getHard());
+
+        challengeImageGenerateService.callImageModel(imageRequestBody.getEasyImageBody());
+        challengeImageGenerateService.callImageModel(imageRequestBody.getHardImageBody());
+
+        return ApiResponse.OK;
     }
 
     @Operation(summary = "전체 흐름 테스트")

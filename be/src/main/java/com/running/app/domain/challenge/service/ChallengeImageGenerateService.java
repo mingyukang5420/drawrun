@@ -3,6 +3,7 @@ package com.running.app.domain.challenge.service;
 import com.running.app.domain.challenge.converter.ChallengeConverter;
 import com.running.app.domain.challenge.dto.GmsImageDTO.GmsImageRequest;
 import com.running.app.domain.challenge.dto.GmsImageDTO.GmsImageResponse;
+import com.running.app.domain.challenge.dto.GmsImageDTO.ImageRequestBody;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextResponse;
 import com.running.app.domain.challenge.dto.GmsTextDTO.RequestMessage;
@@ -56,6 +57,35 @@ public class ChallengeImageGenerateService {
             simple vector style
             Object in Korean (translate to English and draw): """;
 
+    private static final String IMAGE_PROMPT_EASY = """
+            Minimalist geometric polygon outline of a given object,
+            drawn using only straight lines with sharp angular vertices,
+            no curves allowed,
+            bright neon green thick outline on pure black background,
+            flat 2D side profile silhouette,
+            ONLY the outer boundary silhouette — no interior lines, no windows, no wheels, no internal details,
+            the outline must form a single continuous closed loop with no gaps or breaks,
+            extremely simplified — use as few line segments as possible (aim for 6 to 10 segments),
+            abstract minimalist representation is acceptable,
+            simple enough to be easily traced by a person running outdoors,
+            simple vector style
+            Object in Korean (translate to English and draw): """;
+
+    private static final String IMAGE_PROMPT_HARD = """
+            Minimalist geometric polygon outline of a given object,
+            drawn using only straight lines with sharp angular vertices,
+            no curves allowed,
+            bright neon green thick outline on pure black background,
+            flat 2D side profile silhouette,
+            ONLY the outer boundary silhouette — no interior lines, no windows, no wheels, no internal details,
+            the outline must form a single continuous closed loop with no gaps or breaks,
+            more detailed outline that better captures the object's actual shape,
+            use more line segments to represent the silhouette more accurately (aim for 15 to 25 segments),
+            still simplified but clearly recognizable,
+            simple enough to be traced by a person running outdoors,
+            simple vector style
+            Object in Korean (translate to English and draw): """;
+
     public String callTextModel(ChallengeDifficulty difficulty) {
 
         // 지금까지 진행했던 챌린지 목록 조회 및 문자열 변환
@@ -79,18 +109,28 @@ public class ChallengeImageGenerateService {
         return gmsTextResponse.getChoices().get(0).getMessage().getContent();
     }
 
-    public record ImageModelResult(String storedPath, String b64Json) {}
+    public record ImageModelResult(String storedPath, String b64Json) {
 
-    public ImageModelResult callImageModel(String object) {
+    }
 
-        // 요청 body 조립
-        GmsImageRequest gmsImageRequest = ChallengeConverter.toGmsImageRequest(
-                IMAGE_PROMPT + object,
-                IMAGE_MODEL);
+    // 이미지 생성에 필요한 난이도 별 body를 조립하는 메서드
+    public ImageRequestBody ImageRequestBodyBuilder(String easyObject, String hardObject) {
 
+        // 요청 body 조립(easy, hard)
+        GmsImageRequest easyGmsImageRequest = ChallengeConverter.toGmsImageRequest(
+                IMAGE_PROMPT_EASY + easyObject, IMAGE_MODEL, ChallengeDifficulty.EASY);
+        GmsImageRequest hardGmsImageRequest = ChallengeConverter.toGmsImageRequest(
+                IMAGE_PROMPT_HARD + hardObject, IMAGE_MODEL, ChallengeDifficulty.HARD);
+
+        return ChallengeConverter.toImageRequestBody(easyGmsImageRequest, hardGmsImageRequest);
+    }
+
+    public ImageModelResult callImageModel(GmsImageRequest requestBody) {
+
+        // 이미지 생성 요청
         GmsImageResponse gmsImageResponse = gmsRestClient.post()
                 .uri(IMAGE_URI)
-                .body(gmsImageRequest)
+                .body(requestBody)
                 .retrieve()
                 .body(GmsImageResponse.class);
 
