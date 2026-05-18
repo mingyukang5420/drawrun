@@ -148,6 +148,21 @@ public abstract class EditorConverter {
                 .build();
     }
 
+    // 에디터 목록 조회(챌린지에 따른) — Slice 결과를 wrapper 응답으로 변환.
+    public static DraftListResultResponse toDraftListResultResponseV2(
+            Slice<CourseDraftListItem> slice,
+            List<DraftListResponse> content,
+            String challengeTitle
+    ) {
+        return DraftListResultResponse.builder()
+                .content(content)
+                .page(slice.getNumber())
+                .size(slice.getSize())
+                .hasNext(slice.hasNext())
+                .challengeTitle(challengeTitle)
+                .build();
+    }
+
     // 에디터 상세 조회 응답 변환.
     // status 는 등록 여부에 따라 derived: 등록되어 있으면 "REGISTERED",
     // 아니면 draft 자체 상태(READY/DONE) 의 .name() 을 그대로 노출.

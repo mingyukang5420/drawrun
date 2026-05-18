@@ -401,4 +401,18 @@ public class EditorController {
 
         return ApiResponse.OK;
     }
+
+    // 특정 challengeId에 맞는 courseDraft 목록 조회
+    @GetMapping("/challenge/{challengeId}")
+    public ApiResponse<DraftListResultResponse> getCourseDraftList(
+            @PathVariable Long challengeId,
+            @AuthenticationPrincipal String loginId,
+            @RequestParam(defaultValue = "0") Integer page
+    ) {
+
+        DraftListResultResponse response = editorService.getCourseDraftList(challengeId,
+                loginId, page);
+
+        return ApiResponse.onSuccess(response);
+    }
 }

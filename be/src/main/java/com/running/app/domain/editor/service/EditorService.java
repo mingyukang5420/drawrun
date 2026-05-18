@@ -1,5 +1,7 @@
 package com.running.app.domain.editor.service;
 
+import com.running.app.domain.challenge.entity.Challenge;
+import com.running.app.domain.challenge.repository.ChallengeRepository;
 import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
@@ -9,6 +11,8 @@ import com.running.app.domain.coursedraft.type.CourseDraftStatus;
 import com.running.app.domain.editor.converter.EditorConverter;
 import com.running.app.domain.editor.dto.EditorRequest;
 import com.running.app.domain.editor.dto.EditorResponse;
+import com.running.app.domain.editor.dto.EditorResponse.DraftListResponse;
+import com.running.app.domain.editor.dto.EditorResponse.DraftListResultResponse;
 import com.running.app.domain.member.entity.Member;
 import com.running.app.domain.member.repository.MemberRepository;
 import com.running.app.domain.record.repository.RunningRecordRepository;
@@ -40,6 +44,7 @@ public class EditorService {
     private final RunningRecordRepository runningRecordRepository;
     private final TrackImageStorageService trackImageStorageService;
     private final EditorDraftSaver editorDraftSaver;
+    private final ChallengeRepository challengeRepository;
 
     // 에디터 저장 흐름 — 트랜잭션 밖에서 동작.
     // 1) 디스크 IO 로 썸네일 저장 (트랜잭션 밖에서 끝내야 DB 커넥션이 IO 시간 동안 묶이지 않음)
@@ -194,5 +199,28 @@ public class EditorService {
                 .toList();
 
         return EditorConverter.toDraftListResultResponse(slice, content);
+    }
+
+    // 특정 challengeId에 맞는 사용자의 courseDraft 목록을 조회
+    public DraftListResultResponse getCourseDraftList(Long challengeId, String loginId,
+            Integer page) {
+
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+
+        long memberId = member.getMemberId().longValue();
+        Pageable pageable = PageRequest.of(page, DRAFT_LIST_PAGE_SIZE);
+
+        Slice<CourseDraftListItem> courseDraftListItems = courseDraftRepository.findAllByMemberIdWithChallengeId(
+                memberId, challengeId, pageable);
+
+        List<DraftListResponse> content = courseDraftListItems.getContent().stream()
+                .map(EditorConverter::toDraftListResponse).toList();
+
+        return EditorConverter.toDraftListResultResponseV2(courseDraftListItems, content,
+                challenge.getTitle());
     }
 }
