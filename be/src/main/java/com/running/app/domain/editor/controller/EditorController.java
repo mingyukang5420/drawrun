@@ -418,4 +418,20 @@ public class EditorController {
 
         return ApiResponse.onSuccess(response);
     }
+
+    @Operation(
+            summary = "특정 challengeId에 맞는 courseDraft 상세 조회"
+    )
+    @GetMapping("/{courseDraftId}/challenge/{challengeId}")
+    public ApiResponse<DraftDetailResponse> getCourseDraftDetail(
+            @PathVariable Long courseDraftId,
+            @PathVariable Long challengeId,
+            @AuthenticationPrincipal String loginId
+    ) {
+
+        DraftDetailResponse response = editorService.getCourseDraftDetail(courseDraftId,
+                challengeId, loginId);
+
+        return ApiResponse.onSuccess(response);
+    }
 }

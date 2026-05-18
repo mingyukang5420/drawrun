@@ -11,6 +11,7 @@ import com.running.app.domain.coursedraft.type.CourseDraftStatus;
 import com.running.app.domain.editor.converter.EditorConverter;
 import com.running.app.domain.editor.dto.EditorRequest;
 import com.running.app.domain.editor.dto.EditorResponse;
+import com.running.app.domain.editor.dto.EditorResponse.DraftDetailResponse;
 import com.running.app.domain.editor.dto.EditorResponse.DraftListResponse;
 import com.running.app.domain.editor.dto.EditorResponse.DraftListResultResponse;
 import com.running.app.domain.member.entity.Member;
@@ -202,6 +203,7 @@ public class EditorService {
     }
 
     // 특정 challengeId에 맞는 사용자의 courseDraft 목록을 조회
+    @Transactional(readOnly = true)
     public DraftListResultResponse getCourseDraftList(Long challengeId, String loginId,
             Integer page) {
 
@@ -222,5 +224,32 @@ public class EditorService {
 
         return EditorConverter.toDraftListResultResponseV2(courseDraftListItems, content,
                 challenge.getTitle());
+    }
+
+    // 특정 challengeId에 맞는 사용자의 courseDraft 상세 조회
+    @Transactional(readOnly = true)
+    public DraftDetailResponse getCourseDraftDetail(Long courseDraftId, Long challengeId,
+            String loginId) {
+
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        long memberId = member.getMemberId().longValue();
+
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+
+        CourseDraft courseDraft = courseDraftRepository.findById(courseDraftId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.EDITOR_NOT_FOUND));
+
+        if (courseDraft.getMemberId() != memberId) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+        if (courseDraft.getChallenge().getId() != challengeId.longValue()) {
+            throw new GeneralException(ErrorStatus.BAD_REQUEST);
+        }
+
+        // 기존 에디터 로직은 사용하지 않으니 일단 false로 응답
+        return EditorConverter.toDraftDetailResponseV2(courseDraft, false, challenge);
+
     }
 }

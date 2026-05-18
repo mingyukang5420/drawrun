@@ -104,5 +104,10 @@ public abstract class EditorResponse {
         private String title;
         private String status;                            // READY / DONE / REGISTERED
         private List<TrackRequest.NodeDTO> coordinates;   // [{lat, lng}, ...]
+
+        @JsonInclude(Include.NON_NULL)
+        private String polygonImageUrl;
+        @JsonInclude(Include.NON_NULL)
+        private String challengeTitle;
     }
 }

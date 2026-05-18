@@ -1,5 +1,6 @@
 package com.running.app.domain.editor.converter;
 
+import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.editor.dto.EditorRequest;
@@ -178,6 +179,23 @@ public abstract class EditorConverter {
                 .title(draft.getTitle())
                 .status(status)
                 .coordinates(TrackConverter.toNodeDTOList(draft.getTrack()))
+                .build();
+    }
+
+    public static DraftDetailResponse toDraftDetailResponseV2(
+            CourseDraft draft,
+            boolean isRegistered,
+            Challenge challenge
+    ) {
+        String status = isRegistered ? "REGISTERED" : draft.getStatus().name();
+
+        return DraftDetailResponse.builder()
+                .courseDraftId(draft.getId())
+                .title(draft.getTitle())
+                .status(status)
+                .coordinates(TrackConverter.toNodeDTOList(draft.getTrack()))
+                .challengeTitle(challenge.getTitle())
+                .polygonImageUrl(challenge.getPolygonImageUrl())
                 .build();
     }
 
