@@ -401,4 +401,37 @@ public class EditorController {
 
         return ApiResponse.OK;
     }
+
+    @Operation(
+            summary = "특정 challengeId에 맞는 courseDraft 목록 조회",
+            description = "page는 기본값 0"
+    )
+    @GetMapping("/challenge/{challengeId}")
+    public ApiResponse<DraftListResultResponse> getCourseDraftList(
+            @PathVariable Long challengeId,
+            @AuthenticationPrincipal String loginId,
+            @RequestParam(defaultValue = "0") Integer page
+    ) {
+
+        DraftListResultResponse response = editorService.getCourseDraftList(challengeId,
+                loginId, page);
+
+        return ApiResponse.onSuccess(response);
+    }
+
+    @Operation(
+            summary = "특정 challengeId에 맞는 courseDraft 상세 조회"
+    )
+    @GetMapping("/{courseDraftId}/challenge/{challengeId}")
+    public ApiResponse<DraftDetailResponse> getCourseDraftDetail(
+            @PathVariable Long courseDraftId,
+            @PathVariable Long challengeId,
+            @AuthenticationPrincipal String loginId
+    ) {
+
+        DraftDetailResponse response = editorService.getCourseDraftDetail(courseDraftId,
+                challengeId, loginId);
+
+        return ApiResponse.onSuccess(response);
+    }
 }

@@ -1,5 +1,7 @@
 package com.running.app.domain.editor.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.running.app.domain.track.dto.TrackRequest;
 import java.util.List;
 import lombok.AccessLevel;
@@ -85,6 +87,9 @@ public abstract class EditorResponse {
         private Integer page;
         private Integer size;
         private Boolean hasNext;
+
+        @JsonInclude(Include.NON_NULL)
+        private String challengeTitle;
     }
 
     // 에디터 상세 조회 응답.
@@ -99,5 +104,10 @@ public abstract class EditorResponse {
         private String title;
         private String status;                            // READY / DONE / REGISTERED
         private List<TrackRequest.NodeDTO> coordinates;   // [{lat, lng}, ...]
+
+        @JsonInclude(Include.NON_NULL)
+        private String polygonImageUrl;
+        @JsonInclude(Include.NON_NULL)
+        private String challengeTitle;
     }
 }
