@@ -23,6 +23,7 @@ import com.running.app.domain.track.service.TrackService;
 import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -85,7 +86,7 @@ public class RecordService {
 
         boolean isCompleted = determineIsCompleted(request, track);
         boolean isSafe = determineIsSafe(track);
-        double similarityScore = 1.0;
+        BigDecimal similarityScore = BigDecimal.ONE;
 
         RunningRecord runningRecord = RecordConverter.toRunningRecord(
                 memberId,
