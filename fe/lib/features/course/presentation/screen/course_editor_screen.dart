@@ -189,7 +189,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
           Positioned(
             top: 0,
             left: 0,
-            right: 68,
+            right: 56,
             child: SafeArea(
               child: _TitleBar(
                 state: state,
@@ -204,7 +204,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             right: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.only(top: 8, right: 12),
+                padding: const EdgeInsets.only(top: 8, right: 8),
                 child: _PolygonPreviewButton(
                   imageUrl: widget.polygonImageUrl,
                   title: widget.polygonTitle,
@@ -307,8 +307,9 @@ class _TitleBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 40,
       margin: const EdgeInsets.only(left: 12, top: 8, bottom: 8, right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.93),
         borderRadius: BorderRadius.circular(12),
@@ -751,7 +752,7 @@ class _PolygonPreviewButton extends StatelessWidget {
       onTap: () => _showPreview(context),
       child: Container(
         width: 44,
-        height: 36,
+        height: 40,
         decoration: BoxDecoration(
           color: Colors.black,
           borderRadius: BorderRadius.circular(8),
