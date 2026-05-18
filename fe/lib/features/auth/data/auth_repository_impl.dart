@@ -22,8 +22,11 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> logout() async {
-    await _datasource.logout();
-    // 서버 토큰 무효화 후 로컬 토큰도 삭제
-    TokenStorage.clear();
+    try {
+      await _datasource.logout();
+    } finally {
+      // 서버 오류가 발생해도 로컬 토큰은 반드시 삭제
+      TokenStorage.clear();
+    }
   }
 }
