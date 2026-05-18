@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/screen/profile_stats_screen.dart';
+import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 
@@ -34,19 +35,214 @@ class RunningScreen extends StatelessWidget {
                 const _Header(),
                 const Spacer(),
                 _ChallengeButtons(
-                  onChallenge: (difficulty, title) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CourseEditorScreen(difficulty: difficulty),
-                      ),
-                    );
-                  },
+                  onChallenge: (difficulty, title) =>
+                      _showChallengeStartDialog(context, difficulty, title),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showChallengeStartDialog(
+    BuildContext context,
+    String difficulty,
+    String title,
+  ) {
+    final isEasy = difficulty == 'EASY';
+    final accentColor =
+        isEasy ? const Color(0xFF27AE60) : const Color(0xFFE74C3C);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 드래그 핸들
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 헤더
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    difficulty,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: accentColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '어떻게 시작할까요?',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1C1C1E),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 직접 그리기 카드 (강조)
+            _ChallengeOptionCard(
+              icon: Icons.edit_road_rounded,
+              label: '직접 그리기',
+              description: '에디터에서 나만의 코스를 그린 뒤 시작해요',
+              accentColor: accentColor,
+              filled: true,
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => CourseEditorScreen(difficulty: difficulty),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+
+            // 바로 시작 카드
+            _ChallengeOptionCard(
+              icon: Icons.directions_run_rounded,
+              label: '바로 시작',
+              description: '카운트다운 후 즉시 달리기를 시작해요',
+              accentColor: accentColor,
+              filled: false,
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const RunningCountdownScreen(),
+                    fullscreenDialog: true,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 챌린지 시작 방식 선택 카드 ────────────────────────────────────────
+class _ChallengeOptionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String description;
+  final Color accentColor;
+  final bool filled;
+  final VoidCallback onTap;
+
+  const _ChallengeOptionCard({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.accentColor,
+    required this.filled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: filled ? null : Border.all(color: Colors.grey.shade200),
+      ),
+      child: Material(
+        color: filled ? accentColor : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: filled
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : accentColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 24,
+                    color: filled ? Colors.white : accentColor,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: filled
+                              ? Colors.white
+                              : const Color(0xFF1C1C1E),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: filled
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : const Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: filled
+                      ? Colors.white.withValues(alpha: 0.7)
+                      : Colors.grey.shade400,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
