@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:running/features/auth/presentation/auth_provider.dart';
 import 'package:running/features/record/presentation/record_provider.dart';
 import 'package:running/features/record/presentation/screen/record_stats_screen.dart';
 
@@ -28,6 +30,13 @@ class ProfileStatsScreen extends ConsumerWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: '로그아웃',
+            onPressed: () => _confirmLogout(context, ref),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -49,6 +58,32 @@ class ProfileStatsScreen extends ConsumerWidget {
           // 기간별 통계 — 달린 거리·러닝 횟수는 위 카드에서 이미 표시하므로 숨김
           const Expanded(
             child: RecordStatsScreen(showDistanceAndCount: false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmLogout(BuildContext context, WidgetRef ref) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('로그아웃'),
+        content: const Text('정말 로그아웃 하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await ref.read(authViewModelProvider.notifier).logout();
+              if (context.mounted) context.go('/intro');
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('로그아웃'),
           ),
         ],
       ),

@@ -26,11 +26,10 @@ class AuthRemoteDataSource {
     }
   }
 
-  // POST /auth/logout — 서버 토큰 무효화
-  // TODO: 백엔드 스펙 확정 후 엔드포인트 수정
+  // POST /api/v1/auth/logout — 서버 토큰 무효화
   Future<void> logout() async {
     try {
-      await _dio.post('/auth/logout');
+      await _dio.post('/api/v1/auth/logout');
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
