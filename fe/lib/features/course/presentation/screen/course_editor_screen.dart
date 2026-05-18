@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -324,7 +326,7 @@ class _TitleBar extends StatelessWidget {
       margin: const EdgeInsets.only(left: 12, top: 8, bottom: 8, right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.93),
+        color: Colors.white.withValues(alpha: 0.93),
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
@@ -686,7 +688,7 @@ class _RoadHintBanner extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 24),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.92),
+          color: Colors.white.withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(20),
           boxShadow: const [
             BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
@@ -819,8 +821,26 @@ class _PolygonPreviewButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// 장소 검색 결과 모델
+// ─────────────────────────────────────────────────────────────────────
+class _PlaceResult {
+  final String title;
+  final String address;
+  final double lat;
+  final double lng;
+
+  const _PlaceResult({
+    required this.title,
+    required this.address,
+    required this.lat,
+    required this.lng,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // 장소 검색 바텀 시트
-// "위도, 경도" 형식으로 입력하면 해당 좌표로 지도를 이동시킨다
+// 네이버 지역 검색 API 로 장소명·주소를 검색해 지도를 해당 위치로 이동시킨다
+// .env: NAVER_SEARCH_CLIENT_ID / NAVER_SEARCH_CLIENT_SECRET 필요
 // ─────────────────────────────────────────────────────────────────────
 class _SearchSheet extends StatefulWidget {
   final CourseEditorNotifier notifier;
@@ -833,9 +853,9 @@ class _SearchSheet extends StatefulWidget {
 
 class _SearchSheetState extends State<_SearchSheet> {
   final _controller = TextEditingController();
-
-  // 잘못된 입력 시 TextField 아래에 표시할 오류 메시지
-  String? _errorText;
+  List<_PlaceResult> _results = [];
+  bool _loading = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -843,70 +863,140 @@ class _SearchSheetState extends State<_SearchSheet> {
     super.dispose();
   }
 
-  // "위도, 경도" 형식을 파싱해 카메라를 해당 좌표로 이동시킨다
-  void _onSearch() {
-    final input = _controller.text.trim();
-    final parts = input.split(',');
-    if (parts.length == 2) {
-      final lat = double.tryParse(parts[0].trim());
-      final lng = double.tryParse(parts[1].trim());
-      if (lat != null && lng != null) {
-        widget.notifier.moveCameraTo(NLatLng(lat, lng));
-        Navigator.pop(context);
-        return;
-      }
+  Future<void> _search() async {
+    final query = _controller.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+      _results = [];
+    });
+
+    try {
+      final response = await Dio().get(
+        'https://openapi.naver.com/v1/search/local.json',
+        queryParameters: {'query': query, 'display': 10},
+        options: Options(headers: {
+          'X-Naver-Client-Id': dotenv.env['NAVER_SEARCH_CLIENT_ID'] ?? '',
+          'X-Naver-Client-Secret': dotenv.env['NAVER_SEARCH_CLIENT_SECRET'] ?? '',
+        }),
+      );
+
+      final items = response.data['items'] as List;
+      final results = items.map((item) {
+        // 네이버 지역 검색 API: WGS84 × 10^7 정수 문자열
+        // 예) mapx="1270276000" → 127.0276, mapy="374979000" → 37.4979
+        final lat = double.parse(item['mapy'] as String) / 1e7;
+        final lng = double.parse(item['mapx'] as String) / 1e7;
+        final title = (item['title'] as String).replaceAll(RegExp(r'<[^>]*>'), '');
+        final address = (item['roadAddress'] as String? ?? '').isNotEmpty
+            ? item['roadAddress'] as String
+            : item['address'] as String? ?? '';
+        return _PlaceResult(title: title, address: address, lat: lat, lng: lng);
+      }).toList();
+
+      setState(() {
+        _results = results;
+        if (_results.isEmpty) _error = '검색 결과가 없습니다';
+      });
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      final msg = status == 401
+          ? 'API 인증 오류 (키를 확인해 주세요)'
+          : status == 403
+              ? 'API 권한 없음 (지역 검색 API가 활성화되어 있는지 확인해 주세요)'
+              : '검색 실패 (${status ?? '네트워크 오류'})';
+      setState(() => _error = msg);
+    } catch (e) {
+      setState(() => _error = '오류: $e');
+    } finally {
+      setState(() => _loading = false);
     }
-    // 형식이 맞지 않으면 오류 메시지를 표시하고 시트를 닫지 않는다
-    setState(
-      () => _errorText = '올바른 형식: 위도, 경도  (예: 37.5665, 126.9780)',
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      // viewInsets.bottom: 키보드 높이만큼 패딩을 줘서 TextField 가 가려지지 않도록
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
-        top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 시트 제목
           const Text(
-            '장소 이동',
+            '장소 검색',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
 
-          // 좌표 입력 필드
           TextField(
             controller: _controller,
             autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.search,
             decoration: InputDecoration(
-              hintText: '위도, 경도  (예: 37.5665, 126.9780)',
-              errorText: _errorText,
+              hintText: '장소 또는 주소를 입력하세요',
               border: const OutlineInputBorder(),
               suffixIcon: IconButton(
                 icon: const Icon(Icons.search),
-                onPressed: _onSearch,
+                onPressed: _search,
               ),
             ),
-            // 키보드 완료 버튼으로도 검색할 수 있다
-            onSubmitted: (_) => _onSearch(),
+            onSubmitted: (_) => _search(),
           ),
-          const SizedBox(height: 8),
 
-          // 사용 안내 텍스트
-          const Text(
-            '지도에서 직접 탭하거나 좌표를 입력해 위치로 이동',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
+          if (_loading) ...[
+            const SizedBox(height: 20),
+            const Center(child: CircularProgressIndicator()),
+            const SizedBox(height: 20),
+          ] else if (_error != null) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                _error!,
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ] else if (_results.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.35,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _results.length,
+                separatorBuilder: (_, index) => const Divider(height: 1),
+                itemBuilder: (context, i) {
+                  final r = _results[i];
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    leading: const Icon(Icons.place_outlined, color: kCourseRouteColor),
+                    title: Text(
+                      r.title,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: r.address.isNotEmpty
+                        ? Text(
+                            r.address,
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          )
+                        : null,
+                    onTap: () {
+                      final target = NLatLng(r.lat, r.lng);
+                      Navigator.pop(context);
+                      widget.notifier.moveCameraTo(target);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );
