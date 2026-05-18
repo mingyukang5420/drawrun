@@ -3,6 +3,7 @@ package com.running.app.domain.challenge.controller;
 import com.running.app.domain.challenge.dto.TestDTO;
 import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
 import com.running.app.domain.challenge.service.TestService;
+import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import com.running.app.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,10 +31,12 @@ public class TestController {
     private final ChallengeImageGenerateService challengeImageGenerateService;
     private final TestService testService;
 
-    @Operation(summary = "텍스트 생성 모델 호출")
+    @Operation(summary = "텍스트 생성 모델 호출", description = "body에 EASY / HARD 중 하나 입력")
     @PostMapping("/text")
-    public ApiResponse<Void> textRequest() {
-        challengeImageGenerateService.callTextModel();
+    public ApiResponse<Void> textRequest(
+            @RequestBody ChallengeDifficulty difficulty
+    ) {
+        challengeImageGenerateService.callTextModel(difficulty);
         return ApiResponse.OK;
     }
 

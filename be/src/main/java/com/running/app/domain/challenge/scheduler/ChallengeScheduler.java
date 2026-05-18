@@ -38,7 +38,7 @@ public class ChallengeScheduler {
             log.info("챌린지 스케쥴러 가동");
 
             // 이미지 생성 (storedPath + 원본 base64 반환)
-            String object = challengeImageGenerateService.callTextModel();
+            String object = challengeImageGenerateService.callTextModel(ChallengeDifficulty.EASY);
             ChallengeImageGenerateService.ImageModelResult imageResult =
                     challengeImageGenerateService.callImageModel(object);
 

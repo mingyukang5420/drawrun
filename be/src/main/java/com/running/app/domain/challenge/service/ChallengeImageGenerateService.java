@@ -6,6 +6,7 @@ import com.running.app.domain.challenge.dto.GmsImageDTO.GmsImageResponse;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextResponse;
 import com.running.app.domain.challenge.dto.GmsTextDTO.RequestMessage;
+import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,10 +56,10 @@ public class ChallengeImageGenerateService {
             simple vector style
             Object in Korean (translate to English and draw): """;
 
-    public String callTextModel() {
+    public String callTextModel(ChallengeDifficulty difficulty) {
 
         // 지금까지 진행했던 챌린지 목록 조회 및 문자열 변환
-        List<String> challengeAllTitle = challengeService.getChallengeAllTitle();
+        List<String> challengeAllTitle = challengeService.getChallengeAllTitle(difficulty);
         String preTitles = String.join(", ", challengeAllTitle);
 
         // 요청 body 조립
