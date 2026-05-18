@@ -38,5 +38,30 @@ public abstract class ChallengeResponse {
         private BigDecimal similarityScore;
     }
 
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ChallengeListDTO {
+
+        private ChallengeSummaryDTO easy;
+        private ChallengeSummaryDTO hard;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ChallengeSummaryDTO {
+
+        private Long challengeId;
+        private String title;
+        private String polygonImageUrl;
+        private Integer totalParticipantCount;
+        private BigDecimal myBestSimilarityScore;
+        private Integer myBestRank;
+
+    }
+
 
 }
