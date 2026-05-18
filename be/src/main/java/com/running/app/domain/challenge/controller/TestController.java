@@ -72,7 +72,6 @@ public class TestController {
     public ApiResponse<Double> similarityTest(
             @RequestBody TestDTO.SimilarityRequestDTO request
     ) {
-        isEqualsTestKey(request.getTestKey());
         return ApiResponse.onSuccess(testService.testSimilarity(request.getChallengeId(), request.getNodes()));
     }
 

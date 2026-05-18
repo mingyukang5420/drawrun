@@ -15,7 +15,6 @@ public class TestDTO {
     @Getter
     @NoArgsConstructor
     public static class SimilarityRequestDTO {
-        private String testKey;
         private Long challengeId;
         private List<TrackRequest.NodeDTO> nodes;
     }
