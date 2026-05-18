@@ -6,7 +6,9 @@ import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import javax.imageio.ImageIO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,7 @@ public class ChallengeOutlineExtractService {
             int width = img.getWidth();
             int height = img.getHeight();
 
+            Set<String> seen = new LinkedHashSet<>();
             List<double[]> edgePoints = new ArrayList<>();
 
             // 행 스캔: 각 행에서 비-검정 픽셀의 좌측 끝과 우측 끝
@@ -47,9 +50,9 @@ public class ChallengeOutlineExtractService {
                     }
                 }
                 if (left >= 0) {
-                    edgePoints.add(new double[]{(double) left / width, (double) y / height});
+                    addEdgePoint(seen, edgePoints, (double) left / width, (double) y / height);
                     if (right != left) {
-                        edgePoints.add(new double[]{(double) right / width, (double) y / height});
+                        addEdgePoint(seen, edgePoints, (double) right / width, (double) y / height);
                     }
                 }
             }
@@ -64,9 +67,9 @@ public class ChallengeOutlineExtractService {
                     }
                 }
                 if (top >= 0) {
-                    edgePoints.add(new double[]{(double) x / width, (double) top / height});
+                    addEdgePoint(seen, edgePoints, (double) x / width, (double) top / height);
                     if (bottom != top) {
-                        edgePoints.add(new double[]{(double) x / width, (double) bottom / height});
+                        addEdgePoint(seen, edgePoints, (double) x / width, (double) bottom / height);
                     }
                 }
             }
@@ -85,6 +88,13 @@ public class ChallengeOutlineExtractService {
         } catch (Exception e) {
             log.warn("윤곽선 추출 실패: {}", e.getMessage());
             return "[]";
+        }
+    }
+
+    private void addEdgePoint(Set<String> seen, List<double[]> points, double nx, double ny) {
+        String key = String.format("%.6f:%.6f", nx, ny);
+        if (seen.add(key)) {
+            points.add(new double[]{nx, ny});
         }
     }
 
