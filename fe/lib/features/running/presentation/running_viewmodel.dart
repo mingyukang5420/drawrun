@@ -39,10 +39,13 @@ class RunningState {
   final DateTime? startedAt;
   final DateTime? endedAt;
 
-  // 코스/드래프트 진입 시 외부에서 채워 두는 ID 들. 자유 러닝이면 둘 다 null.
-  // 시작 API 는 쿼리 파라미터로, 종료 API 는 요청 본문으로 같이 보낸다.
+  // 코스/드래프트/챌린지 진입 시 외부에서 채워 두는 ID 들. 자유 러닝이면 셋 다 null.
+  // 시작 API (courseId/courseDraftId) 와 종료 API (셋 모두) 가 이 값을 그대로 사용한다.
+  //   - 시작 진입점이 명시적으로 set 해야 함 (자유 러닝이면 null 로 set)
+  //   - 종료 직후 자동 리셋되어 다음 세션으로 잔여가 흘러가지 않음
   final int? courseId;
   final int? courseDraftId;
+  final int? challengeId;
 
   // 시작 API 응답으로 받은 참조 경로(코스/드래프트의 GPS 노드).
   // 자유 러닝 / 응답 실패 시엔 빈 리스트.
@@ -64,6 +67,7 @@ class RunningState {
     this.endedAt,
     this.courseId,
     this.courseDraftId,
+    this.challengeId,
     this.referenceNodes = const [],
   });
 
@@ -82,6 +86,7 @@ class RunningState {
     DateTime? endedAt,
     int? courseId,
     int? courseDraftId,
+    int? challengeId,
     List<LatLng>? referenceNodes,
   }) {
     return RunningState(
@@ -99,6 +104,7 @@ class RunningState {
       endedAt: endedAt ?? this.endedAt,
       courseId: courseId ?? this.courseId,
       courseDraftId: courseDraftId ?? this.courseDraftId,
+      challengeId: challengeId ?? this.challengeId,
       referenceNodes: referenceNodes ?? this.referenceNodes,
     );
   }
@@ -496,11 +502,15 @@ class RunningNotifier extends Notifier<RunningState> {
 
   // 결과 화면 진입 시 한 번 호출. 실패해도 화면은 그대로 보이고
   // saveError 가 채워져 UI 에서 재시도 버튼을 띄울 수 있다.
+  //
+  // challengeId 는 호출자(결과 화면) 가 state.challengeId 를 직접 읽어 넘겨준다.
+  // state 의 challengeId 값은 시작 진입점에서 세팅됐고, 종료 시점까지 보존된다.
   Future<void> saveCurrentSession({
     required String title,
     required String trackImageUrl,
     int? courseId,
     int? courseDraftId,
+    int? challengeId,
   }) async {
     state = state.copyWith(isSaving: true, saveError: null);
     try {
@@ -510,6 +520,7 @@ class RunningNotifier extends Notifier<RunningState> {
         trackImageUrl: trackImageUrl,
         courseId: courseId,
         courseDraftId: courseDraftId,
+        challengeId: challengeId,
       );
       state = state.copyWith(isSaving: false);
     } on ApiException catch (e) {

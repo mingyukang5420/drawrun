@@ -187,6 +187,10 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     }
 
     try {
+      // 시작 진입점이 박아둔 챌린지 컨텍스트를 그대로 사용.
+      // widget 으로 들어온 courseId / courseDraftId 와 함께 종료 API 본문에 실린다.
+      final challengeId = ref.read(runningViewModelProvider).challengeId;
+
       await ref.read(runningViewModelProvider.notifier).saveCurrentSession(
         title: _titleController.text.trim().isEmpty
             ? _buildAutoTitle(ref.read(runningViewModelProvider).startedAt)
@@ -194,6 +198,7 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
         trackImageUrl: url,
         courseId: widget.courseId,
         courseDraftId: widget.courseDraftId,
+        challengeId: challengeId,
       );
     } on ApiException {
       // ApiException 은 ViewModel 이 saveError 에 채워줌 → build 가 자동으로 배너 노출
