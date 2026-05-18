@@ -60,8 +60,9 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> logout() async {
     try {
       await _repository.logout();
+    } catch (_) {
+      // 서버 오류 무시 — 로컬 상태 초기화는 항상 수행
     } finally {
-      // 서버 오류가 발생해도 로컬 상태는 반드시 초기화
       state = state.copyWith(isLoggedIn: false);
     }
   }
