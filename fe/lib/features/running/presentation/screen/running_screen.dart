@@ -9,39 +9,44 @@ import 'package:running/features/course/presentation/screen/course_editor_screen
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 
 // 홈 탭 메인 화면
-// 상단: 프로필·날씨 헤더 / 중간: 현재 위치 지도 / 하단: 챌린지 모드 선택
+// 지도가 전체 화면을 채우고, 헤더·챌린지 카드가 그 위에 겹쳐진다
 class RunningScreen extends StatelessWidget {
   const RunningScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 상단: 프로필 아바타 + 날씨·인사
-            const _Header(),
+      // 지도가 배경이므로 Scaffold 자체 배경은 투명하게
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // 지도 — 전체 화면 배경 (SafeArea 밖까지 확장)
+          const Positioned.fill(child: RunningMapView()),
 
-            // 중간: 현재 위치 기반 지도 (전체 남은 공간 채움)
-            Expanded(
-              child: Stack(children: const [RunningMapView(), _MapVignette()]),
-            ),
+          // 방사형 비네팅 — 지도 가장자리를 자연스럽게 페이드아웃
+          const Positioned.fill(child: _MapVignette()),
 
-            // 하단: Easy·Hard 챌린지 카드
-            _ChallengeButtons(
-              onChallenge: (difficulty, title) {
-                // 챌린지 난이도에 맞는 코스를 에디터에서 그린 뒤 바로 달리기로 연결
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => CourseEditorScreen(difficulty: difficulty),
-                  ),
-                );
-              },
+          // UI 레이어 — 헤더(상단) + 챌린지 카드(하단)
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _Header(),
+                const Spacer(),
+                _ChallengeButtons(
+                  onChallenge: (difficulty, title) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CourseEditorScreen(difficulty: difficulty),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -114,8 +119,9 @@ class _Header extends ConsumerWidget {
   }
 }
 
-// ── 지도 원형 비네팅 ──────────────────────────────────────────────────
-// 지도 가장자리를 흰색으로 자연스럽게 페이드아웃해 하단 버튼과 어색하지 않게 연결
+
+// ── 지도 방사형 비네팅 ─────────────────────────────────────────────────
+// 지도 가장자리를 흰색으로 자연스럽게 페이드아웃 — 상·하단 UI와 어색하지 않게 연결
 class _MapVignette extends StatelessWidget {
   const _MapVignette();
 
@@ -136,17 +142,12 @@ class _VignettePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.longestSide * 0.6;
 
-    final shader =
-        RadialGradient(
-          colors: const [Color(0x00FFFFFF), Colors.white],
-          stops: const [0.15, 0.7],
-        ).createShader(
-          Rect.fromCenter(
-            center: center,
-            width: radius * 2,
-            height: radius * 2,
-          ),
-        );
+    final shader = RadialGradient(
+      colors: const [Color(0x00FFFFFF), Colors.white],
+      stops: const [0.15, 0.7],
+    ).createShader(
+      Rect.fromCenter(center: center, width: radius * 2, height: radius * 2),
+    );
 
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
