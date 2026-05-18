@@ -475,6 +475,7 @@ class _FabIconButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────
 // 하단 컨트롤 패널
 // 왼쪽: 실행취소 · 다시실행 · 초기화 버튼
+// 가운데: 총 거리 뱃지
 // 오른쪽: 저장(CTA) 버튼
 // ─────────────────────────────────────────────────────────────────────
 class _BottomPanel extends StatelessWidget {
@@ -493,73 +494,88 @@ class _BottomPanel extends StatelessWidget {
     final hasNodes = state.nodes.isNotEmpty;
 
     return Container(
-      color: Colors.white,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 16,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
+        left: 20,
+        right: 20,
         top: 12,
-        // SafeArea 하단(홈 인디케이터) 여백만큼 추가 패딩
-        bottom: MediaQuery.of(context).padding.bottom + 12,
+        bottom: MediaQuery.of(context).padding.bottom + 16,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 총 거리 표시 (상단 바에서 이동)
-          if (state.nodes.isNotEmpty) ...[
-            Text(
-              '${state.totalDistanceKm.toStringAsFixed(2)} km',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: kCourseRouteColor,
-              ),
+          // 드래그 핸들 (바텀 시트 느낌)
+          Container(
+            width: 36,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
             ),
-            const SizedBox(height: 8),
-          ],
+          ),
+
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 실행취소 버튼 (undoStack 이 비어있으면 비활성)
+              // 실행취소
               _ControlButton(
-                icon: Icons.undo,
+                icon: Icons.undo_rounded,
                 label: '취소',
                 enabled: state.undoStack.isNotEmpty,
                 onTap: notifier.undo,
               ),
               const SizedBox(width: 8),
 
-              // 다시실행 버튼 (redoStack 이 비어있으면 비활성)
+              // 다시실행
               _ControlButton(
-                icon: Icons.redo,
+                icon: Icons.redo_rounded,
                 label: '복원',
                 enabled: state.redoStack.isNotEmpty,
                 onTap: notifier.redo,
               ),
               const SizedBox(width: 8),
 
-              // 전체 초기화 버튼 (노드가 없으면 비활성)
+              // 초기화
               _ControlButton(
-                icon: Icons.delete_outline,
+                icon: Icons.delete_outline_rounded,
                 label: '초기화',
                 enabled: hasNodes,
                 onTap: notifier.reset,
               ),
+
               const Spacer(),
 
+              // 총 거리 뱃지 (노드가 있을 때만)
+              if (hasNodes) ...[
+                _KmBadge(km: state.totalDistanceKm),
+                const SizedBox(width: 12),
+              ],
+
               // 저장 CTA 버튼
-              // · 노드가 없거나 저장 중이면 비활성
-              // · 저장 완료 or 실패는 ref.listen 이 처리 (screen 레벨)
               SizedBox(
-                height: 44,
+                height: 48,
                 child: ElevatedButton(
                   onPressed: (hasNodes && !state.isSaving) ? onSave : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kCourseRouteColor,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
+                    disabledBackgroundColor: Colors.grey.shade200,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
                   ),
                   child: state.isSaving
                       ? const SizedBox(
@@ -572,7 +588,10 @@ class _BottomPanel extends StatelessWidget {
                         )
                       : const Text(
                           '저장',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
               ),
@@ -584,7 +603,7 @@ class _BottomPanel extends StatelessWidget {
   }
 }
 
-// 하단 패널의 소형 컨트롤 버튼 (아이콘 + 라벨 텍스트)
+// 하단 패널 소형 컨트롤 버튼 — 둥근 사각 배경에 아이콘 + 라벨
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -600,18 +619,65 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 비활성 상태면 회색, 활성이면 어두운 색상으로 표시
-    final color = enabled ? Colors.black87 : Colors.grey.shade400;
+    final iconColor = enabled ? Colors.black87 : Colors.grey.shade400;
+    final labelColor = enabled ? Colors.black54 : Colors.grey.shade400;
+    final bgColor = enabled ? Colors.grey.shade100 : Colors.grey.shade50;
+
     return GestureDetector(
       onTap: enabled ? onTap : null,
-      child: Column(
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: iconColor),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: labelColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 총 거리 표시 뱃지
+class _KmBadge extends StatelessWidget {
+  final double km;
+
+  const _KmBadge({required this.km});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0x1AFF5722), // kCourseRouteColor 10% opacity
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 24, color: color),
-          const SizedBox(height: 2),
+          const Icon(Icons.straighten_rounded, size: 13, color: kCourseRouteColor),
+          const SizedBox(width: 4),
           Text(
-            label,
-            style: TextStyle(fontSize: 11, color: color),
+            '${km.toStringAsFixed(2)} km',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: kCourseRouteColor,
+            ),
           ),
         ],
       ),
