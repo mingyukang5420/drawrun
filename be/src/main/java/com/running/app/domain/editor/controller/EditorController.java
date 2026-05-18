@@ -402,7 +402,10 @@ public class EditorController {
         return ApiResponse.OK;
     }
 
-    // 특정 challengeId에 맞는 courseDraft 목록 조회
+    @Operation(
+            summary = "특정 challengeId에 맞는 courseDraft 목록 조회",
+            description = "page는 기본값 0"
+    )
     @GetMapping("/challenge/{challengeId}")
     public ApiResponse<DraftListResultResponse> getCourseDraftList(
             @PathVariable Long challengeId,
