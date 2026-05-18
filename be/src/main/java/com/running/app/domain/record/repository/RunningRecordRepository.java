@@ -92,4 +92,14 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
     List<ChallengeRankingQueryResult> findRankingByChallengeId(
             @Param("challengeId") Long challengeId);
 
+    // 챌린지별 총 참여자 수 조회
+    @Query("""
+              SELECT COUNT(DISTINCT r.memberId)
+              FROM RunningRecord r
+              WHERE r.challengeId = :challengeId
+              AND r.similarityScore IS NOT NULL
+            """)
+    Integer countParticipantsByChallengeId(@Param("challengeId") Long challengeId);
+
+
 }

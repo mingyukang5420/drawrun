@@ -2,6 +2,7 @@ package com.running.app.domain.challenge.service;
 
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
+import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ public class TestService {
                 .endedAt(LocalDateTime.now().plusDays(14))
                 .startedAt(LocalDateTime.now())
                 .polygonImageUrl(imagePath)
+                .difficulty(ChallengeDifficulty.EASY)
                 .build();
 
         challengeRepository.save(build);

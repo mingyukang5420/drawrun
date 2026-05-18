@@ -1,8 +1,11 @@
 package com.running.app.domain.challenge.entity;
 
+import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import com.running.app.domain.common.BaseRDBEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,5 +41,9 @@ public class Challenge extends BaseRDBEntity {
 
     @Column(name = "ended_at", nullable = false)
     private LocalDateTime endedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "difficulty", nullable = false)
+    private ChallengeDifficulty difficulty;
 }
 
