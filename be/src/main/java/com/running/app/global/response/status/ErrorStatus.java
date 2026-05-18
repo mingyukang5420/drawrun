@@ -30,6 +30,7 @@ public enum ErrorStatus {
     EDITOR_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "400", "수정할 수 없는 상태의 드래프트입니다."),
     DISTRICT_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "해당 위치의 구를 찾을 수 없습니다."),
     WEATHER_DATA_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "503", "날씨 데이터를 현재 사용할 수 없습니다."),
+    CHALLENGE_POLYGON_NOT_READY(HttpStatus.BAD_REQUEST, "400", "챌린지 폴리곤 데이터가 아직 준비되지 않았습니다. 이미지 생성 후 다시 시도하세요."),
     EDITOR_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "에디터를 찾을 수 없습니다.");
 
     private final HttpStatus httpStatus;
