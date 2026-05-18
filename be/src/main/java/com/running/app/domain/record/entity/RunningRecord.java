@@ -90,6 +90,10 @@ public class RunningRecord extends BaseRDBEntity {
         this.title = title;
     }
 
+    public void updateSimilarityScore(Double score) {
+        this.similarityScore = score;
+    }
+
     ///
     /// 러닝 종류 분기 규칙 설정
     ///
