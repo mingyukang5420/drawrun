@@ -525,64 +525,64 @@ class _ChallengeCard extends StatelessWidget {
         color: accentColor,
         child: InkWell(
           onTap: onTap,
-          child: Stack(
-            children: [
-              // 폴리곤 이미지 — 카드 전체를 배경으로 채움
-              Positioned.fill(
-                child: _LargePolygonImage(
-                  icon: shapeIcon,
-                  imageUrl: polygonImageUrl,
-                  alignment: _isLeft ? Alignment.centerRight : Alignment.centerLeft,
-                ),
-              ),
-              // 텍스트 + 통계 오버레이
-              Positioned.fill(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: labelAlignment,
-                    children: [
-                      if (_isLeft) ...[
-                        _Label(label: label, description: description, alignment: labelAlignment),
-                        const Spacer(),
-                      ] else ...[
-                        const Spacer(),
-                        _Label(label: label, description: description, alignment: labelAlignment),
-                      ],
-                      const SizedBox(height: 14),
-                      Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
-                      const SizedBox(height: 10),
-                      Column(
-                        crossAxisAlignment: labelAlignment,
-                        children: [
-                          Row(
-                            mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
-                                ? MainAxisAlignment.start
-                                : MainAxisAlignment.end,
-                            children: [
-                              Icon(Icons.people_outline, size: 11, color: Colors.white.withValues(alpha: 0.6)),
-                              const SizedBox(width: 3),
-                              Text(attemptCount, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Row(
-                            mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
-                                ? MainAxisAlignment.start
-                                : MainAxisAlignment.end,
-                            children: [
-                              Icon(Icons.emoji_events_outlined, size: 11, color: Colors.white.withValues(alpha: 0.6)),
-                              const SizedBox(width: 3),
-                              Text(myBestInfo, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: labelAlignment,
+              children: [
+                if (_isLeft) ...[
+                  _Label(label: label, description: description, alignment: labelAlignment),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: _LargePolygonImage(
+                      icon: shapeIcon,
+                      imageUrl: polygonImageUrl,
+                      alignment: Alignment.bottomLeft,
+                      flipX: true,
+                    ),
                   ),
+                ] else ...[
+                  Expanded(
+                    child: _LargePolygonImage(
+                      icon: shapeIcon,
+                      imageUrl: polygonImageUrl,
+                      alignment: Alignment.topRight,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _Label(label: label, description: description, alignment: labelAlignment),
+                ],
+                const SizedBox(height: 14),
+                Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
+                const SizedBox(height: 10),
+                Column(
+                  crossAxisAlignment: labelAlignment,
+                  children: [
+                    Row(
+                      mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.end,
+                      children: [
+                        Icon(Icons.people_outline, size: 11, color: Colors.white.withValues(alpha: 0.6)),
+                        const SizedBox(width: 3),
+                        Text(attemptCount, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.end,
+                      children: [
+                        Icon(Icons.emoji_events_outlined, size: 11, color: Colors.white.withValues(alpha: 0.6)),
+                        const SizedBox(width: 3),
+                        Text(myBestInfo, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -641,11 +641,13 @@ class _LargePolygonImage extends StatelessWidget {
   final IconData icon;
   final String? imageUrl;
   final Alignment alignment;
+  final bool flipX;
 
   const _LargePolygonImage({
     required this.icon,
     this.imageUrl,
     this.alignment = Alignment.center,
+    this.flipX = false,
   });
 
   // 검은 배경 → 투명 + 폴리곤 → 흰색
@@ -664,21 +666,23 @@ class _LargePolygonImage extends StatelessWidget {
         child: Icon(icon, size: 72, color: Colors.white.withValues(alpha: 0.3)),
       );
     }
-    return SizedBox.expand(
-      child: ColorFiltered(
-        colorFilter: _toWhite,
-        child: Image.network(
-          imageUrl!,
-          fit: BoxFit.cover,
-          alignment: alignment,
-          errorBuilder: (_, __, ___) => Center(
-            child: Icon(
-              icon,
-              size: 72,
-              color: Colors.white.withValues(alpha: 0.3),
-            ),
-          ),
+    final image = ColorFiltered(
+      colorFilter: _toWhite,
+      child: Image.network(
+        imageUrl!,
+        fit: BoxFit.contain,
+        alignment: alignment,
+        errorBuilder: (_, __, ___) => Center(
+          child: Icon(icon, size: 72, color: Colors.white.withValues(alpha: 0.3)),
         ),
+      ),
+    );
+    return Opacity(
+      opacity: 0.45,
+      child: SizedBox.expand(
+        child: flipX
+            ? Transform.scale(scaleX: -1, child: image)
+            : image,
       ),
     );
   }
