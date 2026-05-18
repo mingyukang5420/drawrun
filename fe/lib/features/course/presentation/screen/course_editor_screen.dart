@@ -345,17 +345,7 @@ class _TopInfoBar extends StatelessWidget {
             const SizedBox(width: 16),
           const SizedBox(width: 8),
 
-          // 실시간 총 거리 (노드가 늘어날 때마다 자동 갱신)
-          Text(
-            '${state.totalDistanceKm.toStringAsFixed(2)} km',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              // 경로 폴리라인 색상과 동일하게 통일
-              color: kCourseRouteColor,
-            ),
-          ),
-          const SizedBox(width: 4),
+          _PolygonPreviewButton(nodes: state.nodes),
         ],
       ),
     );
@@ -487,65 +477,82 @@ class _BottomPanel extends StatelessWidget {
         // SafeArea 하단(홈 인디케이터) 여백만큼 추가 패딩
         bottom: MediaQuery.of(context).padding.bottom + 12,
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // 실행취소 버튼 (undoStack 이 비어있으면 비활성)
-          _ControlButton(
-            icon: Icons.undo,
-            label: '취소',
-            enabled: state.undoStack.isNotEmpty,
-            onTap: notifier.undo,
-          ),
-          const SizedBox(width: 8),
-
-          // 다시실행 버튼 (redoStack 이 비어있으면 비활성)
-          _ControlButton(
-            icon: Icons.redo,
-            label: '복원',
-            enabled: state.redoStack.isNotEmpty,
-            onTap: notifier.redo,
-          ),
-          const SizedBox(width: 8),
-
-          // 전체 초기화 버튼 (노드가 없으면 비활성)
-          _ControlButton(
-            icon: Icons.delete_outline,
-            label: '초기화',
-            enabled: hasNodes,
-            onTap: notifier.reset,
-          ),
-          const Spacer(),
-
-          // 저장 CTA 버튼
-          // · 노드가 없거나 저장 중이면 비활성
-          // · 저장 완료 or 실패는 ref.listen 이 처리 (screen 레벨)
-          SizedBox(
-            height: 44,
-            child: ElevatedButton(
-              onPressed: (hasNodes && !state.isSaving) ? onSave : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kCourseRouteColor,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade300,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+          // 총 거리 표시 (상단 바에서 이동)
+          if (state.nodes.isNotEmpty) ...[
+            Text(
+              '${state.totalDistanceKm.toStringAsFixed(2)} km',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: kCourseRouteColor,
               ),
-              child: state.isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text(
-                      '저장',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
             ),
+            const SizedBox(height: 8),
+          ],
+          Row(
+            children: [
+              // 실행취소 버튼 (undoStack 이 비어있으면 비활성)
+              _ControlButton(
+                icon: Icons.undo,
+                label: '취소',
+                enabled: state.undoStack.isNotEmpty,
+                onTap: notifier.undo,
+              ),
+              const SizedBox(width: 8),
+
+              // 다시실행 버튼 (redoStack 이 비어있으면 비활성)
+              _ControlButton(
+                icon: Icons.redo,
+                label: '복원',
+                enabled: state.redoStack.isNotEmpty,
+                onTap: notifier.redo,
+              ),
+              const SizedBox(width: 8),
+
+              // 전체 초기화 버튼 (노드가 없으면 비활성)
+              _ControlButton(
+                icon: Icons.delete_outline,
+                label: '초기화',
+                enabled: hasNodes,
+                onTap: notifier.reset,
+              ),
+              const Spacer(),
+
+              // 저장 CTA 버튼
+              // · 노드가 없거나 저장 중이면 비활성
+              // · 저장 완료 or 실패는 ref.listen 이 처리 (screen 레벨)
+              SizedBox(
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: (hasNodes && !state.isSaving) ? onSave : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kCourseRouteColor,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                  ),
+                  child: state.isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          '저장',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -639,6 +646,150 @@ class _RoadHintBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 경로 다각형 미리보기 버튼
+// 노드가 없으면 회색 아이콘을 표시하고, 있으면 실제 경로를 축소해서 그린다.
+// 탭하면 Dialog 에서 확대된 경로 모양을 보여준다.
+// ─────────────────────────────────────────────────────────────────────
+class _PolygonPreviewButton extends StatelessWidget {
+  final List<NLatLng> nodes;
+
+  const _PolygonPreviewButton({required this.nodes});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: nodes.length >= 2 ? () => _showPreview(context) : null,
+      child: Container(
+        width: 44,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: nodes.length >= 2 ? kCourseRouteColor : Colors.grey.shade300,
+            width: 1.5,
+          ),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 3, offset: Offset(0, 1)),
+          ],
+        ),
+        child: nodes.length >= 2
+            ? CustomPaint(
+                painter: _RouteMiniPainter(nodes: nodes),
+              )
+            : Icon(Icons.route, size: 18, color: Colors.grey.shade400),
+      ),
+    );
+  }
+
+  void _showPreview(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '코스 경로',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              AspectRatio(
+                aspectRatio: 1,
+                child: CustomPaint(
+                  painter: _RouteMiniPainter(nodes: nodes, strokeWidth: 3.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 경로 노드를 정규화해 캔버스 크기에 맞게 그리는 CustomPainter
+class _RouteMiniPainter extends CustomPainter {
+  final List<NLatLng> nodes;
+  final double strokeWidth;
+
+  const _RouteMiniPainter({
+    required this.nodes,
+    this.strokeWidth = 2.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (nodes.length < 2) return;
+
+    double minLat = nodes.first.latitude;
+    double maxLat = nodes.first.latitude;
+    double minLng = nodes.first.longitude;
+    double maxLng = nodes.first.longitude;
+
+    for (final n in nodes) {
+      if (n.latitude < minLat) minLat = n.latitude;
+      if (n.latitude > maxLat) maxLat = n.latitude;
+      if (n.longitude < minLng) minLng = n.longitude;
+      if (n.longitude > maxLng) maxLng = n.longitude;
+    }
+
+    final latSpan = maxLat - minLat;
+    final lngSpan = maxLng - minLng;
+    final padding = strokeWidth + 4;
+    final drawW = size.width - padding * 2;
+    final drawH = size.height - padding * 2;
+
+    Offset toOffset(NLatLng n) {
+      final x = lngSpan == 0
+          ? padding + drawW / 2
+          : padding + (n.longitude - minLng) / lngSpan * drawW;
+      // 위도는 위쪽이 크므로 y 축 반전
+      final y = latSpan == 0
+          ? padding + drawH / 2
+          : padding + (maxLat - n.latitude) / latSpan * drawH;
+      return Offset(x, y);
+    }
+
+    final paint = Paint()
+      ..color = kCourseRouteColor
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    final first = toOffset(nodes.first);
+    path.moveTo(first.dx, first.dy);
+    for (int i = 1; i < nodes.length; i++) {
+      final o = toOffset(nodes[i]);
+      path.lineTo(o.dx, o.dy);
+    }
+    canvas.drawPath(path, paint);
+
+    // 시작점 원형 마커
+    canvas.drawCircle(first, strokeWidth * 1.2, Paint()..color = kCourseRouteColor);
+  }
+
+  @override
+  bool shouldRepaint(_RouteMiniPainter old) =>
+      old.nodes != nodes || old.strokeWidth != strokeWidth;
 }
 
 // ─────────────────────────────────────────────────────────────────────
