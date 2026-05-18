@@ -1,4 +1,5 @@
 import 'dart:math' show sqrt;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -537,7 +538,7 @@ class _ChallengeCard extends StatelessWidget {
                     child: _LargePolygonImage(
                       icon: shapeIcon,
                       imageUrl: polygonImageUrl,
-                      alignment: Alignment.bottomLeft,
+                      alignment: Alignment.centerRight,
                       flipX: true,
                     ),
                   ),
@@ -666,14 +667,17 @@ class _LargePolygonImage extends StatelessWidget {
         child: Icon(icon, size: 72, color: Colors.white.withValues(alpha: 0.3)),
       );
     }
-    final image = ColorFiltered(
-      colorFilter: _toWhite,
-      child: Image.network(
-        imageUrl!,
-        fit: BoxFit.contain,
-        alignment: alignment,
-        errorBuilder: (_, __, ___) => Center(
-          child: Icon(icon, size: 72, color: Colors.white.withValues(alpha: 0.3)),
+    final image = ImageFiltered(
+      imageFilter: ImageFilter.dilate(radiusX: 3, radiusY: 3),
+      child: ColorFiltered(
+        colorFilter: _toWhite,
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.fitWidth,
+          alignment: alignment,
+          errorBuilder: (_, __, ___) => Center(
+            child: Icon(icon, size: 72, color: Colors.white.withValues(alpha: 0.3)),
+          ),
         ),
       ),
     );
