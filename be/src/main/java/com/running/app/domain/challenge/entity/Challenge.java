@@ -42,6 +42,13 @@ public class Challenge extends BaseRDBEntity {
     @Column(name = "ended_at", nullable = false)
     private LocalDateTime endedAt;
 
+    @Column(name = "polygon_points", columnDefinition = "TEXT")
+    private String polygonPoints;
+
+    public void updatePolygonPoints(String polygonPoints) {
+        this.polygonPoints = polygonPoints;
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(name = "difficulty", nullable = false)
     private ChallengeDifficulty difficulty;

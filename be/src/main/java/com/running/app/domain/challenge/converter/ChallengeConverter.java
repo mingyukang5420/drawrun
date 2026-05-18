@@ -6,8 +6,6 @@ import com.running.app.domain.challenge.dto.GmsTextDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.type.ChallengeDifficulty;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
@@ -45,7 +43,7 @@ public abstract class ChallengeConverter {
 
     }
 
-    public static Challenge toChallenge(String title, String imagePath,
+    public static Challenge toChallenge(String title, String imagePath, String polygonPoints,
             ChallengeDifficulty difficulty) {
 
         LocalDateTime now = LocalDateTime.now();
@@ -59,9 +57,30 @@ public abstract class ChallengeConverter {
         return Challenge.builder()
                 .title(title)
                 .polygonImageUrl(imagePath)
+                .polygonPoints(polygonPoints)
                 .startedAt(now)
                 .endedAt(end)
                 .difficulty(difficulty)
+                .build();
+    }
+
+    public static ChallengeResponse.ChallengeDetailDTO toChallengeDetailDTO(
+            Challenge challenge,
+            List<ChallengeResponse.RankEntryDTO> rankings,
+            ChallengeResponse.RankEntryDTO myRank,
+            ChallengeResponse.RankEntryDTO prevRank,
+            int totalCount) {
+
+        return ChallengeResponse.ChallengeDetailDTO.builder()
+                .challengeId(challenge.getId())
+                .title(challenge.getTitle())
+                .polygonImageUrl(challenge.getPolygonImageUrl())
+                .startedAt(challenge.getStartedAt())
+                .endedAt(challenge.getEndedAt())
+                .totalCount(totalCount)
+                .prevRank(prevRank)
+                .myRank(myRank)
+                .rankings(rankings)
                 .build();
     }
 
@@ -76,7 +95,7 @@ public abstract class ChallengeConverter {
             rankingList.add(ChallengeResponse.RankEntryDTO.builder()
                     .rank(rankingList.size() + 1)
                     .nickname(nicknameMap.get(memberId))
-                    .similarityScore(BigDecimal.valueOf(score).setScale(2, RoundingMode.HALF_UP))
+                    .similarityScore(score)
                     .build());
         });
 
@@ -91,9 +110,7 @@ public abstract class ChallengeConverter {
         return ChallengeResponse.RankEntryDTO.builder()
                 .rank(rank)
                 .nickname(nickname)
-                .similarityScore(
-                        score != null ? BigDecimal.valueOf(score).setScale(2, RoundingMode.HALF_UP)
-                                : null)
+                .similarityScore(score)
                 .build();
     }
 

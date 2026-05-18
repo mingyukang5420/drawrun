@@ -1,6 +1,5 @@
 package com.running.app.domain.challenge.dto;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -35,7 +34,7 @@ public abstract class ChallengeResponse {
 
         private int rank;
         private String nickname;
-        private BigDecimal similarityScore;
+        private Double similarityScore;
     }
 
     @Getter
@@ -58,7 +57,7 @@ public abstract class ChallengeResponse {
         private String title;
         private String polygonImageUrl;
         private Integer totalParticipantCount;
-        private BigDecimal myBestSimilarityScore;
+        private Double myBestSimilarityScore;
         private Integer myBestRank;
 
     }

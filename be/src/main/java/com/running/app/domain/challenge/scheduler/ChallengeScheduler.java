@@ -4,6 +4,7 @@ import com.running.app.domain.challenge.converter.ChallengeConverter;
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
 import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
+import com.running.app.domain.challenge.service.ChallengeOutlineExtractService;
 import com.running.app.domain.challenge.service.ChallengeService;
 import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ public class ChallengeScheduler {
 
     private final ChallengeRepository challengeRepository;
     private final ChallengeImageGenerateService challengeImageGenerateService;
+    private final ChallengeOutlineExtractService challengeOutlineExtractService;
     private final ChallengeService challengeService;
 
     @Scheduled(cron = "0 0 0 * * 1") // 매주 월요일 실행
@@ -35,12 +37,21 @@ public class ChallengeScheduler {
 
             log.info("챌린지 스케쥴러 가동");
 
-            // 이미지 생성
+            // 이미지 생성 (storedPath + 원본 base64 반환)
             String object = challengeImageGenerateService.callTextModel();
-            String imageStorePath = challengeImageGenerateService.callImageModel(object);
+            ChallengeImageGenerateService.ImageModelResult imageResult =
+                    challengeImageGenerateService.callImageModel(object);
 
-            Challenge challenge = ChallengeConverter.toChallenge(object, imageStorePath,
-                    ChallengeDifficulty.EASY);
+            // 이미지에서 폴리곤 윤곽선 좌표 추출
+            String polygonPoints = challengeOutlineExtractService.extract(imageResult.b64Json());
+            if (polygonPoints != null) {
+                log.info("윤곽선 추출 완료, 저장된 챌린지 이름: {}", object);
+            } else {
+                log.warn("윤곽선 추출 실패(null), polygon_points 없이 챌린지 저장. 이름: {}", object);
+            }
+
+            Challenge challenge = ChallengeConverter.toChallenge(object, imageResult.storedPath(),
+                    polygonPoints, ChallengeDifficulty.EASY);
 
             // challenge 저장 로직 호출
             Challenge saveChallenge = challengeService.create(challenge);

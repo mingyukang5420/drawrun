@@ -1,5 +1,8 @@
 package com.running.app.domain.record.service;
 
+import com.running.app.domain.challenge.entity.Challenge;
+import com.running.app.domain.challenge.repository.ChallengeRepository;
+import com.running.app.domain.challenge.service.SimilarityService;
 import com.running.app.domain.course.entity.Course;
 import com.running.app.domain.course.repository.CourseRepository;
 import com.running.app.domain.course.service.CourseService;
@@ -23,7 +26,6 @@ import com.running.app.domain.track.service.TrackService;
 import com.running.app.global.osm.service.OsmService;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
-import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -65,6 +67,8 @@ public class RecordService {
     private final OsmService osmService;
     private final MemberRepository memberRepository;
     private final RankingRedisService rankingRedisService;
+    private final ChallengeRepository challengeRepository;
+    private final SimilarityService similarityService;
 
     //작성
     @Transactional
@@ -86,7 +90,18 @@ public class RecordService {
 
         boolean isCompleted = determineIsCompleted(request, track);
         boolean isSafe = determineIsSafe(track);
-        BigDecimal similarityScore = BigDecimal.ONE;
+
+        Double similarityScore = null;
+        if (request.getChallengeId() != null) {
+            Challenge challenge = challengeRepository.findById(request.getChallengeId())
+                    .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+            if (challenge.getPolygonPoints() != null) {
+                similarityScore = similarityService.calculate(challenge.getPolygonPoints(), request.getNodes());
+                log.info("챌린지 유사도 계산 완료. challengeId={}, score={}", request.getChallengeId(), similarityScore);
+            } else {
+                log.warn("챌린지 polygon_points 없음. 유사도 계산 생략. challengeId={}", request.getChallengeId());
+            }
+        }
 
         RunningRecord runningRecord = RecordConverter.toRunningRecord(
                 memberId,
@@ -126,13 +141,13 @@ public class RecordService {
 
         // 트랜잭션 커밋 후 챌린지 기록이면 해당 챌린지 Redis 랭킹 키 삭제
         if (savedRunningRecord.getChallengeId() != null) {
-            log.info("챌린지 런 커밋 완료. Redis에 적재된 랭킹 데이터 삭제");
             Long challengeId = savedRunningRecord.getChallengeId();
 
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
+                            log.info("챌린지 런 커밋 완료. Redis 챌린지 랭킹 캐시 무효화. challengeId={}", challengeId);
                             rankingRedisService.deleteRankValue("ranking:challenge:" + challengeId);
                         }
                     }
