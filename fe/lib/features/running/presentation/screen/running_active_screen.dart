@@ -72,7 +72,13 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
             },
             onResume: notifier.resume,
           )
-              : _RunningBody(onPause: notifier.pause),
+              : _RunningBody(
+            onPause: notifier.pause,
+            // VM 의 카메라 이동 메서드를 그대로 넘긴다
+            // 메서드 참조(notifier.centerOnCurrentLocation) 로 넘기면 매 빌드마다
+            // 새 람다가 생성되지 않아 자식 위젯 입장에서 const 처럼 안정적이다
+            onRecenter: notifier.centerOnCurrentLocation,
+          ),
         ),
       ),
     );
@@ -85,7 +91,12 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
 // ─────────────────────────────────────────────────────────────────────
 class _RunningBody extends StatelessWidget {
   final VoidCallback onPause;
-  const _RunningBody({required this.onPause});
+  final VoidCallback onRecenter;
+
+  const _RunningBody({
+    required this.onPause,
+    required this.onRecenter,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -93,17 +104,34 @@ class _RunningBody extends StatelessWidget {
       children: [
         // 상단 3분할 (시간 / 거리 / 페이스)
         const RunningMetricTopBar(),
-        // 가운데: 실시간 지도
-        // trackRoute: true 로 넘기면 RunningMapView 가 NaverMapController 를
-        // RunningNotifier 에 등록하고, VM 이 누적된 경로(파란 폴리라인) 와
-        // 참조 노드(회색 폴리라인) 를 자동으로 그려준다
-        // Expanded 로 상단 바와 하단 버튼 사이 가용 높이를 모두 차지하게 한다
-        const Expanded(child: RunningMapView(trackRoute: true)),
-        // 하단: 일시정지 버튼 (가로 꽉 채우기)
+
+        // 가운데: 실시간 지도 + 우측 하단 "내 위치로" 버튼을 Stack 으로 겹친다
+        // Stack 은 자식들을 z-축 방향(뒤→앞) 으로 쌓는 레이아웃이다
+        // 첫 자식(지도) 이 바닥에 깔리고, Positioned 자식이 그 위에 뜬다
+        Expanded(
+          child: Stack(
+            children: [
+              // 바닥 레이어 — Positioned.fill 로 부모 영역을 가득 채우게 한다
+              const Positioned.fill(
+                child: RunningMapView(trackRoute: true),
+              ),
+
+              // 우측 하단에 띄우는 "내 위치로" 플로팅 버튼
+              // 16px 여백은 일반적인 FAB 여백 — 상단 메트릭 바와 시각적 균형
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: _RecenterButton(onTap: onRecenter),
+              ),
+            ],
+          ),
+        ),
+
+        // 하단: 일시정지 버튼 (그대로)
         Padding(
           padding: const EdgeInsets.all(16),
           child: SizedBox(
-            width: double.infinity, // 부모 가용 폭 모두 사용
+            width: double.infinity,
             height: 56,
             child: ElevatedButton(
               onPressed: onPause,
@@ -112,6 +140,39 @@ class _RunningBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// 지도 우측 하단에 띄우는 작은 원형 플로팅 버튼
+// 탭하면 부모가 주입한 onTap(=내 위치로 카메라 이동) 이 실행된다
+class _RecenterButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _RecenterButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    // Material + InkWell 조합 — 탭 리플(파동) 효과와 그림자를 함께 얻기 위한 정석 패턴
+    return Material(
+      color: Colors.white,
+      // 약간의 그림자로 지도 위에서 떠 있는 느낌을 준다
+      elevation: 4,
+      shape: const CircleBorder(),
+      // 자식의 클릭 영역도 원형으로 잘라낸다 (모서리 바깥 탭이 안 먹게)
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: const SizedBox(
+          width: 44,
+          height: 44,
+          // my_location 아이콘은 네이버 지도 / 구글 지도의 위치 버튼과 동일한 관용 표현
+          child: Icon(
+            Icons.my_location,
+            size: 22,
+            color: Colors.black87,
+          ),
+        ),
+      ),
     );
   }
 }
