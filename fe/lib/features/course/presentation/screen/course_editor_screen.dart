@@ -885,10 +885,10 @@ class _SearchSheetState extends State<_SearchSheet> {
 
       final items = response.data['items'] as List;
       final results = items.map((item) {
-        // 네이버 지역 검색 API: WGS84 × 10^4 정수 문자열
-        // 예) mapx="1269769" → 126.9769, mapy="375754" → 37.5754
-        final lat = double.parse(item['mapy'] as String) / 1e4;
-        final lng = double.parse(item['mapx'] as String) / 1e4;
+        // 네이버 지역 검색 API: WGS84 × 10^7 정수 문자열
+        // 예) mapx="1270276000" → 127.0276, mapy="374979000" → 37.4979
+        final lat = double.parse(item['mapy'] as String) / 1e7;
+        final lng = double.parse(item['mapx'] as String) / 1e7;
         final title = (item['title'] as String).replaceAll(RegExp(r'<[^>]*>'), '');
         final address = (item['roadAddress'] as String? ?? '').isNotEmpty
             ? item['roadAddress'] as String
