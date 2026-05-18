@@ -64,26 +64,6 @@ public abstract class ChallengeConverter {
                 .build();
     }
 
-    public static ChallengeResponse.ChallengeDetailDTO toChallengeDetailDTO(
-            Challenge challenge,
-            List<ChallengeResponse.RankEntryDTO> rankings,
-            ChallengeResponse.RankEntryDTO myRank,
-            ChallengeResponse.RankEntryDTO prevRank,
-            int totalCount) {
-
-        return ChallengeResponse.ChallengeDetailDTO.builder()
-                .challengeId(challenge.getId())
-                .title(challenge.getTitle())
-                .polygonImageUrl(challenge.getPolygonImageUrl())
-                .startedAt(challenge.getStartedAt())
-                .endedAt(challenge.getEndedAt())
-                .totalCount(totalCount)
-                .prevRank(prevRank)
-                .myRank(myRank)
-                .rankings(rankings)
-                .build();
-    }
-
     public static List<ChallengeResponse.RankEntryDTO> toRankEntryDTOList(
             Map<Long, Double> rankingMap,
             Map<Long, String> nicknameMap) {
