@@ -78,7 +78,9 @@ public class ChallengeImageGenerateService {
         return gmsTextResponse.getChoices().get(0).getMessage().getContent();
     }
 
-    public String callImageModel(String object) {
+    public record ImageModelResult(String storedPath, String b64Json) {}
+
+    public ImageModelResult callImageModel(String object) {
 
         // 요청 body 조립
         GmsImageRequest gmsImageRequest = ChallengeConverter.toGmsImageRequest(
@@ -91,12 +93,12 @@ public class ChallengeImageGenerateService {
                 .retrieve()
                 .body(GmsImageResponse.class);
 
-        log.info("받아온 base64 문자열: {}",
-                gmsImageResponse.getData().get(0).getB64Json().substring(0, 10));
+        String b64Json = gmsImageResponse.getData().get(0).getB64Json();
+        log.info("받아온 base64 문자열: {}", b64Json.substring(0, 10));
 
-        // 이미지 디스크 저장 로직 호출 후 저장 경로 반환
-        return challengeImageStorageService.storeChallengeImage(
-                gmsImageResponse.getData().get(0).getB64Json());
+        // 이미지 디스크 저장 후 경로와 base64 원본을 함께 반환 (윤곽선 추출에 base64 필요)
+        String storedPath = challengeImageStorageService.storeChallengeImage(b64Json);
+        return new ImageModelResult(storedPath, b64Json);
     }
 
 }

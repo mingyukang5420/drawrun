@@ -45,7 +45,7 @@ public abstract class ChallengeConverter {
 
     }
 
-    public static Challenge toChallenge(String title, String imagePath,
+    public static Challenge toChallenge(String title, String imagePath, String polygonPoints,
             ChallengeDifficulty difficulty) {
 
         LocalDateTime now = LocalDateTime.now();
@@ -59,9 +59,30 @@ public abstract class ChallengeConverter {
         return Challenge.builder()
                 .title(title)
                 .polygonImageUrl(imagePath)
+                .polygonPoints(polygonPoints)
                 .startedAt(now)
                 .endedAt(end)
                 .difficulty(difficulty)
+                .build();
+    }
+
+    public static ChallengeResponse.ChallengeDetailDTO toChallengeDetailDTO(
+            Challenge challenge,
+            List<ChallengeResponse.RankEntryDTO> rankings,
+            ChallengeResponse.RankEntryDTO myRank,
+            ChallengeResponse.RankEntryDTO prevRank,
+            int totalCount) {
+
+        return ChallengeResponse.ChallengeDetailDTO.builder()
+                .challengeId(challenge.getId())
+                .title(challenge.getTitle())
+                .polygonImageUrl(challenge.getPolygonImageUrl())
+                .startedAt(challenge.getStartedAt())
+                .endedAt(challenge.getEndedAt())
+                .totalCount(totalCount)
+                .prevRank(prevRank)
+                .myRank(myRank)
+                .rankings(rankings)
                 .build();
     }
 

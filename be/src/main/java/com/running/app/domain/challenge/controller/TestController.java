@@ -51,8 +51,9 @@ public class TestController {
             @RequestBody TestDTO request
     ) {
         isEqualsTestKey(request.getTestKey());
-        String s = challengeImageGenerateService.callImageModel(request.getImgString());
-        return ApiResponse.onSuccess(s);
+        ChallengeImageGenerateService.ImageModelResult result =
+                challengeImageGenerateService.callImageModel(request.getImgString());
+        return ApiResponse.onSuccess(result.storedPath());
     }
 
     @Operation(summary = "전체 흐름 테스트")

@@ -14,18 +14,21 @@ public class TestService {
 
     private final ChallengeRepository challengeRepository;
     private final ChallengeImageGenerateService challengeImageGenerateService;
+    private final ChallengeOutlineExtractService challengeOutlineExtractService;
 
     @Transactional
     public void testPipeline() {
 
         String object = challengeImageGenerateService.callTextModel();
-        String imagePath = challengeImageGenerateService.callImageModel(object);
+        ChallengeImageGenerateService.ImageModelResult imageResult =
+                challengeImageGenerateService.callImageModel(object);
 
         Challenge build = Challenge.builder()
                 .title(object)
                 .endedAt(LocalDateTime.now().plusDays(14))
                 .startedAt(LocalDateTime.now())
-                .polygonImageUrl(imagePath)
+                .polygonPoints(challengeOutlineExtractService.extract(imageResult.b64Json()))
+                .polygonImageUrl(imageResult.storedPath())
                 .difficulty(ChallengeDifficulty.EASY)
                 .build();
 
