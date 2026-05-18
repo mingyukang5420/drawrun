@@ -114,8 +114,9 @@ public class RankingRedisService {
         String key = "ranking:challenge:" + challengeId;
 
         for (ChallengeRankingQueryResult result : rankingResult) {
-            zSetOps.add(key, result.getMemberId().toString(),
-                    result.getBestSimilarityScore().doubleValue());
+            if (result.getBestSimilarityScore() != null) {
+                zSetOps.add(key, result.getMemberId().toString(), result.getBestSimilarityScore());
+            }
         }
 
         long ttlSeconds = ChronoUnit.SECONDS.between(LocalDateTime.now(), endedAt.plusDays(7));
