@@ -64,6 +64,8 @@ class _RunningMapViewState extends ConsumerState<RunningMapView> {
     return MapView(
       key: ValueKey(_mapRetryKey),
       showCurrentLocation: true,
+      // 홈 화면(trackRoute=false)에서는 지도 스크롤 비활성화
+      scrollGesturesEnable: widget.trackRoute,
       onMapReady: (mapController) {
         if (widget.trackRoute) {
           ref

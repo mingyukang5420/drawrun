@@ -25,6 +25,9 @@ class MapView extends StatefulWidget {
   // 위치 권한 거부·GPS 꺼짐 등으로 현재 위치를 가져오지 못했을 때 호출된다
   final VoidCallback? onLocationError;
 
+  // false 로 설정하면 사용자의 드래그·스크롤로 지도가 이동하지 않는다
+  final bool scrollGesturesEnable;
+
   const MapView({
     super.key,
     this.onMapReady,
@@ -32,6 +35,7 @@ class MapView extends StatefulWidget {
     this.showCurrentLocation = false,
     this.onCameraIdle,
     this.onLocationError,
+    this.scrollGesturesEnable = true,
   });
 
   @override
@@ -89,11 +93,12 @@ class _MapViewState extends State<MapView> {
   Widget build(BuildContext context) {
     return NaverMap(
       // 서울 시청을 기본 중심 좌표로 사용한다 (현재 위치를 가져오기 전 잠깐 표시된다)
-      options: const NaverMapViewOptions(
-        initialCameraPosition: NCameraPosition(
+      options: NaverMapViewOptions(
+        initialCameraPosition: const NCameraPosition(
           target: NLatLng(37.5665, 126.9780),
           zoom: 14,
         ),
+        scrollGesturesEnable: widget.scrollGesturesEnable,
       ),
       onMapReady: (mapController) async {
         // 컨트롤러 등록을 먼저 수행해야 이후 카메라 이동으로 발생하는
