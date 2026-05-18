@@ -102,4 +102,9 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
     Integer countParticipantsByChallengeId(@Param("challengeId") Long challengeId);
 
 
+    // 내 챌린지 최고 유사도 기록 1개 조회 (track JOIN 포함)
+    @EntityGraph(attributePaths = {"track"})
+    Optional<RunningRecord> findTopByMemberIdAndChallengeIdOrderBySimilarityScoreDesc(
+            Long memberId, Long challengeId
+    );
 }
