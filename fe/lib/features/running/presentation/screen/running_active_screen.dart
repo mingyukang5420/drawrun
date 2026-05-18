@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/widgets/running_map_view.dart';
 import 'package:running/features/running/presentation/widgets/running_metric_top_bar.dart';
-import 'package:running/features/running/presentation/widgets/running_pause_map_sheet.dart';
 import 'package:running/features/running/presentation/widgets/running_pause_metric_grid.dart';
 import 'package:running/features/running/presentation/widgets/running_stop_long_press_button.dart';
 import 'package:running/features/running/presentation/screen/running_result_screen.dart';
@@ -189,45 +188,69 @@ class _PausedBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // z-순서 뒤집기: 지도를 화면 전체 배경으로 깔고, 그리드와 버튼을 그 위에 띄운다
+    // Stack 자식 리스트는 [앞쪽=뒤(아래), 뒤쪽=앞(위)] 순으로 그려진다
     return Stack(
       children: [
-        // 1번 레이어: 그리드 + 버튼 (시트보다 아래)
-        Column(
-          children: [
-            // 6분할 메트릭 그리드 (거리 / 평균페이스 / 시간 / 칼로리 / 고도 / BPM)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: RunningPauseMetricGrid(),
+        // 1번 자식 (z 최하단) — 화면 전체를 채우는 실시간 지도
+        // Positioned.fill 은 Stack 부모 영역 전부를 자식이 차지하게 만드는 단축형
+        // trackRoute: true — 진행 중에 그리던 파란 폴리라인을 그대로 이어서 보여 준다
+        const Positioned.fill(
+          child: RunningMapView(trackRoute: true),
+        ),
+
+        // 2번 자식 — 6분할 메트릭 그리드를 화면 상단에 가로 풀폭으로 띄운다
+        // top: 0, left: 0, right: 0 — 양옆·위 가장자리까지 가득 채워 그 아래 지도를 가린다
+        // 진행 중 화면의 RunningMetricTopBar 와 동일한 시각 톤 (둥근 모서리 / 그림자 없음)
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            // 흰 배경으로 지도를 가려 그리드 텍스트가 또렷이 읽히게 한다
+            // 하단 경계선 한 줄(black12) 로 지도와 시각 구분 — 진행 중 상단 바와 동일 패턴
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Colors.black12)),
             ),
-            // 그리드와 버튼 사이 빈 공간 차지
-            const Spacer(),
-            // 정지(3초 롱프레스) / 재생 버튼을 좌우로 균등 배치
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: RunningStopLongPressButton(onLongPressed: onStop),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: onResume,
-                        child: const Icon(Icons.play_arrow, size: 32),
-                      ),
+            // 내부 여백 — 그리드 셀이 바 가장자리에 너무 붙지 않게
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+            child: const RunningPauseMetricGrid(),
+          ),
+        ),
+
+        // 3번 자식 (z 최상단) — 정지(롱프레스) / 재생 버튼을 화면 하단에 띄운다
+        // bottom: 0 / left: 0 / right: 0 — Stack 밑변에 가로 폭 가득
+        // ElevatedButton 은 자체 elevation 을 갖고 있어 별도 Material 래핑 불필요
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Padding(
+            // 화면 하단에서 16px 여백 — 진행 중 화면의 일시정지 버튼과 동일
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Expanded 로 두 버튼을 화면 폭에 맞춰 균등 분할
+                Expanded(
+                  child: RunningStopLongPressButton(onLongPressed: onStop),
+                ),
+                // 두 버튼 사이 12px 간격
+                const SizedBox(width: 12),
+                Expanded(
+                  // 정지 버튼 높이와 맞추기 위해 SizedBox 로 56px 고정
+                  child: SizedBox(
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: onResume,
+                      child: const Icon(Icons.play_arrow, size: 32),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            // 시트의 핸들이 화면 맨 아래에서 빼꼼 보이도록 그만큼의 여백 확보
-            const SizedBox(height: 80),
-          ],
+          ),
         ),
-        // 2번 레이어: 위로 드래그하면 커지는 지도 시트
-        const RunningPauseMapSheet(),
       ],
     );
   }
