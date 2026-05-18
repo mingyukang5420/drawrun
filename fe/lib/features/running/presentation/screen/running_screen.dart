@@ -112,37 +112,37 @@ class RunningScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // 바로 시작 카드
+            // 직접 그리기 카드 (강조)
             _ChallengeOptionCard(
-              icon: Icons.directions_run_rounded,
-              label: '바로 시작',
-              description: '카운트다운 후 즉시 달리기를 시작해요',
+              icon: Icons.edit_road_rounded,
+              label: '직접 그리기',
+              description: '에디터에서 나만의 코스를 그린 뒤 시작해요',
               accentColor: accentColor,
               filled: true,
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const RunningCountdownScreen(),
-                    fullscreenDialog: true,
+                    builder: (_) => CourseEditorScreen(difficulty: difficulty),
                   ),
                 );
               },
             ),
             const SizedBox(height: 12),
 
-            // 직접 그리기 카드
+            // 바로 시작 카드
             _ChallengeOptionCard(
-              icon: Icons.edit_road_rounded,
-              label: '직접 그리기',
-              description: '에디터에서 나만의 코스를 그린 뒤 시작해요',
+              icon: Icons.directions_run_rounded,
+              label: '바로 시작',
+              description: '카운트다운 후 즉시 달리기를 시작해요',
               accentColor: accentColor,
               filled: false,
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => CourseEditorScreen(difficulty: difficulty),
+                    builder: (_) => const RunningCountdownScreen(),
+                    fullscreenDialog: true,
                   ),
                 );
               },
