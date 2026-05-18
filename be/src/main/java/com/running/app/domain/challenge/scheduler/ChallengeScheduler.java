@@ -71,7 +71,7 @@ public class ChallengeScheduler {
                     easyPolygonPoints,
                     ChallengeDifficulty.EASY);
             log.info("EASY 챌린지 스케쥴러 저장 완료 저장된 챌린지 이름");
-            
+
             Challenge hardChallenge = saveChallenge(hardObject, hardImageResult.storedPath(),
                     hardPolygonPoints,
                     ChallengeDifficulty.HARD);
@@ -104,5 +104,44 @@ public class ChallengeScheduler {
     @EventListener(ApplicationReadyEvent.class)
     public void onRunServer() {
         generateChallenge();
+    }
+
+    public void schedulerTester() {
+
+        // 난이도에 따른 텍스트 생성
+        String easyObject = challengeImageGenerateService.callTextModel(
+                ChallengeDifficulty.EASY);
+        String hardObject = challengeImageGenerateService.callTextModel(
+                ChallengeDifficulty.HARD);
+
+        // 내부 DTO 조립
+        ImageRequestBody imageRequestBody = challengeImageGenerateService.ImageRequestBodyBuilder(
+                easyObject, hardObject);
+
+        // 난이도에 따른 이미지 생성 메서드 호출 및 디스크 저장
+        ImageModelResult easyImageResult = challengeImageGenerateService.callImageModel(
+                imageRequestBody.getEasyImageBody());
+
+        ImageModelResult hardImageResult = challengeImageGenerateService.callImageModel(
+                imageRequestBody.getHardImageBody());
+
+        // 이미지에서 폴리곤 윤곽선 좌표 추출
+        String easyPolygonPoints = challengeOutlineExtractService.extract(
+                easyImageResult.b64Json());
+        String hardPolygonPoints = challengeOutlineExtractService.extract(
+                hardImageResult.b64Json());
+        // 로그 헬퍼 메서드 호출
+        extractLog(easyObject, easyPolygonPoints);
+
+        // challenge 저장 헬퍼 메서드 호출
+        Challenge easyChallenge = saveChallenge(easyObject, easyImageResult.storedPath(),
+                easyPolygonPoints,
+                ChallengeDifficulty.EASY);
+        log.info("EASY 챌린지 스케쥴러 저장 완료 저장된 챌린지 이름");
+
+        Challenge hardChallenge = saveChallenge(hardObject, hardImageResult.storedPath(),
+                hardPolygonPoints,
+                ChallengeDifficulty.HARD);
+        log.info("HARD 챌린지 스케쥴러 저장 완료 저장된 챌린지 이름");
     }
 }

@@ -60,7 +60,7 @@ public class TestController {
     @Operation(summary = "전체 흐름 테스트")
     @PostMapping("/pipeline")
     public ApiResponse<Void> pipeline() {
-        challengeScheduler.generateChallenge();
+        challengeScheduler.schedulerTester();
         return ApiResponse.OK;
     }
 
