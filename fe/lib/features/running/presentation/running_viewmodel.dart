@@ -39,10 +39,13 @@ class RunningState {
   final DateTime? startedAt;
   final DateTime? endedAt;
 
-  // 코스/드래프트 진입 시 외부에서 채워 두는 ID 들. 자유 러닝이면 둘 다 null.
-  // 시작 API 는 쿼리 파라미터로, 종료 API 는 요청 본문으로 같이 보낸다.
+  // 코스/드래프트/챌린지 진입 시 외부에서 채워 두는 ID 들. 자유 러닝이면 셋 다 null.
+  // 시작 API (courseId/courseDraftId) 와 종료 API (셋 모두) 가 이 값을 그대로 사용한다.
+  //   - 시작 진입점이 명시적으로 set 해야 함 (자유 러닝이면 null 로 set)
+  //   - 종료 직후 자동 리셋되어 다음 세션으로 잔여가 흘러가지 않음
   final int? courseId;
   final int? courseDraftId;
+  final int? challengeId;
 
   // 시작 API 응답으로 받은 참조 경로(코스/드래프트의 GPS 노드).
   // 자유 러닝 / 응답 실패 시엔 빈 리스트.
@@ -64,6 +67,7 @@ class RunningState {
     this.endedAt,
     this.courseId,
     this.courseDraftId,
+    this.challengeId,
     this.referenceNodes = const [],
   });
 
@@ -82,6 +86,7 @@ class RunningState {
     DateTime? endedAt,
     int? courseId,
     int? courseDraftId,
+    int? challengeId,
     List<LatLng>? referenceNodes,
   }) {
     return RunningState(
@@ -99,6 +104,7 @@ class RunningState {
       endedAt: endedAt ?? this.endedAt,
       courseId: courseId ?? this.courseId,
       courseDraftId: courseDraftId ?? this.courseDraftId,
+      challengeId: challengeId ?? this.challengeId,
       referenceNodes: referenceNodes ?? this.referenceNodes,
     );
   }
@@ -246,6 +252,39 @@ class RunningNotifier extends Notifier<RunningState> {
         target: NLatLng(position.latitude, position.longitude),
         zoom: 16,
       ),
+    );
+  }
+
+  // 시작 진입점(챌린지 카드 / 자유 러닝 진입점 / 코스 진입 등) 이 한 번에 세 ID 를 세팅.
+  //
+  // copyWith 의 `value ?? this.value` 패턴으로는 "null 로 명시 리셋" 이 안 되므로
+  // 명시적 메서드로 분리. 호출자가 안 채운 ID 는 null 로 강제된다.
+  //
+  // 세션 시작 직전에 호출하는 것이 컨벤션. 종료 후 리셋은 별도 정책으로 처리.
+  void setSessionContext({
+    int? challengeId,
+    int? courseId,
+    int? courseDraftId,
+  }) {
+    state = RunningState(
+      // 컨텍스트 ID 만 갈아끼우고, 나머지 측정값/상태는 보존
+      isRunning: state.isRunning,
+      isPaused: state.isPaused,
+      distanceKm: state.distanceKm,
+      points: state.points,
+      elapsedSeconds: state.elapsedSeconds,
+      altitudeM: state.altitudeM,
+      bpm: state.bpm,
+      cadenceSpm: state.cadenceSpm,
+      isSaving: state.isSaving,
+      saveError: state.saveError,
+      startedAt: state.startedAt,
+      endedAt: state.endedAt,
+      referenceNodes: state.referenceNodes,
+      // ID 세 개는 호출자가 넘긴 값을 그대로 — null 도 그대로 (명시 리셋 의도 보존)
+      challengeId: challengeId,
+      courseId: courseId,
+      courseDraftId: courseDraftId,
     );
   }
 
@@ -496,11 +535,15 @@ class RunningNotifier extends Notifier<RunningState> {
 
   // 결과 화면 진입 시 한 번 호출. 실패해도 화면은 그대로 보이고
   // saveError 가 채워져 UI 에서 재시도 버튼을 띄울 수 있다.
+  //
+  // challengeId 는 호출자(결과 화면) 가 state.challengeId 를 직접 읽어 넘겨준다.
+  // state 의 challengeId 값은 시작 진입점에서 세팅됐고, 종료 시점까지 보존된다.
   Future<void> saveCurrentSession({
     required String title,
     required String trackImageUrl,
     int? courseId,
     int? courseDraftId,
+    int? challengeId,
   }) async {
     state = state.copyWith(isSaving: true, saveError: null);
     try {
@@ -510,12 +553,29 @@ class RunningNotifier extends Notifier<RunningState> {
         trackImageUrl: trackImageUrl,
         courseId: courseId,
         courseDraftId: courseDraftId,
+        challengeId: challengeId,
       );
       state = state.copyWith(isSaving: false);
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e);
       rethrow;
+    } finally {
+      // 성공/실패 무관: 종료 API 호출이 한 번 시도된 직후 컨텍스트 ID 3개를 리셋.
+      //
+      // 직전 챌린지 러닝의 잔여가 다음 세션으로 흘러가지 않도록 보수적 가드.
+      // 측정 데이터(거리/시간/points 등) 는 결과 화면이 계속 표시해야 하므로 이 메서드에서 건드리지 않는다.
+      _resetSessionContext();
     }
+  }
+
+  // 세션 컨텍스트 3개 ID 만 null 로 리셋.
+  // setSessionContext(null, null, null) 와 동등하지만 의도가 호출처에 더 명시적으로 드러나도록 이름 분리.
+  void _resetSessionContext() {
+    setSessionContext(
+      challengeId: null,
+      courseId: null,
+      courseDraftId: null,
+    );
   }
 
   // 카운트다운 화면에서 한 번 호출 — 시작 API 발사 후 응답 nodes 를 state 에 보관.

@@ -5,6 +5,9 @@ import 'package:running/features/running/domain/run_start_response.dart';
 // session: 측정된 러닝 데이터 (거리/시간/경로 등 — 측정 결과)
 // title: 사용자가 결과 화면에서 입력한 러닝 제목
 // courseId: 코스 따라뛰기 모드일 때 코스 ID. 자유 러닝이면 null
+// courseDraftId: 에디터 드래프트로 진입한 코스 ID. 자유 러닝/공식 코스면 null
+// challengeId: 챌린지에 참여한 러닝일 때 챌린지 ID. 자유 러닝/단순 코스 따라뛰기면 null
+//              BE 는 not-null 일 때만 챌린지 랭킹/통계에 집계한다.
 // trackImageUrl: 경로 썸네일. 현재는 BE 미구현이므로 'tempValue' 고정 전달
 abstract class RunningRepository {
   Future<void> save({
@@ -13,6 +16,7 @@ abstract class RunningRepository {
     required String trackImageUrl,
     int? courseId,
     int? courseDraftId,
+    int? challengeId,
   });
 
   // 러닝 시작 — 카운트다운 진입 직후 한 번 호출.

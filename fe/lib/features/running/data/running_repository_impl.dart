@@ -17,6 +17,7 @@ class RunningRepositoryImpl implements RunningRepository {
     required String trackImageUrl,
     int? courseId,
     int? courseDraftId,
+    int? challengeId,
   }) async {
     // 매개변수로 받은 메타데이터를 _toJson 에 함께 넘긴다.
     final body = _toJson(
@@ -25,6 +26,7 @@ class RunningRepositoryImpl implements RunningRepository {
       trackImageUrl: trackImageUrl,
       courseId: courseId,
       courseDraftId: courseDraftId,
+      challengeId: challengeId,
     );
     await _remote.postSession(body);
   }
@@ -53,10 +55,12 @@ class RunningRepositoryImpl implements RunningRepository {
     required String trackImageUrl,
     int? courseId,
     int? courseDraftId,
+    int? challengeId,
   }) {
     return {
-      'courseId': courseId, // null 가능 (자유 러닝)
+      'courseId': courseId, // null 가능 (자유 러닝 / 챌린지 러닝)
       'courseDraftId': courseDraftId, // null 가능
+      'challengeId': challengeId, // null 가능 (자유 러닝 / 코스 따라뛰기)
       'title': title,
       'distance': session.distanceKm, // 단위: km (도메인과 동일)
       'trackImageUrl': trackImageUrl,
