@@ -25,7 +25,15 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
   // 챌린지 진입 난이도 ('EASY' | 'HARD'). null 이면 일반 코스 생성 모드
   final String? difficulty;
 
-  const CourseEditorScreen({super.key, this.initialNodes, this.difficulty});
+  // 코스에 대응하는 폴리곤 이미지 URL. null 이면 빈 placeholder 를 표시
+  final String? polygonImageUrl;
+
+  const CourseEditorScreen({
+    super.key,
+    this.initialNodes,
+    this.difficulty,
+    this.polygonImageUrl,
+  });
 
   @override
   ConsumerState<CourseEditorScreen> createState() => _CourseEditorScreenState();
@@ -181,6 +189,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             child: SafeArea(
               child: _TopInfoBar(
                 state: state,
+                polygonImageUrl: widget.polygonImageUrl,
                 onNameTap: () => _showNameDialog(state.courseName),
               ),
             ),
@@ -272,11 +281,16 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 // ─────────────────────────────────────────────────────────────────────
 class _TopInfoBar extends StatelessWidget {
   final CourseEditorState state;
+  final String? polygonImageUrl;
 
   // 코스 이름 영역을 탭했을 때 이름 수정 다이얼로그를 여는 콜백
   final VoidCallback onNameTap;
 
-  const _TopInfoBar({required this.state, required this.onNameTap});
+  const _TopInfoBar({
+    required this.state,
+    required this.onNameTap,
+    this.polygonImageUrl,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +359,7 @@ class _TopInfoBar extends StatelessWidget {
             const SizedBox(width: 16),
           const SizedBox(width: 8),
 
-          _PolygonPreviewButton(nodes: state.nodes),
+          _PolygonPreviewButton(imageUrl: polygonImageUrl),
         ],
       ),
     );
@@ -654,41 +668,52 @@ class _RoadHintBanner extends StatelessWidget {
 // 탭하면 Dialog 에서 확대된 경로 모양을 보여준다.
 // ─────────────────────────────────────────────────────────────────────
 class _PolygonPreviewButton extends StatelessWidget {
-  final List<NLatLng> nodes;
+  final String? imageUrl;
 
-  const _PolygonPreviewButton({required this.nodes});
+  const _PolygonPreviewButton({this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = imageUrl != null;
     return GestureDetector(
-      onTap: nodes.length >= 2 ? () => _showPreview(context) : null,
+      onTap: hasImage ? () => _showPreview(context) : null,
       child: Container(
         width: 44,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.black,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: nodes.length >= 2 ? kCourseRouteColor : Colors.grey.shade300,
+            color: hasImage ? kCourseRouteColor : Colors.grey.shade400,
             width: 1.5,
           ),
           boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 3, offset: Offset(0, 1)),
+            BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1)),
           ],
         ),
-        child: nodes.length >= 2
-            ? CustomPaint(
-                painter: _RouteMiniPainter(nodes: nodes),
-              )
-            : Icon(Icons.route, size: 18, color: Colors.grey.shade400),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6.5),
+          child: hasImage
+              ? Image.network(
+                  imageUrl!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (ctx, err, st) => _placeholder(),
+                )
+              : _placeholder(),
+        ),
       ),
     );
+  }
+
+  Widget _placeholder() {
+    return Icon(Icons.pentagon_outlined, size: 20, color: Colors.grey.shade500);
   }
 
   void _showPreview(BuildContext context) {
     showDialog<void>(
       context: context,
       builder: (_) => Dialog(
+        backgroundColor: Colors.black,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -699,11 +724,15 @@ class _PolygonPreviewButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    '코스 경로',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    '코스 폴리곤',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close, color: Colors.white),
                     visualDensity: VisualDensity.compact,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -712,8 +741,16 @@ class _PolygonPreviewButton extends StatelessWidget {
               const SizedBox(height: 12),
               AspectRatio(
                 aspectRatio: 1,
-                child: CustomPaint(
-                  painter: _RouteMiniPainter(nodes: nodes, strokeWidth: 3.5),
+                child: Image.network(
+                  imageUrl!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (ctx, err, st) => Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      size: 48,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -722,74 +759,6 @@ class _PolygonPreviewButton extends StatelessWidget {
       ),
     );
   }
-}
-
-// 경로 노드를 정규화해 캔버스 크기에 맞게 그리는 CustomPainter
-class _RouteMiniPainter extends CustomPainter {
-  final List<NLatLng> nodes;
-  final double strokeWidth;
-
-  const _RouteMiniPainter({
-    required this.nodes,
-    this.strokeWidth = 2.0,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (nodes.length < 2) return;
-
-    double minLat = nodes.first.latitude;
-    double maxLat = nodes.first.latitude;
-    double minLng = nodes.first.longitude;
-    double maxLng = nodes.first.longitude;
-
-    for (final n in nodes) {
-      if (n.latitude < minLat) minLat = n.latitude;
-      if (n.latitude > maxLat) maxLat = n.latitude;
-      if (n.longitude < minLng) minLng = n.longitude;
-      if (n.longitude > maxLng) maxLng = n.longitude;
-    }
-
-    final latSpan = maxLat - minLat;
-    final lngSpan = maxLng - minLng;
-    final padding = strokeWidth + 4;
-    final drawW = size.width - padding * 2;
-    final drawH = size.height - padding * 2;
-
-    Offset toOffset(NLatLng n) {
-      final x = lngSpan == 0
-          ? padding + drawW / 2
-          : padding + (n.longitude - minLng) / lngSpan * drawW;
-      // 위도는 위쪽이 크므로 y 축 반전
-      final y = latSpan == 0
-          ? padding + drawH / 2
-          : padding + (maxLat - n.latitude) / latSpan * drawH;
-      return Offset(x, y);
-    }
-
-    final paint = Paint()
-      ..color = kCourseRouteColor
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    final first = toOffset(nodes.first);
-    path.moveTo(first.dx, first.dy);
-    for (int i = 1; i < nodes.length; i++) {
-      final o = toOffset(nodes[i]);
-      path.lineTo(o.dx, o.dy);
-    }
-    canvas.drawPath(path, paint);
-
-    // 시작점 원형 마커
-    canvas.drawCircle(first, strokeWidth * 1.2, Paint()..color = kCourseRouteColor);
-  }
-
-  @override
-  bool shouldRepaint(_RouteMiniPainter old) =>
-      old.nodes != nodes || old.strokeWidth != strokeWidth;
 }
 
 // ─────────────────────────────────────────────────────────────────────
