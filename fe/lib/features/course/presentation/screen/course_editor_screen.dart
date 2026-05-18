@@ -185,17 +185,30 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
               ),
             ),
 
-          // 3단계: 상단 정보 바 (코스명·거리·저장 상태)
+          // 3단계: 상단 타이틀 바 (뒤로가기 + 코스명 + 저장 상태)
           Positioned(
             top: 0,
             left: 0,
+            right: 68,
+            child: SafeArea(
+              child: _TitleBar(
+                state: state,
+                onNameTap: () => _showNameDialog(state.courseName),
+              ),
+            ),
+          ),
+
+          // 3-2단계: 폴리곤 미리보기 버튼 (타이틀 바와 분리된 독립 영역)
+          Positioned(
+            top: 0,
             right: 0,
             child: SafeArea(
-              child: _TopInfoBar(
-                state: state,
-                polygonImageUrl: widget.polygonImageUrl,
-                polygonTitle: widget.polygonTitle,
-                onNameTap: () => _showNameDialog(state.courseName),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, right: 12),
+                child: _PolygonPreviewButton(
+                  imageUrl: widget.polygonImageUrl,
+                  title: widget.polygonTitle,
+                ),
               ),
             ),
           ),
@@ -281,43 +294,31 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 상단 정보 바
-// 뒤로 가기 버튼 · 편집 가능한 코스 이름 · 총 거리 · 저장 상태 표시
+// 상단 타이틀 바
+// 뒤로 가기 버튼 · 편집 가능한 코스 이름 · 저장 상태 표시
+// 폴리곤 버튼은 별도 Positioned 로 분리됨
 // ─────────────────────────────────────────────────────────────────────
-class _TopInfoBar extends StatelessWidget {
+class _TitleBar extends StatelessWidget {
   final CourseEditorState state;
-  final String? polygonImageUrl;
-  final String? polygonTitle;
-
-  // 코스 이름 영역을 탭했을 때 이름 수정 다이얼로그를 여는 콜백
   final VoidCallback onNameTap;
 
-  const _TopInfoBar({
-    required this.state,
-    required this.onNameTap,
-    this.polygonImageUrl,
-    this.polygonTitle,
-  });
+  const _TitleBar({required this.state, required this.onNameTap});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.only(left: 12, top: 8, bottom: 8, right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.93),
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
         ],
       ),
       child: Row(
         children: [
-          // 뒤로 가기 버튼 (AppBar 가 없으므로 직접 구현)
+          // 뒤로 가기 버튼
           IconButton(
             icon: const Icon(Icons.arrow_back),
             padding: EdgeInsets.zero,
@@ -345,7 +346,6 @@ class _TopInfoBar extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  // 이름을 수정할 수 있음을 나타내는 작은 편집 아이콘
                   const Icon(Icons.edit, size: 14, color: Colors.grey),
                 ],
               ),
@@ -353,7 +353,7 @@ class _TopInfoBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          // 저장 진행 중일 때 로딩 스피너, 아닐 때는 저장 완료 아이콘
+          // 저장 진행 중이면 스피너, 완료 노드가 있으면 체크 아이콘
           if (state.isSaving)
             const SizedBox(
               width: 16,
@@ -364,12 +364,7 @@ class _TopInfoBar extends StatelessWidget {
             const Icon(Icons.check_circle_outline, size: 16, color: Colors.green)
           else
             const SizedBox(width: 16),
-          const SizedBox(width: 8),
-
-          _PolygonPreviewButton(
-            imageUrl: polygonImageUrl,
-            title: polygonTitle,
-          ),
+          const SizedBox(width: 4),
         ],
       ),
     );
