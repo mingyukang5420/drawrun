@@ -261,7 +261,10 @@ class _BottomBar extends StatelessWidget {
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) =>
-                    CourseEditorScreen(initialNodes: detail.coordinates),
+                    CourseEditorScreen(
+                      initialNodes: detail.coordinates,
+                      polygonImageUrl: detail.polygonImageUrl,
+                    ),
               ),
             ),
             icon: const Icon(Icons.edit_outlined),
