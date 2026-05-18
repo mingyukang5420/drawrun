@@ -1,5 +1,6 @@
 package com.running.app.domain.record.repository;
 
+import com.running.app.domain.challenge.projection.ChallengeParticipationQueryResult;
 import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.record.projection.ChallengeRankingQueryResult;
 import com.running.app.domain.record.projection.RankingQueryResult;
@@ -106,5 +107,20 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
     @EntityGraph(attributePaths = {"track"})
     Optional<RunningRecord> findTopByMemberIdAndChallengeIdOrderBySimilarityScoreDesc(
             Long memberId, Long challengeId
+    );
+
+    @Query("""
+              SELECT c.id AS challengeId,
+                     c.title AS title,
+                     c.difficulty AS difficulty
+              FROM RunningRecord r
+              JOIN Challenge c ON r.challengeId = c.id
+              WHERE r.memberId = :memberId
+              AND r.challengeId IS NOT NULL
+              GROUP BY c.id, c.title, c.difficulty 
+              ORDER BY c.title ASC, c.id ASC
+            """)
+    List<ChallengeParticipationQueryResult> findParticipatedChallengesByMemberId(
+            @Param("memberId") Long memberId
     );
 }

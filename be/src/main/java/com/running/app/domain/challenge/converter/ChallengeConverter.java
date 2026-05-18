@@ -7,11 +7,13 @@ import com.running.app.domain.challenge.dto.GmsImageDTO.ImageRequestBody;
 import com.running.app.domain.challenge.dto.GmsTextDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.entity.Challenge;
+import com.running.app.domain.challenge.projection.ChallengeParticipationQueryResult;
 import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -147,6 +149,7 @@ public abstract class ChallengeConverter {
                 .build();
     }
 
+
     // easy, hard의 요청 body를 내부 DTO로 합침
     public static ImageRequestBody toImageRequestBody(GmsImageRequest easyRequest,
             GmsImageRequest hardRequest) {
@@ -157,4 +160,39 @@ public abstract class ChallengeConverter {
                 .build();
     }
 
+    // 같은 타이틀 끼리 묶어주는 converter
+    // repository에서 가져온 row를 grouped DTO List로 변환
+    public static List<ChallengeResponse.ParticipatedChallengeGroupDTO> toParticipatedChallengeGroupDTOList(
+            List<ChallengeParticipationQueryResult> results
+    ) {
+        // 정렬해서 가져오기 때문에 순서를 유지하기 위해 LinkedHashMap 사용
+        // 같은 title을 두번 마주치며 easy, hard를 순서대로 채워야 하기 때문에 그 중간 상태인 builder를 map에 value로 삽입
+        Map<String, ChallengeResponse.ParticipatedChallengeGroupDTO.ParticipatedChallengeGroupDTOBuilder> groupedMap
+                = new LinkedHashMap<>();
+
+        // repository에서 가져온 row 순회 시작
+        for (ChallengeParticipationQueryResult result : results) {
+            String title = result.getTitle();
+
+            //groupedMap에 현재 title이 있으면 기존 builder를 꺼내고,
+            //없으면 새로운 builder를 만들어 map에 삽입
+            ChallengeResponse.ParticipatedChallengeGroupDTO.ParticipatedChallengeGroupDTOBuilder builder
+                    = groupedMap.computeIfAbsent(
+                    title,
+                    key -> ChallengeResponse.ParticipatedChallengeGroupDTO.builder()
+                            .title(key)
+            );
+
+            // 난이도에 따라 challengeId 채움
+            if (result.getDifficulty() == ChallengeDifficulty.EASY) {
+                builder.easyChallengeId(result.getChallengeId());
+            } else if (result.getDifficulty() == ChallengeDifficulty.HARD) {
+                builder.hardChallengeId(result.getChallengeId());
+            }
+        }
+        // map의 value가 builder단계이기 때문에, builder를 완성하고 리스트로 변환해서 반환
+        return groupedMap.values().stream()
+                .map(ChallengeResponse.ParticipatedChallengeGroupDTO.ParticipatedChallengeGroupDTOBuilder::build)
+                .toList();
+    }
 }

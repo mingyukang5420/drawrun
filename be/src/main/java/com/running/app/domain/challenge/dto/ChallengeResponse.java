@@ -78,5 +78,15 @@ public abstract class ChallengeResponse {
         private List<RankEntryDTO> rankings;
     }
 
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ParticipatedChallengeGroupDTO {
+
+        private String title;
+        private Long easyChallengeId;
+        private Long hardChallengeId;
+    }
 
 }
