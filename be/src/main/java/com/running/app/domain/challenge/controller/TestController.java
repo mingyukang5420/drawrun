@@ -5,7 +5,6 @@ import com.running.app.domain.challenge.dto.TestDTO;
 import com.running.app.domain.challenge.scheduler.ChallengeScheduler;
 import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
 import com.running.app.domain.challenge.service.TestService;
-import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import com.running.app.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -36,20 +35,18 @@ public class TestController {
 
     @Operation(summary = "텍스트 생성 모델 호출", description = "body에 EASY / HARD 중 하나 입력")
     @PostMapping("/text")
-    public ApiResponse<Void> textRequest(
-            @RequestBody ChallengeDifficulty difficulty
-    ) {
-        challengeImageGenerateService.callTextModel(difficulty);
+    public ApiResponse<Void> textRequest() {
+        challengeImageGenerateService.callTextModel();
         return ApiResponse.OK;
     }
 
     @Operation(summary = "이미지 생성 모델 호출")
     @PostMapping("/img")
     public ApiResponse<Void> imgRequest(
-            @RequestBody TestDTO request
+            @RequestBody String request
     ) {
         ImageRequestBody imageRequestBody = challengeImageGenerateService.ImageRequestBodyBuilder(
-                request.getEasy(), request.getHard());
+                request);
 
         challengeImageGenerateService.callImageModel(imageRequestBody.getEasyImageBody());
         challengeImageGenerateService.callImageModel(imageRequestBody.getHardImageBody());

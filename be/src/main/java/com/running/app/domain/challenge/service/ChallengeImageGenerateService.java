@@ -86,10 +86,12 @@ public class ChallengeImageGenerateService {
             simple vector style
             Object in Korean (translate to English and draw): """;
 
-    public String callTextModel(ChallengeDifficulty difficulty) {
+    public String callTextModel() {
 
         // 지금까지 진행했던 챌린지 목록 조회 및 문자열 변환
-        List<String> challengeAllTitle = challengeService.getChallengeAllTitle(difficulty);
+        // (이지, 하드가 같은 주제로 생성되므로 중복 방지를 위해 이지 난이도만 조회)
+        List<String> challengeAllTitle = challengeService.getChallengeAllTitle(
+                ChallengeDifficulty.EASY);
         String preTitles = String.join(", ", challengeAllTitle);
 
         // 요청 body 조립
@@ -114,13 +116,13 @@ public class ChallengeImageGenerateService {
     }
 
     // 이미지 생성에 필요한 난이도 별 body를 조립하는 메서드
-    public ImageRequestBody ImageRequestBodyBuilder(String easyObject, String hardObject) {
+    public ImageRequestBody ImageRequestBodyBuilder(String object) {
 
         // 요청 body 조립(easy, hard)
         GmsImageRequest easyGmsImageRequest = ChallengeConverter.toGmsImageRequest(
-                IMAGE_PROMPT_EASY + easyObject, IMAGE_MODEL, ChallengeDifficulty.EASY);
+                IMAGE_PROMPT_EASY + object, IMAGE_MODEL, ChallengeDifficulty.EASY);
         GmsImageRequest hardGmsImageRequest = ChallengeConverter.toGmsImageRequest(
-                IMAGE_PROMPT_HARD + hardObject, IMAGE_MODEL, ChallengeDifficulty.HARD);
+                IMAGE_PROMPT_HARD + object, IMAGE_MODEL, ChallengeDifficulty.HARD);
 
         return ChallengeConverter.toImageRequestBody(easyGmsImageRequest, hardGmsImageRequest);
     }
