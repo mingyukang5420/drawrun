@@ -12,11 +12,14 @@ import 'package:running/features/running/presentation/widgets/running_map_view.d
 
 // 홈 탭 메인 화면
 // 지도가 전체 화면을 채우고, 헤더·챌린지 카드가 그 위에 겹쳐진다
-class RunningScreen extends StatelessWidget {
+//
+// ConsumerWidget — 챌린지 카드 진입 시 RunningNotifier 에 세션 컨텍스트(challengeId 등)
+// 를 박아두는 데 ref 가 필요해 변환.
+class RunningScreen extends ConsumerWidget {
   const RunningScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       // 지도가 배경이므로 Scaffold 자체 배경은 투명하게
       backgroundColor: Colors.transparent,
@@ -36,8 +39,9 @@ class RunningScreen extends StatelessWidget {
                 const _Header(),
                 const Spacer(),
                 _ChallengeButtons(
-                  onChallenge: (difficulty, title) =>
-                      _showChallengeStartDialog(context, difficulty, title),
+                  onChallenge: (difficulty, challengeId, title) =>
+                      _showChallengeStartDialog(
+                          context, ref, difficulty, challengeId, title),
                 ),
               ],
             ),
@@ -49,12 +53,25 @@ class RunningScreen extends StatelessWidget {
 
   void _showChallengeStartDialog(
     BuildContext context,
+    WidgetRef ref,
     String difficulty,
+    int challengeId,
     String title,
   ) {
     final isEasy = difficulty == 'EASY';
     final accentColor =
         isEasy ? const Color(0xFF27AE60) : const Color(0xFFE74C3C);
+
+    // 시작 진입점이 세션 컨텍스트를 박아두는 단독 책임 — 자유 러닝 등 다른 경로의 잔여를
+    // 끊고 challengeId 만 깨끗이 세팅. courseId / courseDraftId 는 자유 러닝 기준 null
+    // (직접 그리기 경로에서는 에디터 저장 후 courseDraftId 가 별도 채워질 예정).
+    void seedContextForChallenge() {
+      ref.read(runningViewModelProvider.notifier).setSessionContext(
+            challengeId: challengeId,
+            courseId: null,
+            courseDraftId: null,
+          );
+    }
 
     showModalBottomSheet<void>(
       context: context,
@@ -122,6 +139,9 @@ class RunningScreen extends StatelessWidget {
               filled: true,
               onTap: () {
                 Navigator.of(context).pop();
+                // 진입 직전 세션 컨텍스트 세팅 — 에디터에서 저장 후 카운트다운으로 갈 때까지
+                // challengeId 가 유지된다 (state 에서 그대로 흐름)
+                seedContextForChallenge();
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => CourseEditorScreen(difficulty: difficulty),
@@ -140,6 +160,8 @@ class RunningScreen extends StatelessWidget {
               filled: false,
               onTap: () {
                 Navigator.of(context).pop();
+                // 진입 직전 세션 컨텍스트 세팅 — 챌린지 ID 만 묶인 자유 러닝 형태로 시작
+                seedContextForChallenge();
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const RunningCountdownScreen(),
@@ -363,7 +385,11 @@ class _VignettePainter extends CustomPainter {
 // 각 카드 하단의 도전 수·내 최고 순위는 GET /v1/challenge 응답으로 채워진다
 // (로딩/에러 중에는 placeholder 텍스트를 보여 시각적 길이 보전)
 class _ChallengeButtons extends ConsumerWidget {
-  final void Function(String difficulty, String title) onChallenge;
+  // 콜백 시그니처에 challengeId 가 함께 흐른다.
+  // BE 종료 API 요청 본문이 challengeId 필드를 받기 시작했으므로, 카드 탭 시점부터
+  // 진입점이 challengeId 를 들고 다닐 수 있도록 흘려보낸다.
+  final void Function(String difficulty, int challengeId, String title)
+      onChallenge;
 
   const _ChallengeButtons({required this.onChallenge});
 
@@ -446,7 +472,12 @@ class _ChallengeButtons extends ConsumerWidget {
                         attemptCount: easyAttempt,
                         myBestInfo: easyBest,
                         polygonImageUrl: easyImageUrl,
-                        onTap: () => onChallenge('EASY', 'Easy 챌린지'),
+                        // list 도착 전엔 challengeId 를 알 수 없어 진입 자체를 막는다 (no-op).
+                        // 데이터가 도착하면 list.easy.challengeId 를 콜백으로 흘려보낸다.
+                        onTap: list == null
+                            ? () {}
+                            : () => onChallenge(
+                                'EASY', list.easy.challengeId, 'Easy 챌린지'),
                       ),
                     ),
                     // 우: Hard 카드 — 오른쪽 끝에서 시작 (Easy와 s px 겹침)
@@ -467,7 +498,11 @@ class _ChallengeButtons extends ConsumerWidget {
                         attemptCount: hardAttempt,
                         myBestInfo: hardBest,
                         polygonImageUrl: hardImageUrl,
-                        onTap: () => onChallenge('HARD', 'Hard 챌린지'),
+                        // list 도착 전엔 challengeId 를 알 수 없어 진입 자체를 막는다 (no-op).
+                        onTap: list == null
+                            ? () {}
+                            : () => onChallenge(
+                                'HARD', list.hard.challengeId, 'Hard 챌린지'),
                       ),
                     ),
                   ],

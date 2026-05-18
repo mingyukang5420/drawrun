@@ -255,6 +255,39 @@ class RunningNotifier extends Notifier<RunningState> {
     );
   }
 
+  // 시작 진입점(챌린지 카드 / 자유 러닝 진입점 / 코스 진입 등) 이 한 번에 세 ID 를 세팅.
+  //
+  // copyWith 의 `value ?? this.value` 패턴으로는 "null 로 명시 리셋" 이 안 되므로
+  // 명시적 메서드로 분리. 호출자가 안 채운 ID 는 null 로 강제된다.
+  //
+  // 세션 시작 직전에 호출하는 것이 컨벤션. 종료 후 리셋은 별도 정책으로 처리.
+  void setSessionContext({
+    int? challengeId,
+    int? courseId,
+    int? courseDraftId,
+  }) {
+    state = RunningState(
+      // 컨텍스트 ID 만 갈아끼우고, 나머지 측정값/상태는 보존
+      isRunning: state.isRunning,
+      isPaused: state.isPaused,
+      distanceKm: state.distanceKm,
+      points: state.points,
+      elapsedSeconds: state.elapsedSeconds,
+      altitudeM: state.altitudeM,
+      bpm: state.bpm,
+      cadenceSpm: state.cadenceSpm,
+      isSaving: state.isSaving,
+      saveError: state.saveError,
+      startedAt: state.startedAt,
+      endedAt: state.endedAt,
+      referenceNodes: state.referenceNodes,
+      // ID 세 개는 호출자가 넘긴 값을 그대로 — null 도 그대로 (명시 리셋 의도 보존)
+      challengeId: challengeId,
+      courseId: courseId,
+      courseDraftId: courseDraftId,
+    );
+  }
+
   void startRunning() {
     if (_locationSub != null) return; // 중복 구독 방지
     _stopwatch.start();
