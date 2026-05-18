@@ -79,7 +79,9 @@ class ProfileStatsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.of(context).pop();
-              await ref.read(authViewModelProvider.notifier).logout();
+              try {
+                await ref.read(authViewModelProvider.notifier).logout();
+              } catch (_) {}
               if (context.mounted) context.go('/intro');
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
