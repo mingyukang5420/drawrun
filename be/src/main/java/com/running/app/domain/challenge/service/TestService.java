@@ -30,12 +30,13 @@ public class TestService {
         String object = challengeImageGenerateService.callTextModel();
         ChallengeImageGenerateService.ImageModelResult imageResult =
                 challengeImageGenerateService.callImageModel(object);
+        String polygonPoints = challengeOutlineExtractService.extract(imageResult.b64Json());
 
         Challenge build = Challenge.builder()
                 .title(object)
                 .endedAt(LocalDateTime.now().plusDays(14))
                 .startedAt(LocalDateTime.now())
-                .polygonPoints(challengeOutlineExtractService.extract(imageResult.b64Json()))
+                .polygonPoints(polygonPoints)
                 .polygonImageUrl(imageResult.storedPath())
                 .difficulty(ChallengeDifficulty.EASY)
                 .build();
