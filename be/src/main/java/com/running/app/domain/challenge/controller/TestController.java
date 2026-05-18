@@ -63,6 +63,15 @@ public class TestController {
         return ApiResponse.OK;
     }
 
+    @Operation(summary = "polygon_points 백필", description = "기존 챌린지 이미지에서 윤곽선을 추출해 polygon_points를 DB에 저장합니다.")
+    @PostMapping("/backfill-polygon/{challengeId}")
+    public ApiResponse<Void> backfillPolygon(
+            @PathVariable Long challengeId
+    ) {
+        testService.backfillPolygonPoints(challengeId);
+        return ApiResponse.OK;
+    }
+
     @Operation(summary = "유사도 계산 테스트", description = "challengeId에 해당하는 챌린지 폴리곤과 전달된 GPS 노드의 유사도 점수(0~100)를 반환합니다.")
     @PostMapping("/similarity")
     public ApiResponse<Double> similarityTest(
