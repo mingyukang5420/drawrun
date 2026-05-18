@@ -525,104 +525,64 @@ class _ChallengeCard extends StatelessWidget {
         color: accentColor,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: labelAlignment,
-              children: [
-                // Easy: 라벨(상단) → 도형(하단) 순서
-                // Hard: 도형(상단) → 라벨(하단) 순서 — 대각선 반전 효과
-                if (_isLeft) ...[
-                  // Easy: 라벨(상단) → 큰 폴리곤 이미지(하단)
-                  _Label(
-                    label: label,
-                    description: description,
-                    alignment: labelAlignment,
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: _LargePolygonImage(
-                      icon: shapeIcon,
-                      imageUrl: polygonImageUrl,
-                    ),
-                  ),
-                ] else ...[
-                  // Hard: 큰 폴리곤 이미지(상단) → 라벨(하단)
-                  Expanded(
-                    child: _LargePolygonImage(
-                      icon: shapeIcon,
-                      imageUrl: polygonImageUrl,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _Label(
-                    label: label,
-                    description: description,
-                    alignment: labelAlignment,
-                  ),
-                ],
-
-                const SizedBox(height: 14),
-                // ── 구분선 ─────────────────────────────────────────
-                Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
-                const SizedBox(height: 10),
-
-                // ── 통계 정보 (목업) ───────────────────────────────
-                // TODO: 백엔드에서 GET /v1/challenge/stats?difficulty=EASY 등 API 연동
-                Column(
-                  crossAxisAlignment: labelAlignment,
-                  children: [
-                    // 도전 횟수
-                    Row(
-                      mainAxisAlignment:
-                          labelAlignment == CrossAxisAlignment.start
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.end,
-                      children: [
-                        Icon(
-                          Icons.people_outline,
-                          size: 11,
-                          color: Colors.white.withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          attemptCount,
-                          style: TextStyle(
-                            fontFamily: 'Pretendard',
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    // 내 최고 기록
-                    Row(
-                      mainAxisAlignment:
-                          labelAlignment == CrossAxisAlignment.start
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.end,
-                      children: [
-                        Icon(
-                          Icons.emoji_events_outlined,
-                          size: 11,
-                          color: Colors.white.withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          myBestInfo,
-                          style: TextStyle(
-                            fontFamily: 'Pretendard',
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+          child: Stack(
+            children: [
+              // 폴리곤 이미지 — 카드 전체를 배경으로 채움
+              Positioned.fill(
+                child: _LargePolygonImage(
+                  icon: shapeIcon,
+                  imageUrl: polygonImageUrl,
+                  alignment: _isLeft ? Alignment.centerLeft : Alignment.centerRight,
                 ),
-              ],
-            ),
+              ),
+              // 텍스트 + 통계 오버레이
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: labelAlignment,
+                    children: [
+                      if (_isLeft) ...[
+                        _Label(label: label, description: description, alignment: labelAlignment),
+                        const Spacer(),
+                      ] else ...[
+                        const Spacer(),
+                        _Label(label: label, description: description, alignment: labelAlignment),
+                      ],
+                      const SizedBox(height: 14),
+                      Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
+                      const SizedBox(height: 10),
+                      Column(
+                        crossAxisAlignment: labelAlignment,
+                        children: [
+                          Row(
+                            mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
+                                ? MainAxisAlignment.start
+                                : MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.people_outline, size: 11, color: Colors.white.withValues(alpha: 0.6)),
+                              const SizedBox(width: 3),
+                              Text(attemptCount, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
+                                ? MainAxisAlignment.start
+                                : MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.emoji_events_outlined, size: 11, color: Colors.white.withValues(alpha: 0.6)),
+                              const SizedBox(width: 3),
+                              Text(myBestInfo, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -680,14 +640,20 @@ class _Label extends StatelessWidget {
 class _LargePolygonImage extends StatelessWidget {
   final IconData icon;
   final String? imageUrl;
+  final Alignment alignment;
 
-  const _LargePolygonImage({required this.icon, this.imageUrl});
+  const _LargePolygonImage({
+    required this.icon,
+    this.imageUrl,
+    this.alignment = Alignment.center,
+  });
 
-  // 검은 배경 → 투명: 알파 = 루미넌스 × 3 (밝은 색은 빠르게 포화)
-  static const _removeBlack = ColorFilter.matrix([
-    1,     0,     0,     0, 0,
-    0,     1,     0,     0, 0,
-    0,     0,     1,     0, 0,
+  // 검은 배경 → 투명 + 폴리곤 → 흰색
+  // R=G=B = R+G+B (밝은 픽셀은 흰색으로 포화), A = 3×루미넌스 (어두운 픽셀은 투명)
+  static const _toWhite = ColorFilter.matrix([
+    1,     1,     1,     0, 0,
+    1,     1,     1,     0, 0,
+    1,     1,     1,     0, 0,
     0.897, 1.761, 0.342, 0, 0,
   ]);
 
@@ -700,10 +666,11 @@ class _LargePolygonImage extends StatelessWidget {
     }
     return SizedBox.expand(
       child: ColorFiltered(
-        colorFilter: _removeBlack,
+        colorFilter: _toWhite,
         child: Image.network(
           imageUrl!,
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
+          alignment: alignment,
           errorBuilder: (_, __, ___) => Center(
             child: Icon(
               icon,
