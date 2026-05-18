@@ -461,8 +461,10 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 6분할 메트릭 그리드.
-// 한 셀은 라벨(작은 회색) + 값(굵은 검정) 두 줄짜리 작은 박스.
+// 5분할 메트릭 그리드 — 상단 2칸(강조) + 하단 3칸 구조.
+// 상단: 평균 페이스 / 시간 — 사용자가 가장 자주 보는 핵심 지표라 폭/글씨 모두 키워 강조
+// 하단: 칼로리 / 고도 / 케이던스 — 보조 지표 3개를 균등 배치
+// BPM 은 실측 센서가 없어 의미 있는 값이 들어오지 않으므로 표시 항목에서 제외
 // ─────────────────────────────────────────────────────────────────────
 class _MetricGrid extends StatelessWidget {
   final RunningState state;
@@ -472,18 +474,29 @@ class _MetricGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // 상단 강조 행 — Expanded 2개라 각 셀이 가용 폭의 50% 를 차지 (3칸일 때보다 1.5배 넓음)
         Row(
           children: [
-            _MetricCell(label: '평균 페이스', value: state.avgPaceLabel),
-            _MetricCell(label: '시간', value: state.elapsedLabel),
-            _MetricCell(label: '칼로리', value: state.caloriesLabel),
+            // emphasized: true — _MetricCell 안에서 라벨/값 폰트를 한 단계 키운다
+            _MetricCell(
+              label: '평균 페이스',
+              value: state.avgPaceLabel,
+              emphasized: true,
+            ),
+            _MetricCell(
+              label: '시간',
+              value: state.elapsedLabel,
+              emphasized: true,
+            ),
           ],
         ),
+        // 행 사이 세로 간격 — 기존 그리드와 동일
         const SizedBox(height: 8),
+        // 하단 보조 행 — Expanded 3개라 셀 폭은 33% (기존 그리드와 동일)
         Row(
           children: [
+            _MetricCell(label: '칼로리', value: state.caloriesLabel),
             _MetricCell(label: '고도', value: state.altitudeLabel),
-            _MetricCell(label: 'BPM', value: state.bpmLabel),
             _MetricCell(label: '케이던스', value: state.cadenceLabel),
           ],
         ),
@@ -493,46 +506,62 @@ class _MetricGrid extends StatelessWidget {
 }
 
 // 그리드 한 칸. Expanded 로 감싸 한 행 안에서 균등 분할되도록 보장한다.
+// emphasized: true 면 상단 강조 행에서 사용하는 큰 폰트 변형을 적용한다
 class _MetricCell extends StatelessWidget {
   final String label;
   final String value;
-  const _MetricCell({required this.label, required this.value});
+  // 상단 강조 행에서 더 큰 글씨로 표시할지 여부
+  // 기본 false — 기존 호출부는 코드 변경 없이 동일하게 동작
+  final bool emphasized;
+  const _MetricCell({
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // 강조 모드일 때만 라벨/값 폰트를 한 단계 키운다
+    // 셀 폭이 더 넓어지는 상단 행에서 비어 보이지 않게 균형 잡아 주는 역할
+    final double labelSize = emphasized ? 11 : 9.5;
+    final double valueSize = emphasized ? 20 : 14;
+    // 상단 행은 시각적으로 더 도드라져야 하므로 세로 패딩도 살짝 키운다
+    final double verticalPadding = emphasized ? 16 : 12;
+
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+        padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 6),
         decoration: BoxDecoration(
           color: const Color(0xFFF7F7F8),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           children: [
-            // 라벨 — 11 → 9.5 로 축소, 한 줄 고정.
-            // FittedBox 로 감싸 셀 폭이 좁아져도 자동 축소되게 함.
+            // 라벨 — 강조 시 11, 기본 9.5
+            // FittedBox 로 감싸 셀 폭이 좁아져도 자동 축소되게 함
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 label,
                 maxLines: 1,
-                style: const TextStyle(
-                  fontSize: 9.5,
+                style: TextStyle(
+                  fontSize: labelSize,
                   color: Colors.black45,
                   height: 1.0,
                 ),
               ),
             ),
             const SizedBox(height: 4),
-            // 값 — 16 → 14 로 살짝 축소 + 같은 FittedBox 가드.
+            // 값 — 강조 시 20, 기본 14
+            // AppTextStyle.suitNumber 를 베이스로 깔고 폰트 크기만 덮어쓰는 패턴
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 value,
                 maxLines: 1,
                 style: AppTextStyle.suitNumber.copyWith(
-                  fontSize: 14,
+                  fontSize: valueSize,
                   fontWeight: FontWeight.w700,
                   height: 1.0,
                 ),
