@@ -885,10 +885,10 @@ class _SearchSheetState extends State<_SearchSheet> {
 
       final items = response.data['items'] as List;
       final results = items.map((item) {
-        // API 반환 좌표: WGS84 × 10^7 정수 문자열
-        final lat = double.parse(item['mapy'] as String) / 1e7;
-        final lng = double.parse(item['mapx'] as String) / 1e7;
-        // 제목에 포함된 HTML 태그 제거 (<b>강남역</b> → 강남역)
+        // 네이버 지역 검색 API: WGS84 × 10^4 정수 문자열
+        // 예) mapx="1269769" → 126.9769, mapy="375754" → 37.5754
+        final lat = double.parse(item['mapy'] as String) / 1e4;
+        final lng = double.parse(item['mapx'] as String) / 1e4;
         final title = (item['title'] as String).replaceAll(RegExp(r'<[^>]*>'), '');
         final address = (item['roadAddress'] as String? ?? '').isNotEmpty
             ? item['roadAddress'] as String
@@ -900,8 +900,16 @@ class _SearchSheetState extends State<_SearchSheet> {
         _results = results;
         if (_results.isEmpty) _error = '검색 결과가 없습니다';
       });
-    } catch (_) {
-      setState(() => _error = '검색에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      final msg = status == 401
+          ? 'API 인증 오류 (키를 확인해 주세요)'
+          : status == 403
+              ? 'API 권한 없음 (지역 검색 API가 활성화되어 있는지 확인해 주세요)'
+              : '검색 실패 (${status ?? '네트워크 오류'})';
+      setState(() => _error = msg);
+    } catch (e) {
+      setState(() => _error = '오류: $e');
     } finally {
       setState(() => _loading = false);
     }
