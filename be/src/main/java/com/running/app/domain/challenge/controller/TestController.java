@@ -67,6 +67,15 @@ public class TestController {
         return ApiResponse.OK;
     }
 
+    @Operation(summary = "유사도 계산 테스트", description = "challengeId에 해당하는 챌린지 폴리곤과 전달된 GPS 노드의 유사도 점수(0~100)를 반환합니다.")
+    @PostMapping("/similarity")
+    public ApiResponse<Double> similarityTest(
+            @RequestBody TestDTO.SimilarityRequestDTO request
+    ) {
+        isEqualsTestKey(request.getTestKey());
+        return ApiResponse.onSuccess(testService.testSimilarity(request.getChallengeId(), request.getNodes()));
+    }
+
     private void isEqualsTestKey(String key) {
         if (!key.equals(TEST_KEY)) {
             throw new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR);
