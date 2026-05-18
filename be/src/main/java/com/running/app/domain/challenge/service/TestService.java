@@ -52,7 +52,7 @@ public class TestService {
         String base64 = challengeImageStorageService.readAsBase64(challenge.getPolygonImageUrl());
         String polygonPoints = challengeOutlineExtractService.extract(base64);
         challenge.updatePolygonPoints(polygonPoints);
-        log.info("polygon_points 백필 완료. challengeId={}, points length={}", challengeId, polygonPoints.length());
+        log.info("polygon_points 백필 완료. challengeId={}, points={}", challengeId, polygonPoints);
     }
 
     public Double testSimilarity(Long challengeId, List<TrackRequest.NodeDTO> nodes) {

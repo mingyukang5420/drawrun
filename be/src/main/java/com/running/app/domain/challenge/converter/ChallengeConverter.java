@@ -1,4 +1,4 @@
-package com.running.app.domain.challenge.converter;
+﻿package com.running.app.domain.challenge.converter;
 
 import com.running.app.domain.challenge.dto.ChallengeResponse;
 import com.running.app.domain.challenge.dto.GmsImageDTO;
@@ -61,6 +61,26 @@ public abstract class ChallengeConverter {
                 .startedAt(now)
                 .endedAt(end)
                 .difficulty(difficulty)
+                .build();
+    }
+
+    public static ChallengeResponse.ChallengeDetailDTO toChallengeDetailDTO(
+            Challenge challenge,
+            List<ChallengeResponse.RankEntryDTO> rankings,
+            ChallengeResponse.RankEntryDTO myRank,
+            ChallengeResponse.RankEntryDTO prevRank,
+            int totalCount) {
+
+        return ChallengeResponse.ChallengeDetailDTO.builder()
+                .challengeId(challenge.getId())
+                .title(challenge.getTitle())
+                .polygonImageUrl(challenge.getPolygonImageUrl())
+                .startedAt(challenge.getStartedAt())
+                .endedAt(challenge.getEndedAt())
+                .totalCount(totalCount)
+                .prevRank(prevRank)
+                .myRank(myRank)
+                .rankings(rankings)
                 .build();
     }
 
