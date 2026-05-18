@@ -264,6 +264,7 @@ class _BottomBar extends StatelessWidget {
                     CourseEditorScreen(
                       initialNodes: detail.coordinates,
                       polygonImageUrl: detail.polygonImageUrl,
+                      polygonTitle: detail.polygonTitle,
                     ),
               ),
             ),

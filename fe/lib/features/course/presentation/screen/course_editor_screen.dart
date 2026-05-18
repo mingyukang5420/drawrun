@@ -28,11 +28,15 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
   // 코스에 대응하는 폴리곤 이미지 URL. null 이면 빈 placeholder 를 표시
   final String? polygonImageUrl;
 
+  // 폴리곤 이미지 버튼 전용 타이틀 (코스명과 별개). null 이면 기본 텍스트 표시
+  final String? polygonTitle;
+
   const CourseEditorScreen({
     super.key,
     this.initialNodes,
     this.difficulty,
     this.polygonImageUrl,
+    this.polygonTitle,
   });
 
   @override
@@ -190,6 +194,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
               child: _TopInfoBar(
                 state: state,
                 polygonImageUrl: widget.polygonImageUrl,
+                polygonTitle: widget.polygonTitle,
                 onNameTap: () => _showNameDialog(state.courseName),
               ),
             ),
@@ -282,6 +287,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 class _TopInfoBar extends StatelessWidget {
   final CourseEditorState state;
   final String? polygonImageUrl;
+  final String? polygonTitle;
 
   // 코스 이름 영역을 탭했을 때 이름 수정 다이얼로그를 여는 콜백
   final VoidCallback onNameTap;
@@ -290,6 +296,7 @@ class _TopInfoBar extends StatelessWidget {
     required this.state,
     required this.onNameTap,
     this.polygonImageUrl,
+    this.polygonTitle,
   });
 
   @override
@@ -359,7 +366,10 @@ class _TopInfoBar extends StatelessWidget {
             const SizedBox(width: 16),
           const SizedBox(width: 8),
 
-          _PolygonPreviewButton(imageUrl: polygonImageUrl),
+          _PolygonPreviewButton(
+            imageUrl: polygonImageUrl,
+            title: polygonTitle,
+          ),
         ],
       ),
     );
@@ -669,14 +679,15 @@ class _RoadHintBanner extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────
 class _PolygonPreviewButton extends StatelessWidget {
   final String? imageUrl;
+  final String? title;
 
-  const _PolygonPreviewButton({this.imageUrl});
+  const _PolygonPreviewButton({this.imageUrl, this.title});
 
   @override
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null;
     return GestureDetector(
-      onTap: hasImage ? () => _showPreview(context) : null,
+      onTap: () => _showPreview(context),
       child: Container(
         width: 44,
         height: 36,
@@ -723,9 +734,9 @@ class _PolygonPreviewButton extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '코스 폴리곤',
-                    style: TextStyle(
+                  Text(
+                    title ?? '코스 폴리곤',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -741,17 +752,25 @@ class _PolygonPreviewButton extends StatelessWidget {
               const SizedBox(height: 12),
               AspectRatio(
                 aspectRatio: 1,
-                child: Image.network(
-                  imageUrl!,
-                  fit: BoxFit.contain,
-                  errorBuilder: (ctx, err, st) => Center(
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      size: 48,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
+                child: imageUrl != null
+                    ? Image.network(
+                        imageUrl!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (ctx, err, st) => Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            size: 48,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.pentagon_outlined,
+                          size: 80,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
               ),
             ],
           ),
