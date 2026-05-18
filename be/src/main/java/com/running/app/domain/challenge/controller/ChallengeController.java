@@ -1,6 +1,8 @@
 package com.running.app.domain.challenge.controller;
 
 import com.running.app.domain.challenge.dto.ChallengeResponse.ChallengeListDTO;
+import com.running.app.domain.challenge.dto.ChallengeResponse.ChallengeRankingResponse;
+import com.running.app.domain.challenge.service.ChallengeRankingService;
 import com.running.app.domain.challenge.service.ChallengeService;
 import com.running.app.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -8,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChallengeController {
 
     private final ChallengeService challengeService;
+    private final ChallengeRankingService challengeRankingService;
 
     @Operation(summary = "챌린지 목록 조회")
     @ApiResponses({
@@ -32,4 +36,13 @@ public class ChallengeController {
         return ApiResponse.onSuccess(challengeService.getChallengeList(loginId));
     }
 
+    @Operation(summary = "챌린지 랭킹 조회", description = "상위 5명 랭킹, 내 순위, 바로 앞 순위를 반환합니다.")
+    @GetMapping("/{challengeId}/ranking")
+    public ApiResponse<ChallengeRankingResponse> getChallengeRanking(
+            @AuthenticationPrincipal String loginId,
+            @PathVariable long challengeId
+    ) {
+        return ApiResponse.onSuccess(
+                challengeRankingService.getChallengeRanking(loginId, challengeId));
+    }
 }

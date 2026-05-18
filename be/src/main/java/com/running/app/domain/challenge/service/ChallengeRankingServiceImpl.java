@@ -1,6 +1,7 @@
 package com.running.app.domain.challenge.service;
 
 import com.running.app.domain.challenge.converter.ChallengeConverter;
+import com.running.app.domain.challenge.dto.ChallengeResponse.ChallengeRankingResponse;
 import com.running.app.domain.challenge.dto.ChallengeResponse.RankEntryDTO;
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
@@ -8,10 +9,12 @@ import com.running.app.domain.member.entity.Member;
 import com.running.app.domain.member.projection.MemberNicknameQueryResult;
 import com.running.app.domain.member.repository.MemberRepository;
 import com.running.app.domain.ranking.service.RankingRedisService;
+import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.record.projection.ChallengeRankingQueryResult;
 import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,21 +36,63 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
     private final RunningRecordRepository runningRecordRepository;
     private final ChallengeRepository challengeRepository;
 
-    // 현재 로그인한 사용자의 챌린지 순위 조회
-    // Redis에서 reverseRank로 내 인덱스 조회 후 +1 처리하여 실제 순위로 변환
-    // 챌린지 참가하지 않은 사용자면 null 반환
+    // 챌린지 랭킹 화면에 필요한 모든 데이터를 조립하여 반환
+    // 챌린지 미참가 시 myRunDistance, myRunStartedAt null 반환
     @Override
-    public RankEntryDTO getMyChallengeRanking(String loginId, long challengeId) {
+    public ChallengeRankingResponse getChallengeRanking(String loginId, long challengeId) {
 
+        // Challenge 1번만 조회 → startedAt, endedAt, Redis TTL 계산에 재사용
         Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+
+        String key = "ranking:challenge:" + challengeId;
+
+        // Redis에 데이터 없으면 DB에서 lazy load 후 적재
+        ensureRedisLoaded(key, challengeId, challenge);
+
+        // top5 랭킹 조회
+        List<RankEntryDTO> rankings = getTopFive(key);
+
+        // 전체 참가자 수 (Redis ZCARD)
+        Long countRaw = rankingRedisService.getChallengeRankingTotalCount(key);
+        int totalCount = countRaw != null ? countRaw.intValue() : 0;
 
         Member member = memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        String key = "ranking:challenge:" + challengeId;
+        Long rawRank = rankingRedisService.getMyChallengeRank(
+                member.getMemberId().longValue(), key);
+        RankEntryDTO myRank = getMyRank(member, rawRank, key);
+        RankEntryDTO prevRank = getPrevRank(member, rawRank, key);
 
-        // Redis에 데이터 없으면 DB에서 가져와서 적재
+        // 챌린지 미참가 시 null 가능
+        Double myRunDistance = null;
+        LocalDateTime myRunStartedAt = null;
+
+        RunningRecord myRecord = runningRecordRepository
+                .findTopByMemberIdAndChallengeIdOrderBySimilarityScoreDesc(
+                        member.getMemberId().longValue(), challengeId)
+                .orElse(null);
+
+        if (myRecord != null) {
+            myRunDistance = myRecord.getTrack().getDistance();
+            myRunStartedAt = myRecord.getStartedAt();
+        }
+
+        return ChallengeRankingResponse.builder()
+                .totalCount(totalCount)
+                .startedAt(challenge.getStartedAt())
+                .endedAt(challenge.getEndedAt())
+                .myRunDistance(myRunDistance)
+                .myRunStartedAt(myRunStartedAt)
+                .myRank(myRank)
+                .prevRank(prevRank)
+                .rankings(rankings)
+                .build();
+    }
+
+    // Redis에 데이터 없으면 DB에서 가져와서 적재
+    private void ensureRedisLoaded(String key, long challengeId, Challenge challenge) {
         if (!rankingRedisService.isHaveRank(key)) {
             log.info("챌린지 Redis 데이터 없음. DB에서 적재 시작");
             List<ChallengeRankingQueryResult> rankingResults =
@@ -55,66 +100,49 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
             rankingRedisService.setChallengeRankingValue(rankingResults, challengeId,
                     challenge.getEndedAt());
         }
+    }
 
-        // Redis에서 내 순위 인덱스 조회 (0부터 시작하므로 +1 처리)
-        Long rawRank = rankingRedisService.getMyChallengeRank(member.getMemberId().longValue(),
-                key);
+    // 상위 5명 조회 후 RankEntryDTO 리스트로 조립
+    private List<RankEntryDTO> getTopFive(String key) {
+        Map<Long, Double> topFiveMap = rankingRedisService.getChallengeRankingTopFive(key);
+        List<MemberNicknameQueryResult> members = memberRepository.findAllByMemberIdIn(
+                topFiveMap.keySet().stream().map(Long::intValue).collect(Collectors.toSet())
+        );
+        Map<Long, String> nicknameMap = new HashMap<>();
+        for (MemberNicknameQueryResult m : members) {
+            nicknameMap.put(m.getMemberId().longValue(), m.getNickname());
+        }
+        return ChallengeConverter.toRankEntryDTOList(topFiveMap, nicknameMap);
+    }
+
+    // 내 순위 조회 (Redis reverseRank → 0-index이므로 +1 처리)
+    // 챌린지 미참가 시 null 반환
+    private RankEntryDTO getMyRank(Member member, Long rawRank, String key) {
         if (rawRank == null) {
             return null;
         }
         int myRank = rawRank.intValue() + 1;
-
-        // 내 유사도 점수 조회
         Double myScore = rankingRedisService.getMyRecord(member.getMemberId(), key);
-
         return ChallengeConverter.toRankEntryDTO(myRank, member.getNickname(), myScore);
     }
 
-    // 현재 로그인한 사용자 바로 앞 순위 조회
-    // myRank가 6위 이하면 바로 앞 순위가 이미 top5에 포함되므로 null 반환
-    // myRank가 7위 이상이면 myRank - 1 순위 사람 정보 반환
-    @Override
-    public RankEntryDTO getPrevRanking(String loginId, long challengeId) {
-
-        Challenge challenge = challengeRepository.findById(challengeId)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
-
-        Member member = memberRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
-
-        String key = "ranking:challenge:" + challengeId;
-
-        // Redis에 데이터 없으면 DB에서 가져와서 적재
-        if (!rankingRedisService.isHaveRank(key)) {
-            log.info("챌린지 Redis 데이터 없음. DB에서 적재 시작");
-            List<ChallengeRankingQueryResult> rankingResults =
-                    runningRecordRepository.findRankingByChallengeId(challengeId);
-            rankingRedisService.setChallengeRankingValue(rankingResults, challengeId,
-                    challenge.getEndedAt());
-        }
-
-        Long rawRank = rankingRedisService.getMyChallengeRank(member.getMemberId().longValue(),
-                key);
+    // 내 바로 앞 순위 조회
+    // 6위 이하면 바로 앞 순위가 이미 top5에 포함되므로 null 반환
+    // 7위 이상이면 rawRank - 1 인덱스 멤버 정보 반환
+    private RankEntryDTO getPrevRank(Member member, Long rawRank, String key) {
         if (rawRank == null) {
             return null;
         }
-
         int myRank = rawRank.intValue() + 1;
-
-        // 바로 앞 순위가 이미 top5에 포함되므로 prevRank 불필요
         if (myRank <= 6) {
             return null;
         }
-
-        // 내 바로 앞 순위 = rawRank - 1 인덱스
         TypedTuple<String> prevTuple = rankingRedisService.getMemberAtRank(key, rawRank - 1);
         if (prevTuple == null) {
             return null;
         }
-
         Long prevMemberId = Long.parseLong(prevTuple.getValue());
         Member prevMember = memberRepository.findById(prevMemberId.intValue()).orElse(null);
-
         return ChallengeConverter.toRankEntryDTO(
                 myRank - 1,
                 prevMember != null ? prevMember.getNickname() : null,
@@ -122,39 +150,18 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
         );
     }
 
-    // 챌린지 상위 5명 랭킹 조회
-    // Redis에 데이터 없으면 DB에서 lazy load 후 적재
-    // memberId로 닉네임 조회 후 RankEntityDTO 리스트로 조립하려 반환
+    // 챌린지 목록 조회 시 내 순위 단독 조회
+    // ChallengeService에서 Easy/Hard 각각 호출
     @Override
-    public List<RankEntryDTO> getChallengeRaking(long challengeId) {
-
+    public RankEntryDTO getMyChallengeRanking(String loginId, long challengeId) {
         Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
-
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
         String key = "ranking:challenge:" + challengeId;
-
-        // Redis에 데이터 없으면 DB에서 가져와서 적재
-        if (!rankingRedisService.isHaveRank(key)) {
-            log.info("챌린지 Redis 데이터 없음. DB에서 적재 시작");
-            List<ChallengeRankingQueryResult> rankingResults =
-                    runningRecordRepository.findRankingByChallengeId(challengeId);
-            rankingRedisService.setChallengeRankingValue(rankingResults, challengeId,
-                    challenge.getEndedAt());
-        }
-
-        // 상위 5명 조회 (memberId, similarityScore)
-        Map<Long, Double> topFiveMap = rankingRedisService.getChallengeRankingTopFive(key);
-
-        // memberId로 닉네임 조회
-        List<MemberNicknameQueryResult> members = memberRepository.findAllByMemberIdIn(
-                topFiveMap.keySet().stream().map(Long::intValue).collect(Collectors.toSet())
-        );
-        Map<Long, String> nicknameMap = new HashMap<>();
-        for (MemberNicknameQueryResult member : members) {
-            nicknameMap.put(member.getMemberId().longValue(), member.getNickname());
-        }
-
-        // Converter를 통해 상위 5명 RankEntryDTO 리스트 조립
-        return ChallengeConverter.toRankEntryDTOList(topFiveMap, nicknameMap);
+        ensureRedisLoaded(key, challengeId, challenge);
+        Long rawRank = rankingRedisService.getMyChallengeRank(
+                member.getMemberId().longValue(), key);
+        return getMyRank(member, rawRank, key);
     }
 }

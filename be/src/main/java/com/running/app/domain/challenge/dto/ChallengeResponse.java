@@ -63,5 +63,21 @@ public abstract class ChallengeResponse {
 
     }
 
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ChallengeRankingResponse {
+
+        private Integer totalCount;
+        private LocalDateTime startedAt;
+        private LocalDateTime endedAt;
+        private LocalDateTime myRunStartedAt;
+        private Double myRunDistance;
+        private RankEntryDTO myRank;
+        private RankEntryDTO prevRank;
+        private List<RankEntryDTO> rankings;
+    }
+
 
 }

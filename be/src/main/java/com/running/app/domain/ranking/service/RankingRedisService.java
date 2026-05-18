@@ -159,4 +159,9 @@ public class RankingRedisService {
         return result.iterator().next();
     }
 
+    // ZCARD: Sorted Set의 전체 원소 개수 반환 (O(1))
+    public Long getChallengeRankingTotalCount(String key) {
+        return redisTemplate.opsForZSet().zCard(key);
+    }
+
 }

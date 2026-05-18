@@ -7,6 +7,7 @@ import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
@@ -75,7 +76,7 @@ public abstract class ChallengeConverter {
             rankingList.add(ChallengeResponse.RankEntryDTO.builder()
                     .rank(rankingList.size() + 1)
                     .nickname(nicknameMap.get(memberId))
-                    .similarityScore(BigDecimal.valueOf(score))
+                    .similarityScore(BigDecimal.valueOf(score).setScale(2, RoundingMode.HALF_UP))
                     .build());
         });
 
@@ -90,7 +91,9 @@ public abstract class ChallengeConverter {
         return ChallengeResponse.RankEntryDTO.builder()
                 .rank(rank)
                 .nickname(nickname)
-                .similarityScore(score != null ? BigDecimal.valueOf(score) : null)
+                .similarityScore(
+                        score != null ? BigDecimal.valueOf(score).setScale(2, RoundingMode.HALF_UP)
+                                : null)
                 .build();
     }
 
