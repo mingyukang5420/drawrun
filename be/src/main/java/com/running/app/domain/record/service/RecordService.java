@@ -124,6 +124,20 @@ public class RecordService {
             );
         }
 
+        // 트랜잭션 커밋 후 챌린지 기록이면 해당 챌린지 Redis 랭킹 키 삭제
+        if (savedRunningRecord.getChallengeId() != null) {
+            log.info("챌린지 런 커밋 완료. Redis에 적재된 랭킹 데이터 삭제");
+            Long challengeId = savedRunningRecord.getChallengeId();
+
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            rankingRedisService.deleteRankValue("ranking:challenge:" + challengeId);
+                        }
+                    }
+            );
+        }
     }
 
     private boolean determineIsSafe(Track userTrack) {
