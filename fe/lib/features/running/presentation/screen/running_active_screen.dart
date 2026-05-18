@@ -110,32 +110,39 @@ class _RunningBody extends StatelessWidget {
         Expanded(
           child: Stack(
             children: [
-              // 바닥 레이어 — Positioned.fill 로 부모 영역을 가득 채우게 한다
+              // 1번 자식 (z 최하단) — 화면 전체를 채우는 실시간 지도
               const Positioned.fill(
                 child: RunningMapView(trackRoute: true),
               ),
 
-              // 우측 하단에 띄우는 "내 위치로" 플로팅 버튼
-              // 16px 여백은 일반적인 FAB 여백 — 상단 메트릭 바와 시각적 균형
+              // 2번 자식 — 우측 하단 "내 위치로" 버튼
+              // 일시정지 버튼 위로 올라가 겹치지 않게: 88 = 16(padding) + 56(버튼) + 16(간격)
               Positioned(
                 right: 16,
-                bottom: 16,
+                bottom: 88,
                 child: _RecenterButton(onTap: onRecenter),
               ),
-            ],
-          ),
-        ),
 
-        // 하단: 일시정지 버튼 (그대로)
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: onPause,
-              child: const Icon(Icons.pause, size: 32),
-            ),
+              // 3번 자식 (z 최상단) — 일시정지 버튼을 지도 위에 띄운다
+              // bottom: 0 / left: 0 / right: 0 — Stack 밑변에 가로 풀폭으로 붙임
+              // 내부 Padding(16) 으로 가장자리에 닿지 않게 — 일시정지 화면의 정지/재생 버튼과 동일 패턴
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    // ElevatedButton 자체에 그림자가 있어 별도 Material 래핑 없이도 떠 있는 느낌
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: onPause,
+                      child: const Icon(Icons.pause, size: 32),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
