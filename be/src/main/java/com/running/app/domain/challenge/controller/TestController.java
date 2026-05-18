@@ -5,6 +5,8 @@ import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
 import com.running.app.domain.challenge.service.TestService;
 import com.running.app.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +66,35 @@ public class TestController {
     @Operation(summary = "유사도 계산 테스트", description = "challengeId에 해당하는 챌린지 폴리곤과 전달된 GPS 노드의 유사도 점수(0~100)를 반환합니다.")
     @PostMapping("/similarity")
     public ApiResponse<Double> similarityTest(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "challengeId": 1,
+                                      "nodes": [
+                                        { "lat": 37.5000965, "lng": 126.997583 },
+                                        { "lat": 37.500426,  "lng": 126.998230 },
+                                        { "lat": 37.500403,  "lng": 126.998440 },
+                                        { "lat": 37.500513,  "lng": 126.999657 },
+                                        { "lat": 37.500491,  "lng": 127.001482 },
+                                        { "lat": 37.500667,  "lng": 127.001979 },
+                                        { "lat": 37.500930,  "lng": 127.002201 },
+                                        { "lat": 37.500754,  "lng": 127.002394 },
+                                        { "lat": 37.500360,  "lng": 127.002256 },
+                                        { "lat": 37.500140,  "lng": 127.002504 },
+                                        { "lat": 37.500053,  "lng": 127.002036 },
+                                        { "lat": 37.500031,  "lng": 127.001592 },
+                                        { "lat": 37.499263,  "lng": 127.001040 },
+                                        { "lat": 37.499855,  "lng": 127.000431 },
+                                        { "lat": 37.499811,  "lng": 126.998883 },
+                                        { "lat": 37.499855,  "lng": 126.998440 },
+                                        { "lat": 37.499811,  "lng": 126.998230 }
+                                      ]
+                                    }
+                                    """)
+                    )
+            )
             @RequestBody TestDTO.SimilarityRequestDTO request
     ) {
         return ApiResponse.onSuccess(testService.testSimilarity(request.getChallengeId(), request.getNodes()));
