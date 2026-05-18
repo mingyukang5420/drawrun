@@ -1,4 +1,4 @@
-﻿package com.running.app.domain.challenge.converter;
+package com.running.app.domain.challenge.converter;
 
 import com.running.app.domain.challenge.dto.ChallengeResponse;
 import com.running.app.domain.challenge.dto.GmsImageDTO;
