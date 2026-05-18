@@ -226,6 +226,29 @@ class RunningNotifier extends Notifier<RunningState> {
     _referenceLine = null;
   }
 
+  // 현재 GPS 위치로 지도 카메라를 부드럽게 이동시킨다
+  // "내 위치로" 버튼이 호출하는 진입점 — 측정 상태(거리·시간·폴리라인) 에는 영향 없음
+  //
+  // 컨트롤러가 없거나(아직 onMapReady 가 안 옴) 위치를 못 가져오면 그냥 무시한다
+  // 사용자가 버튼을 한 번 더 누르면 다음 호출에서 다시 시도된다
+  Future<void> centerOnCurrentLocation() async {
+    final controller = mapController;
+    if (controller == null) return;
+
+    // LocationService 는 권한 거부 / GPS 꺼짐 등 실패 시 null 을 돌려준다
+    final position = await LocationService.getCurrentPosition();
+    if (position == null) return;
+
+    // scrollAndZoomTo 는 카메라를 새 좌표로 이동하면서 줌도 새로 설정한다
+    // 줌 16 은 코스 에디터의 동일 동작과 맞춘 값 — 도로 한두 개가 한눈에 들어오는 수준
+    await controller.updateCamera(
+      NCameraUpdate.scrollAndZoomTo(
+        target: NLatLng(position.latitude, position.longitude),
+        zoom: 16,
+      ),
+    );
+  }
+
   void startRunning() {
     if (_locationSub != null) return; // 중복 구독 방지
     _stopwatch.start();

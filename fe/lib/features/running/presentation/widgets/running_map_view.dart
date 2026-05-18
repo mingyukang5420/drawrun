@@ -11,12 +11,23 @@ import 'package:running/shared/map/widgets/map_view.dart';
 //   - true  → 이 지도에 폴리라인을 그린다. setMapController 호출.
 //   - false → 위치 핀만 표시. ViewModel 에 controller 를 등록하지 않음.
 //
-// 메인 RunningScreen 의 지도는 "시작 화면 = 현재 위치만 표시" 역할이라 false.
-// 일시정지 시트의 지도는 누적 경로 표시 역할이라 true.
+// contentPadding:
+//   - null (미명시) — trackRoute 에 따라 자동:
+//       trackRoute=false (홈 화면) → bottom 220 (위치 핀을 화면 상단으로 올려 하단 버튼에 안 가리게)
+//       trackRoute=true (러닝 화면) → zero
+//   - 명시값을 받으면 그대로 사용 — 일시정지 모드 A 처럼 외부에서 동적 패딩을 줘야 할 때
+//
+// 메인 RunningScreen 의 지도는 "시작 화면 = 현재 위치만 표시" 역할이라 trackRoute false.
+// 일시정지 화면의 지도는 누적 경로 표시 역할이라 trackRoute true.
 class RunningMapView extends ConsumerStatefulWidget {
   final bool trackRoute;
+  final EdgeInsets? contentPadding;
 
-  const RunningMapView({super.key, this.trackRoute = false});
+  const RunningMapView({
+    super.key,
+    this.trackRoute = false,
+    this.contentPadding,
+  });
 
   @override
   ConsumerState<RunningMapView> createState() => _RunningMapViewState();
@@ -66,10 +77,13 @@ class _RunningMapViewState extends ConsumerState<RunningMapView> {
       showCurrentLocation: true,
       // 홈 화면(trackRoute=false)에서는 지도 스크롤 비활성화
       scrollGesturesEnable: widget.trackRoute,
-      // 홈 화면에서 현재 위치 핀이 하단 버튼에 가리지 않도록 위쪽으로 올림
-      contentPadding: widget.trackRoute
-          ? EdgeInsets.zero
-          : const EdgeInsets.only(bottom: 220),
+      // contentPadding 결정:
+      //   1) 외부에서 명시적으로 받았으면(예: 일시정지 active 화면이 동적 패딩 전달) 그대로 사용
+      //   2) 안 받았으면 trackRoute 에 따라 자동 — 홈 화면은 핀이 하단 버튼에 가리지 않게 위로 올림
+      contentPadding: widget.contentPadding ??
+          (widget.trackRoute
+              ? EdgeInsets.zero
+              : const EdgeInsets.only(bottom: 220)),
       onMapReady: (mapController) {
         if (widget.trackRoute) {
           ref

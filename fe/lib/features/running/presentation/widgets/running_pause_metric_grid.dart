@@ -19,7 +19,7 @@ class RunningPauseMetricGrid extends ConsumerWidget {
       ('시간', state.elapsedLabel),
       ('칼로리', state.caloriesLabel),
       ('고도', state.altitudeLabel),
-      ('BPM', state.bpmLabel),
+      ('케이던스', state.cadenceLabel),
     ];
 
     return GridView.count(
