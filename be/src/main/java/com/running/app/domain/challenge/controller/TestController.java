@@ -4,13 +4,9 @@ import com.running.app.domain.challenge.dto.TestDTO;
 import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
 import com.running.app.domain.challenge.service.TestService;
 import com.running.app.global.response.ApiResponse;
-import com.running.app.global.response.exception.GeneralException;
-import com.running.app.global.response.status.ErrorStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/v1/call/test")
-@Slf4j
 @RequiredArgsConstructor
 @Tag(name = "테스트", description = "테스트")
 public class TestController {
@@ -31,17 +26,9 @@ public class TestController {
     private final ChallengeImageGenerateService challengeImageGenerateService;
     private final TestService testService;
 
-    @Value("${TEST_KEY}")
-    private String TEST_KEY;
-
     @Operation(summary = "텍스트 생성 모델 호출")
     @PostMapping("/text")
-    public ApiResponse<Void> textRequest(
-            @RequestBody String testKey
-    ) {
-        log.info("{}", TEST_KEY);
-        log.info("{}", testKey);
-        isEqualsTestKey(testKey);
+    public ApiResponse<Void> textRequest() {
         challengeImageGenerateService.callTextModel();
         return ApiResponse.OK;
     }
@@ -51,20 +38,15 @@ public class TestController {
     public ApiResponse<String> imgRequest(
             @RequestBody TestDTO request
     ) {
-        isEqualsTestKey(request.getTestKey());
         ChallengeImageGenerateService.ImageModelResult result =
                 challengeImageGenerateService.callImageModel(request.getImgString());
         return ApiResponse.onSuccess(result.storedPath());
     }
 
     @Operation(summary = "전체 흐름 테스트")
-    @PostMapping("pipeline")
-    public ApiResponse<Void> pipeline(
-            @RequestBody String testKey
-    ) {
-        isEqualsTestKey(testKey);
+    @PostMapping("/pipeline")
+    public ApiResponse<Void> pipeline() {
         testService.testPipeline();
-
         return ApiResponse.OK;
     }
 
@@ -85,9 +67,4 @@ public class TestController {
         return ApiResponse.onSuccess(testService.testSimilarity(request.getChallengeId(), request.getNodes()));
     }
 
-    private void isEqualsTestKey(String key) {
-        if (!key.equals(TEST_KEY)) {
-            throw new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
 }

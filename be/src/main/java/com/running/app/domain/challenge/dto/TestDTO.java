@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class TestDTO {
 
-    private String testKey;
     private String imgString;
 
     @Getter
