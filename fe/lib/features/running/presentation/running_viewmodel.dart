@@ -559,7 +559,23 @@ class RunningNotifier extends Notifier<RunningState> {
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e);
       rethrow;
+    } finally {
+      // 성공/실패 무관: 종료 API 호출이 한 번 시도된 직후 컨텍스트 ID 3개를 리셋.
+      //
+      // 직전 챌린지 러닝의 잔여가 다음 세션으로 흘러가지 않도록 보수적 가드.
+      // 측정 데이터(거리/시간/points 등) 는 결과 화면이 계속 표시해야 하므로 이 메서드에서 건드리지 않는다.
+      _resetSessionContext();
     }
+  }
+
+  // 세션 컨텍스트 3개 ID 만 null 로 리셋.
+  // setSessionContext(null, null, null) 와 동등하지만 의도가 호출처에 더 명시적으로 드러나도록 이름 분리.
+  void _resetSessionContext() {
+    setSessionContext(
+      challengeId: null,
+      courseId: null,
+      courseDraftId: null,
+    );
   }
 
   // 카운트다운 화면에서 한 번 호출 — 시작 API 발사 후 응답 nodes 를 state 에 보관.
