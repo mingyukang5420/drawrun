@@ -31,7 +31,7 @@ public class ChallengeOutlineExtractService {
 
             if (img == null) {
                 log.warn("이미지 디코딩 실패: BufferedImage가 null");
-                return "[]";
+                return null;
             }
 
             int width = img.getWidth();
@@ -76,7 +76,7 @@ public class ChallengeOutlineExtractService {
 
             if (edgePoints.isEmpty()) {
                 log.warn("윤곽선 픽셀 없음: 이미지가 완전히 검정이거나 임계값 설정 문제");
-                return "[]";
+                return null;
             }
 
             // centroid 기준 극각 정렬 → 폴리곤 경계 순서 보존
@@ -87,7 +87,7 @@ public class ChallengeOutlineExtractService {
             return objectMapper.writeValueAsString(edgePoints);
         } catch (Exception e) {
             log.warn("윤곽선 추출 실패: {}", e.getMessage());
-            return "[]";
+            return null;
         }
     }
 

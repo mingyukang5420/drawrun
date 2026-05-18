@@ -95,8 +95,12 @@ public class RecordService {
         if (request.getChallengeId() != null) {
             Challenge challenge = challengeRepository.findById(request.getChallengeId())
                     .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
-            similarityScore = similarityService.calculate(challenge.getPolygonPoints(), request.getNodes());
-            log.info("챌린지 유사도 계산 완료. challengeId={}, score={}", request.getChallengeId(), similarityScore);
+            if (challenge.getPolygonPoints() != null) {
+                similarityScore = similarityService.calculate(challenge.getPolygonPoints(), request.getNodes());
+                log.info("챌린지 유사도 계산 완료. challengeId={}, score={}", request.getChallengeId(), similarityScore);
+            } else {
+                log.warn("챌린지 polygon_points 없음. 유사도 계산 생략. challengeId={}", request.getChallengeId());
+            }
         }
 
         RunningRecord runningRecord = RecordConverter.toRunningRecord(
