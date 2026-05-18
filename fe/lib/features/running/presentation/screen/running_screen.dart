@@ -674,12 +674,22 @@ class _Label extends StatelessWidget {
 
 // ── 폴리곤 이미지 (카드 내 확장 영역) ───────────────────────────────
 // Expanded 안에서 카드의 남은 공간을 모두 채워 폴리곤 이미지를 크게 표시.
+// ColorFilter.matrix 로 검은 배경을 투명으로 변환 — A채널 = 3×루미넌스
+// (검은 픽셀 → α=0 투명, 밝은/채색 픽셀 → α=1 불투명, 카드 배경색이 그대로 비침)
 // imageUrl 이 없거나 로드 실패 시 fallback 아이콘으로 대체.
 class _LargePolygonImage extends StatelessWidget {
   final IconData icon;
   final String? imageUrl;
 
   const _LargePolygonImage({required this.icon, this.imageUrl});
+
+  // 검은 배경 → 투명: 알파 = 루미넌스 × 3 (밝은 색은 빠르게 포화)
+  static const _removeBlack = ColorFilter.matrix([
+    1,     0,     0,     0, 0,
+    0,     1,     0,     0, 0,
+    0,     0,     1,     0, 0,
+    0.897, 1.761, 0.342, 0, 0,
+  ]);
 
   @override
   Widget build(BuildContext context) {
@@ -688,9 +698,9 @@ class _LargePolygonImage extends StatelessWidget {
         child: Icon(icon, size: 72, color: Colors.white.withValues(alpha: 0.3)),
       );
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox.expand(
+    return SizedBox.expand(
+      child: ColorFiltered(
+        colorFilter: _removeBlack,
         child: Image.network(
           imageUrl!,
           fit: BoxFit.contain,
