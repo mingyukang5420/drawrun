@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -64,6 +65,15 @@ public class TestController {
         isEqualsTestKey(testKey);
         testService.testPipeline();
 
+        return ApiResponse.OK;
+    }
+
+    @Operation(summary = "polygon_points 백필", description = "기존 챌린지 이미지에서 윤곽선을 추출해 polygon_points를 DB에 저장합니다.")
+    @PostMapping("/backfill-polygon/{challengeId}")
+    public ApiResponse<Void> backfillPolygon(
+            @PathVariable Long challengeId
+    ) {
+        testService.backfillPolygonPoints(challengeId);
         return ApiResponse.OK;
     }
 

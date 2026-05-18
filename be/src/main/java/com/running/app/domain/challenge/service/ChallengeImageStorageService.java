@@ -61,6 +61,18 @@ public class ChallengeImageStorageService {
         // db에 저장할 url 조합하여 응답
         return IMAGE_BASE_URL + CHALLENGE_DIR_PREFIX + "/" + uuid + IMAGE_PREFIX;
     }
+
+    // 저장된 이미지 URL → 디스크에서 읽어 base64 반환
+    public String readAsBase64(String imageUrl) {
+        String filename = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+        Path filePath = Paths.get(CHALLENGE_IMAGE_DIR).resolve(filename);
+        try {
+            byte[] bytes = Files.readAllBytes(filePath);
+            return Base64.getEncoder().encodeToString(bytes);
+        } catch (IOException e) {
+            throw new GeneralException(ErrorStatus.FILE_UPLOAD_FAILED, e);
+        }
+    }
 }
 
 
