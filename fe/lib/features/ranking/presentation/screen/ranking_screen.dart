@@ -1,54 +1,121 @@
 import 'package:flutter/material.dart';
 
-// 랭킹 탭 메인 화면
-// Easy·Hard 탭으로 나뉘며, 각 탭에서 주차별 챌린지를 선택해 랭킹을 확인한다
-// TODO: 백엔드 GET /v1/challenge/ranking?difficulty=EASY&week=2026-W20 연동 후 목업 제거
-class RankingScreen extends StatelessWidget {
+// 랭킹 탭 메인 화면.
+// 챌린지 선택 헤더가 위에, 그 아래 Easy / Hard 난이도 탭이 자리한다.
+// 챌린지 선택 상태(_selected) 는 본 화면이 들고 있어 두 난이도 탭이 같은 챌린지를 본다.
+// TODO: 백엔드 GET /v1/challenge/ranking?challengeId=&difficulty= 연동 후 목업 제거
+class RankingScreen extends StatefulWidget {
   const RankingScreen({super.key});
 
   @override
+  State<RankingScreen> createState() => _RankingScreenState();
+}
+
+class _RankingScreenState extends State<RankingScreen> {
+  // 현재 선택된 챌린지. 첫 진입 시 "이번 주" 챌린지를 기본 선택한다.
+  late _Challenge _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = _challenges.firstWhere(
+      (c) => c.isCurrent,
+      orElse: () => _challenges.first,
+    );
+  }
+
+  // 챌린지 선택 바텀시트를 띄운다. 시트가 항목을 고르면 setState 로 본 화면을 다시 그린다.
+  void _openChallengePicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _ChallengePickerSheet(
+        challenges: _challenges,
+        selected: _selected,
+        onSelect: (c) {
+          setState(() => _selected = c);
+          Navigator.of(context).pop();
+        },
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          title: const Text(
-            '랭킹',
-            style: TextStyle(
-              fontFamily: 'Pretendard',
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C1C1E),
-            ),
-          ),
-          bottom: const TabBar(
-            labelColor: Color(0xFF1C1C1E),
-            unselectedLabelColor: Color(0xFF9CA3AF),
-            labelStyle: TextStyle(
-              fontFamily: 'Pretendard',
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-            unselectedLabelStyle: TextStyle(
-              fontFamily: 'Pretendard',
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-            ),
-            indicatorColor: Color(0xFF1C1C1E),
-            indicatorWeight: 2.5,
-            tabs: [
-              Tab(text: 'Easy'),
-              Tab(text: 'Hard'),
-            ],
+    // DefaultTabController 가 Scaffold 의 body 안쪽에 들어간다 —
+    // AppBar.bottom 에 있던 TabBar 도 함께 안쪽으로 내려간다.
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          '랭킹',
+          style: TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1C1C1E),
           ),
         ),
-        body: const TabBarView(
+      ),
+      body: DefaultTabController(
+        length: 2,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _ChallengeRankingTab(difficulty: 'EASY'),
-            _ChallengeRankingTab(difficulty: 'HARD'),
+            // 1) 챌린지 선택 헤더 — AppBar 바로 아래에 붙는다.
+            _ChallengeHeader(
+              challenge: _selected,
+              onTap: _openChallengePicker,
+            ),
+            const Divider(height: 1, color: Color(0xFFF0F0F0)),
+
+            // 2) 난이도 탭 — 헤더 아래로 내려온다.
+            //    Material 로 감싸야 TabBar 의 잉크 / 폰트가 정상으로 그려진다.
+            const Material(
+              color: Colors.white,
+              child: TabBar(
+                labelColor: Color(0xFF1C1C1E),
+                unselectedLabelColor: Color(0xFF9CA3AF),
+                labelStyle: TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+                unselectedLabelStyle: TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                ),
+                indicatorColor: Color(0xFF1C1C1E),
+                indicatorWeight: 2.5,
+                tabs: [
+                  Tab(text: 'Easy'),
+                  Tab(text: 'Hard'),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFF0F0F0)),
+
+            // 3) 두 난이도 본문 — 선택된 챌린지의 EASY / HARD 랭킹을 각각 그린다.
+            //    Expanded 로 감싸야 TabBarView 가 남은 세로 공간을 채운다.
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _ChallengeRankingTab(
+                    challenge: _selected,
+                    difficulty: 'EASY',
+                  ),
+                  _ChallengeRankingTab(
+                    challenge: _selected,
+                    difficulty: 'HARD',
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -56,24 +123,7 @@ class RankingScreen extends StatelessWidget {
   }
 }
 
-// ── 주차별 챌린지 목업 데이터 ────────────────────────────────────────
-// TODO: 백엔드 API 연동 후 제거
-class _WeeklyChallenge {
-  final String id;
-  final String weekLabel; // "2026년 5월 3주차"
-  final String name;      // "다람쥐 런"
-  final bool isCurrent;
-
-  const _WeeklyChallenge({
-    required this.id,
-    required this.weekLabel,
-    required this.name,
-    this.isCurrent = false,
-  });
-
-  String get fullTitle => '${weekLabel.substring(6)} $name'; // "5월 3주차 다람쥐 런"
-}
-
+// ── 랭킹 한 줄 데이터 ────────────────────────────────────────────────
 class _RankingEntry {
   final int rank;
   final String username;
@@ -90,160 +140,126 @@ class _RankingEntry {
   });
 }
 
-// 난이도별 목업 주차 목록
-const _easyWeeks = [
-  _WeeklyChallenge(
-    id: 'e-w20', weekLabel: '2026년 5월 3주차', name: '다람쥐 런', isCurrent: true,
-  ),
-  _WeeklyChallenge(
-    id: 'e-w19', weekLabel: '2026년 5월 2주차', name: '여우 런',
-  ),
-  _WeeklyChallenge(
-    id: 'e-w18', weekLabel: '2026년 5월 1주차', name: '토끼 런',
-  ),
-  _WeeklyChallenge(
-    id: 'e-w17', weekLabel: '2026년 4월 4주차', name: '고양이 런',
-  ),
-];
+// ── 챌린지 목록 ────────────────────────────────────────────────────
+// 한 챌린지(주차) 안에 Easy / Hard 두 코스가 함께 묶인다.
+// TODO: 백엔드 API 연동 후 제거 — 실제로는 GET /v1/challenge 응답 형태에 맞춰 모델 교체.
+class _Challenge {
+  // 챌린지 식별자. 목업에선 주차 키('w20') 를 그대로 쓴다.
+  final String id;
 
-const _hardWeeks = [
-  _WeeklyChallenge(
-    id: 'h-w20', weekLabel: '2026년 5월 3주차', name: '매 런', isCurrent: true,
-  ),
-  _WeeklyChallenge(
-    id: 'h-w19', weekLabel: '2026년 5월 2주차', name: '늑대 런',
-  ),
-  _WeeklyChallenge(
-    id: 'h-w18', weekLabel: '2026년 5월 1주차', name: '독수리 런',
-  ),
-  _WeeklyChallenge(
-    id: 'h-w17', weekLabel: '2026년 4월 4주차', name: '표범 런',
-  ),
-];
+  // 사용자에게 보여줄 주차 라벨. 예: "2026년 5월 3주차"
+  final String weekLabel;
 
-// 난이도별 목업 랭킹 데이터 (상위 5위 + 내 순위)
-// TODO: 백엔드 API 연동 시 top5 / myEntry 분리해서 받아올 것
-const _easyRankings = [
-  _RankingEntry(rank: 1, username: '달리기왕', similarityPct: 97.3, duration: '18:42'),
-  _RankingEntry(rank: 2, username: '스피드런', similarityPct: 95.1, duration: '21:05'),
-  _RankingEntry(rank: 3, username: '나', similarityPct: 91.8, duration: '24:33', isMe: true),
-  _RankingEntry(rank: 4, username: '조깅러버', similarityPct: 88.4, duration: '27:11'),
-  _RankingEntry(rank: 5, username: '마라토너', similarityPct: 85.0, duration: '29:54'),
-];
+  // 같은 챌린지의 Easy 코스 이름. 예: "다람쥐 런"
+  final String easyName;
 
-const _hardRankings = [
-  _RankingEntry(rank: 1, username: '울트라러너', similarityPct: 93.5, duration: '31:07'),
-  _RankingEntry(rank: 2, username: '철인', similarityPct: 90.2, duration: '34:22'),
-  _RankingEntry(rank: 3, username: '도전자', similarityPct: 85.7, duration: '39:14'),
-  _RankingEntry(rank: 4, username: '페이스킵', similarityPct: 81.3, duration: '43:58'),
-  _RankingEntry(rank: 5, username: '산악러너', similarityPct: 77.9, duration: '47:30'),
-  _RankingEntry(rank: 13, username: '나', similarityPct: 54.2, duration: '01:12:44', isMe: true),
-];
+  // 같은 챌린지의 Hard 코스 이름. 예: "매 런"
+  final String hardName;
 
-// ── 난이도별 랭킹 탭 본문 ─────────────────────────────────────────────
-class _ChallengeRankingTab extends StatefulWidget {
-  final String difficulty; // 'EASY' 또는 'HARD'
+  // "이번 주" 뱃지 노출용 플래그.
+  final bool isCurrent;
 
-  const _ChallengeRankingTab({required this.difficulty});
+  const _Challenge({
+    required this.id,
+    required this.weekLabel,
+    required this.easyName,
+    required this.hardName,
+    this.isCurrent = false,
+  });
 
-  @override
-  State<_ChallengeRankingTab> createState() => _ChallengeRankingTabState();
+  // 선택된 난이도에 해당하는 코스 이름을 돌려준다.
+  // 'EASY' / 'HARD' 외 값이 들어오면 안전하게 easyName 으로 폴백.
+  String nameOf(String difficulty) =>
+      difficulty == 'HARD' ? hardName : easyName;
 }
 
-class _ChallengeRankingTabState extends State<_ChallengeRankingTab> {
-  late _WeeklyChallenge _selected;
+// 챌린지 목록 — 같은 주차의 Easy / Hard 두 코스를 한 항목으로 묶는다.
+// 위에서 아래로 최신순(가장 최근 주차가 0번 인덱스).
+const List<_Challenge> _challenges = [
+  _Challenge(
+    id: 'w20',
+    weekLabel: '2026년 5월 3주차',
+    easyName: '다람쥐 런',
+    hardName: '매 런',
+    isCurrent: true,
+  ),
+  _Challenge(
+    id: 'w19',
+    weekLabel: '2026년 5월 2주차',
+    easyName: '여우 런',
+    hardName: '늑대 런',
+  ),
+  _Challenge(
+    id: 'w18',
+    weekLabel: '2026년 5월 1주차',
+    easyName: '토끼 런',
+    hardName: '독수리 런',
+  ),
+  _Challenge(
+    id: 'w17',
+    weekLabel: '2026년 4월 4주차',
+    easyName: '고양이 런',
+    hardName: '표범 런',
+  ),
+];
 
-  List<_WeeklyChallenge> get _weeks =>
-      widget.difficulty == 'EASY' ? _easyWeeks : _hardWeeks;
+// 챌린지 ID + 난이도 두 단계로 인덱싱된 목업 랭킹.
+// 키: challenge.id (예: 'w20'),  내부 키: 'EASY' | 'HARD'
+// TODO: 백엔드 API 연동 시 challengeId + difficulty 쿼리로 top5 + myEntry 형태로 교체.
+const Map<String, Map<String, List<_RankingEntry>>> _rankingsByChallenge = {
+  'w20': {
+    'EASY': [
+      _RankingEntry(rank: 1, username: '달리기왕', similarityPct: 97.3, duration: '18:42'),
+      _RankingEntry(rank: 2, username: '스피드런', similarityPct: 95.1, duration: '21:05'),
+      _RankingEntry(rank: 3, username: '나', similarityPct: 91.8, duration: '24:33', isMe: true),
+      _RankingEntry(rank: 4, username: '조깅러버', similarityPct: 88.4, duration: '27:11'),
+      _RankingEntry(rank: 5, username: '마라토너', similarityPct: 85.0, duration: '29:54'),
+    ],
+    'HARD': [
+      _RankingEntry(rank: 1, username: '울트라러너', similarityPct: 93.5, duration: '31:07'),
+      _RankingEntry(rank: 2, username: '철인', similarityPct: 90.2, duration: '34:22'),
+      _RankingEntry(rank: 3, username: '도전자', similarityPct: 85.7, duration: '39:14'),
+      _RankingEntry(rank: 4, username: '페이스킵', similarityPct: 81.3, duration: '43:58'),
+      _RankingEntry(rank: 5, username: '산악러너', similarityPct: 77.9, duration: '47:30'),
+      _RankingEntry(rank: 13, username: '나', similarityPct: 54.2, duration: '01:12:44', isMe: true),
+    ],
+  },
+  // 다른 주차들은 화면 테스트 편의를 위해 빈 리스트로 둔다.
+  // 실 BE 연동 시 challengeId 별 진짜 랭킹이 들어온다.
+  'w19': {'EASY': <_RankingEntry>[], 'HARD': <_RankingEntry>[]},
+  'w18': {'EASY': <_RankingEntry>[], 'HARD': <_RankingEntry>[]},
+  'w17': {'EASY': <_RankingEntry>[], 'HARD': <_RankingEntry>[]},
+};
 
-  List<_RankingEntry> get _rankings =>
-      widget.difficulty == 'EASY' ? _easyRankings : _hardRankings;
+// ── 난이도별 랭킹 탭 본문 ─────────────────────────────────────────────
+// 한 챌린지의 한 난이도 랭킹만 그린다.
+// 챌린지 선택 상태는 부모(_RankingScreenState) 가 들고, 본 위젯은 받은
+// 챌린지 + 난이도로 데이터만 꺼내 그리므로 Stateless.
+class _ChallengeRankingTab extends StatelessWidget {
+  // 부모가 내려주는 현재 챌린지. 두 난이도 탭이 같은 인스턴스를 공유한다.
+  final _Challenge challenge;
 
-  @override
-  void initState() {
-    super.initState();
-    // 현재 주차 챌린지를 기본 선택
-    _selected = _weeks.firstWhere((w) => w.isCurrent, orElse: () => _weeks.first);
-  }
+  // 본 탭이 책임지는 난이도 — 'EASY' 또는 'HARD'.
+  final String difficulty;
 
-  // 주차 선택 바텀 시트
-  void _openWeekPicker() {
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _WeekPickerSheet(
-        weeks: _weeks,
-        selected: _selected,
-        onSelect: (w) {
-          setState(() => _selected = w);
-          Navigator.of(context).pop();
-        },
-      ),
-    );
-  }
+  const _ChallengeRankingTab({
+    required this.challenge,
+    required this.difficulty,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = widget.difficulty == 'EASY'
+    // 난이도별 강조색. EASY 는 초록, HARD 는 검정 계열로 옛 색을 그대로 재사용.
+    final accentColor = difficulty == 'EASY'
         ? const Color(0xFF27AE60)
         : const Color(0xFF1C1C1E);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // ── 주차 선택 헤더 ─────────────────────────────────────────
-        GestureDetector(
-          onTap: _openWeekPicker,
-          child: Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _selected.weekLabel,
-                        style: const TextStyle(
-                          fontFamily: 'Pretendard',
-                          fontSize: 12,
-                          color: Color(0xFF9CA3AF),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _selected.name,
-                        style: TextStyle(
-                          fontFamily: 'Pretendard',
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: accentColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // 다른 주차로 바꾸기 안내 아이콘
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: const Color(0xFF9CA3AF),
-                  size: 24,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const Divider(height: 1, color: Color(0xFFF0F0F0)),
+    // (챌린지 ID, 난이도) 두 키로 랭킹을 꺼낸다. 키가 없으면 빈 리스트로 폴백.
+    final rankings =
+        _rankingsByChallenge[challenge.id]?[difficulty] ?? const [];
 
-        // ── 랭킹 목록 ─────────────────────────────────────────────
-        Expanded(
-          child: _RankingList(rankings: _rankings, accentColor: accentColor),
-        ),
-      ],
-    );
+    // 헤더는 부모가 두 탭 위에서 그리므로 본 위젯은 랭킹 리스트만 반환.
+    return _RankingList(rankings: rankings, accentColor: accentColor);
   }
 }
 
@@ -302,14 +318,77 @@ class _RankingList extends StatelessWidget {
   }
 }
 
-// ── 주차 선택 바텀 시트 ───────────────────────────────────────────────
-class _WeekPickerSheet extends StatelessWidget {
-  final List<_WeeklyChallenge> weeks;
-  final _WeeklyChallenge selected;
-  final ValueChanged<_WeeklyChallenge> onSelect;
+// ── 챌린지 선택 헤더 ────────────────────────────────────────────────
+// AppBar 바로 아래에 자리하는 흰 카드. 탭하면 챌린지 선택 시트가 열린다.
+class _ChallengeHeader extends StatelessWidget {
+  final _Challenge challenge;
+  final VoidCallback onTap;
 
-  const _WeekPickerSheet({
-    required this.weeks,
+  const _ChallengeHeader({required this.challenge, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      // 자식이 그리지 않는 빈 가장자리에서도 탭이 잡히도록 opaque 로 둔다.
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        color: Colors.white,
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    challenge.weekLabel,
+                    style: const TextStyle(
+                      fontFamily: 'Pretendard',
+                      fontSize: 12,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  // 한 챌린지의 두 코스를 함께 노출 — 시트 항목과 동일한 컨벤션.
+                  // "다람쥐 런 · 매 런" 처럼 EASY → HARD 순서 고정.
+                  Text(
+                    '${challenge.easyName} · ${challenge.hardName}',
+                    style: const TextStyle(
+                      fontFamily: 'Pretendard',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1C1C1E),
+                    ),
+                    // 두 줄로 늘어나 헤더 높이가 점프하지 않도록 한 줄에서 자른다.
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            // 다른 챌린지로 바꾸기 안내 아이콘
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF9CA3AF),
+              size: 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 챌린지 선택 바텀 시트 ─────────────────────────────────────────────
+// 챌린지 단위로 항목을 보여준다. 한 항목을 고르면 두 난이도 탭의 데이터가 갱신된다.
+class _ChallengePickerSheet extends StatelessWidget {
+  final List<_Challenge> challenges;
+  final _Challenge selected;
+  final ValueChanged<_Challenge> onSelect;
+
+  const _ChallengePickerSheet({
+    required this.challenges,
     required this.selected,
     required this.onSelect,
   });
@@ -319,7 +398,7 @@ class _WeekPickerSheet extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 핸들
+        // 핸들 — 시트 상단 드래그 영역 표식
         const SizedBox(height: 12),
         Container(
           width: 40,
@@ -331,7 +410,7 @@ class _WeekPickerSheet extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const Text(
-          '주차 선택',
+          '챌린지 선택',
           style: TextStyle(
             fontFamily: 'Pretendard',
             fontSize: 16,
@@ -340,44 +419,64 @@ class _WeekPickerSheet extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        ...weeks.map(
-          (w) => ListTile(
-            title: Text(
-              '${w.weekLabel}  ${w.name}',
-              style: TextStyle(
-                fontFamily: 'Pretendard',
-                fontSize: 15,
-                fontWeight: w.id == selected.id
-                    ? FontWeight.w700
-                    : FontWeight.w400,
-                color: w.id == selected.id
-                    ? const Color(0xFF1C1C1E)
-                    : const Color(0xFF6B7280),
+        // 각 챌린지 항목 — 위 줄에 주차 라벨(작은 회색), 아래 줄에 두 코스명(큰 검정).
+        ...challenges.map(
+          (c) {
+            // 한 챌린지의 두 코스를 함께 노출 — "다람쥐 런 · 매 런".
+            // 가운데 점은 가독성 구분자(EASY → HARD 순서 고정).
+            final coursesLabel = '${c.easyName} · ${c.hardName}';
+
+            return ListTile(
+              // 위 줄(작은 회색): 주차 라벨
+              title: Text(
+                c.weekLabel,
+                style: const TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 12,
+                  color: Color(0xFF9CA3AF),
+                ),
               ),
-            ),
-            trailing: w.isCurrent
-                ? Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      '이번 주',
-                      style: TextStyle(
-                        fontFamily: 'Pretendard',
-                        fontSize: 11,
-                        color: Color(0xFF3B82F6),
-                        fontWeight: FontWeight.w600,
+              // 아래 줄(큰 검정): 두 코스명. 선택된 항목은 굵게 + 진하게.
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  coursesLabel,
+                  style: TextStyle(
+                    fontFamily: 'Pretendard',
+                    fontSize: 15,
+                    fontWeight: c.id == selected.id
+                        ? FontWeight.w700
+                        : FontWeight.w400,
+                    color: c.id == selected.id
+                        ? const Color(0xFF1C1C1E)
+                        : const Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              trailing: c.isCurrent
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
                       ),
-                    ),
-                  )
-                : null,
-            onTap: () => onSelect(w),
-          ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        '이번 주',
+                        style: TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 11,
+                          color: Color(0xFF3B82F6),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : null,
+              onTap: () => onSelect(c),
+            );
+          },
         ),
         const SizedBox(height: 16),
       ],
