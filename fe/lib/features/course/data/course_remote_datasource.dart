@@ -83,6 +83,24 @@ class CourseRemoteDataSource {
     }
   }
 
+  // GET /api/v1/editor/challenge?page= — 챌린지 소속 내 코스 목록 조회
+  // 챌린지 ID는 백엔드가 JWT 토큰으로 판단하므로 별도 파라미터 불필요
+  // 응답에 challengeTitle, similarityScore 필드가 추가로 포함됨
+  Future<List<CourseDraft>> fetchChallengeCourses({int page = 0}) async {
+    try {
+      final response = await _dio.get(
+        '/api/v1/editor/challenge',
+        queryParameters: {'page': page},
+      );
+      final content = response.data['result']['content'] as List<dynamic>;
+      return content
+          .map((e) => CourseDraft.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   // GET /api/v1/editor/way — 지도 영역 내 주행 가능 도로 목록 조회
   // 바운딩 박스(minLat~maxLat, minLng~maxLng)와 zoom 을 쿼리 파라미터로 전달
   Future<List<Way>> fetchWays({
