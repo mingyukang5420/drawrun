@@ -60,6 +60,8 @@ public class WeatherService {
         SkyCondition sky = SkyCondition.fromCode(cached.getSkyCondition());
         PrecipitationType pty = PrecipitationType.fromCode(cached.getPrecipitationType());
 
+        String message = (pty != PrecipitationType.NONE) ? pty.getMessage() : sky.getMessage();
+
         // 5. WeatherResponse.Result 만들어서 반환
         return WeatherResponse.Result.builder()
                 .sido(district.getSido())
@@ -67,7 +69,7 @@ public class WeatherService {
                 .weather(sky.getLabel())
                 .precipitation(pty.getLabel())
                 .temperature(cached.getTemperature())
-                .message(sky.getMessage())
+                .message(message)
                 .build();
     }
 }
