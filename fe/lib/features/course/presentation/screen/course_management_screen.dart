@@ -60,15 +60,6 @@ class _CourseManagementScreenState
                   letterSpacing: -0.5,
                 ),
               ),
-              if (state.challengeTitle != null)
-                Text(
-                  state.challengeTitle!,
-                  style: const TextStyle(
-                    fontFamily: 'Pretendard',
-                    fontSize: 12,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                ),
             ],
           ),
           // 랭킹 화면과 동일한 탭 바 스타일
