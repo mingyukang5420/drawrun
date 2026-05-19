@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:running/features/auth/presentation/auth_provider.dart';
+import 'package:running/features/record/domain/record_stats.dart';
 import 'package:running/features/record/presentation/record_provider.dart';
 import 'package:running/features/record/presentation/screen/record_stats_screen.dart';
 
@@ -52,6 +53,16 @@ class ProfileStatsScreen extends ConsumerWidget {
               challengeCount: state.data.totalCount,
             ),
           ),
+
+          // 주간 잔디 위젯 — 최근 7일 활동을 한눈에. period 토글과 무관하게 항상 7일 데이터.
+          // weeklyActivity 가 비어 있으면(empty 초기 상태 / 미머지 BE) 카드 자체를 안 그린다.
+          if (state.data.weeklyActivity.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: _WeeklyGrassCard(
+                activities: state.data.weeklyActivity,
+              ),
+            ),
 
           const Divider(height: 1, color: Color(0xFFF3F4F6)),
 
@@ -222,6 +233,115 @@ class _HighlightCell extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 주간 잔디 위젯 ──────────────────────────────────────────────────
+// 최근 7일을 가로 한 줄로 펼친 GitHub 스타일의 활동 미니 카드.
+// 활동 거리(km) 를 4단계 (0 / 적음 / 보통 / 많음) 로 매핑해 잔디 색상을 결정한다.
+class _WeeklyGrassCard extends StatelessWidget {
+  final List<DailyActivity> activities;
+  const _WeeklyGrassCard({required this.activities});
+
+  // 잔디 셀 한 칸이 4단계 색상으로 표현하는 거리 임계값(km).
+  // 0 km : 회색 (활동 없음)
+  // 0 < d <= _t1 : 옅은 초록
+  // _t1 < d <= _t2 : 중간 초록
+  // d > _t2 : 진한 초록
+  // 임계값은 보통 러너 한 회 러닝 거리(1~5km) 를 4 분위로 나눈 감으로 잡았다.
+  static const double _t1 = 1.5;
+  static const double _t2 = 4.0;
+
+  Color _levelColor(double distance) {
+    if (distance <= 0) return const Color(0xFFE5E7EB);
+    if (distance <= _t1) return const Color(0xFFBBF7D0); // light
+    if (distance <= _t2) return const Color(0xFF4ADE80); // mid
+    return const Color(0xFF15803D); // strong
+  }
+
+  // BE 응답이 yyyy-MM-dd 라서 한 글자 요일 (월/화/수/목/금/토/일) 로 변환.
+  String _weekdayLabel(String yyyyMmDd) {
+    try {
+      final date = DateTime.parse(yyyyMmDd);
+      const labels = ['월', '화', '수', '목', '금', '토', '일'];
+      return labels[date.weekday - 1];
+    } catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '최근 7일 활동',
+            style: TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1C1C1E),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: activities
+                .map(
+                  (a) => _GrassCell(
+                    weekdayLabel: _weekdayLabel(a.date),
+                    color: _levelColor(a.distance),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GrassCell extends StatelessWidget {
+  final String weekdayLabel;
+  final Color color;
+
+  const _GrassCell({
+    required this.weekdayLabel,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          weekdayLabel,
+          style: const TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 11,
+            color: Color(0xFF6B7280),
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],

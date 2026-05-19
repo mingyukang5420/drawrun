@@ -22,6 +22,31 @@ enum RecordStatsPeriod {
   const RecordStatsPeriod(this.apiValue, this.label);
 }
 
+// 마이페이지 잔디 위젯에 들어가는 하루치 활동 데이터.
+// BE 응답의 weeklyActivity 한 원소에 1:1 대응.
+class DailyActivity {
+  // 활동일 (yyyy-MM-dd)
+  final String date;
+
+  // 그 날 누적 이동 거리(km). 활동 없는 날은 0.0
+  final double distance;
+
+  // 그 날 러닝 횟수. 활동 없는 날은 0
+  final int count;
+
+  const DailyActivity({
+    required this.date,
+    required this.distance,
+    required this.count,
+  });
+
+  factory DailyActivity.fromJson(Map<String, dynamic> json) => DailyActivity(
+        date: json['date'] as String,
+        distance: (json['distance'] as num).toDouble(),
+        count: json['count'] as int,
+      );
+}
+
 // 차트의 막대 한 개에 해당하는 데이터 포인트
 class RecordStatsChartPoint {
   // 막대 아래에 표시되는 라벨 (예: "월", "5", "3월", "2026")
@@ -68,6 +93,11 @@ class RecordStats {
   // 차트에 표시할 막대들. 원소 개수와 라벨은 period 마다 다르다.
   final List<RecordStatsChartPoint> chart;
 
+  // 마이페이지 잔디 위젯에 박는 최근 7일 일별 활동.
+  // BE 가 항상 7개를 보장 (활동 없는 날도 0 으로 채워서 내려옴).
+  // period 와 무관하게 동일 데이터 → 차트(chart) 와 별개 트랙으로 사용.
+  final List<DailyActivity> weeklyActivity;
+
   const RecordStats({
     required this.totalDistance,
     required this.totalCount,
@@ -75,12 +105,19 @@ class RecordStats {
     required this.totalTime,
     required this.periodLabel,
     required this.chart,
+    required this.weeklyActivity,
   });
 
   factory RecordStats.fromJson(Map<String, dynamic> json) {
     final chartRaw = json['chart'] as List<dynamic>? ?? const [];
     final chart = chartRaw
         .map((e) => RecordStatsChartPoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    final weeklyActivityRaw =
+        json['weeklyActivity'] as List<dynamic>? ?? const [];
+    final weeklyActivity = weeklyActivityRaw
+        .map((e) => DailyActivity.fromJson(e as Map<String, dynamic>))
         .toList();
 
     return RecordStats(
@@ -90,6 +127,7 @@ class RecordStats {
       totalTime: json['totalTime'] as String,
       periodLabel: json['periodLabel'] as String,
       chart: chart,
+      weeklyActivity: weeklyActivity,
     );
   }
 
@@ -102,5 +140,6 @@ class RecordStats {
     totalTime: '00:00:00',
     periodLabel: '',
     chart: [],
+    weeklyActivity: [],
   );
 }
