@@ -11,7 +11,7 @@ import 'package:running/features/running/presentation/screen/running_countdown_s
 import 'package:running/shared/network/api_exception.dart';
 
 // 챌린지 내 코스 관리 화면
-// 쉬움/어려움 탭으로 분리, 완료/미시작 상태를 카드 스타일로 구분
+// 랭킹 화면과 동일한 DefaultTabController + TabBar 패턴으로 Easy/Hard 탭 전환
 class CourseManagementScreen extends ConsumerStatefulWidget {
   // 러닝 세션 시작 시 setSessionContext 에 전달할 챌린지 ID
   final int? challengeId;
@@ -38,151 +38,64 @@ class _CourseManagementScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(courseManagementProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 헤더 — 챌린지 제목을 부제목으로 표시
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '내 챌린지 코스',
-                    style: TextStyle(
-                      fontFamily: 'Pretendard',
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1C1C1E),
-                      letterSpacing: -0.5,
-                    ),
+    // DefaultTabController 로 TabBar ↔ TabBarView 를 자동 연결
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF7F8FA),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          // 화면 제목 + 챌린지 이름(있을 때) 을 세로로 배치
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '내 챌린지 코스 관리',
+                style: TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1C1C1E),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              if (state.challengeTitle != null)
+                Text(
+                  state.challengeTitle!,
+                  style: const TextStyle(
+                    fontFamily: 'Pretendard',
+                    fontSize: 12,
+                    color: Color(0xFF9CA3AF),
                   ),
-                  if (state.challengeTitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      state.challengeTitle!,
-                      style: const TextStyle(
-                        fontFamily: 'Pretendard',
-                        fontSize: 13,
-                        color: Color(0xFF9CA3AF),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+            ],
+          ),
+          // 랭킹 화면과 동일한 탭 바 스타일
+          bottom: const TabBar(
+            labelColor: Color(0xFF1C1C1E),
+            unselectedLabelColor: Color(0xFF9CA3AF),
+            labelStyle: TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
-            // 쉬움 / 어려움 난이도 탭 (전체 탭 없음 — 탭 재선택 시 전체로 토글됨)
-            _DifficultyTabs(
-              selected: state.selectedDifficulty,
-              onSelect: (d) =>
-                  ref.read(courseManagementProvider.notifier).selectDifficulty(d),
+            unselectedLabelStyle: TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
             ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _CourseList(
-                state: state,
-                ref: ref,
-                challengeId: widget.challengeId,
-              ),
-            ),
-          ],
+            indicatorColor: Color(0xFF1C1C1E),
+            indicatorWeight: 2.5,
+            tabs: [Tab(text: 'Easy'), Tab(text: 'Hard')],
+          ),
         ),
+        body: _buildBody(state),
       ),
     );
   }
-}
 
-// ── 난이도 탭 ──────────────────────────────────────────────────────────
-// 전체 탭 없음 — 선택된 탭을 다시 누르면 전체 보기로 토글
-class _DifficultyTabs extends StatelessWidget {
-  final String? selected; // null=전체(토글), 'EASY', 'HARD'
-  final ValueChanged<String> onSelect;
-
-  const _DifficultyTabs({required this.selected, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          _Tab(
-            label: '쉬움',
-            color: const Color(0xFF27AE60),
-            isSelected: selected == 'EASY',
-            onTap: () => onSelect('EASY'),
-          ),
-          const SizedBox(width: 8),
-          _Tab(
-            label: '어려움',
-            color: const Color(0xFFE74C3C),
-            isSelected: selected == 'HARD',
-            onTap: () => onSelect('HARD'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Tab extends StatelessWidget {
-  final String label;
-  final Color color;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _Tab({
-    required this.label,
-    required this.color,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? color : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? color : const Color(0xFFE5E7EB),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Pretendard',
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: isSelected ? Colors.white : const Color(0xFF6B7280),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── 코스 목록 ─────────────────────────────────────────────────────────
-class _CourseList extends StatelessWidget {
-  final CourseManagementState state;
-  final WidgetRef ref;
-  final int? challengeId;
-
-  const _CourseList({
-    required this.state,
-    required this.ref,
-    this.challengeId,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildBody(CourseManagementState state) {
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -207,8 +120,38 @@ class _CourseList extends StatelessWidget {
       );
     }
 
-    final drafts = state.filtered;
+    // 탭별로 byDifficulty 로 클라이언트 필터링하여 각 리스트 표시
+    return TabBarView(
+      children: [
+        _CourseListContent(
+          drafts: state.byDifficulty('EASY'),
+          ref: ref,
+          challengeId: widget.challengeId,
+        ),
+        _CourseListContent(
+          drafts: state.byDifficulty('HARD'),
+          ref: ref,
+          challengeId: widget.challengeId,
+        ),
+      ],
+    );
+  }
+}
 
+// ── 탭별 코스 목록 ─────────────────────────────────────────────────────
+class _CourseListContent extends StatelessWidget {
+  final List<CourseDraft> drafts;
+  final WidgetRef ref;
+  final int? challengeId;
+
+  const _CourseListContent({
+    required this.drafts,
+    required this.ref,
+    this.challengeId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     if (drafts.isEmpty) {
       return const Center(
         child: Column(
@@ -231,9 +174,7 @@ class _CourseList extends StatelessWidget {
 
     // 완료된 코스를 위로, 미시작 코스를 아래로 정렬
     final sorted = [...drafts]..sort((a, b) {
-        final aScore = _statusOrder(a.status);
-        final bScore = _statusOrder(b.status);
-        return aScore.compareTo(bScore);
+        return _statusOrder(a.status).compareTo(_statusOrder(b.status));
       });
 
     return RefreshIndicator(
@@ -242,7 +183,7 @@ class _CourseList extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         itemCount: sorted.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (_, i) => _CourseDraftCard(
           draft: sorted[i],
           challengeId: challengeId,
@@ -351,122 +292,168 @@ class _CourseDraftCard extends ConsumerWidget {
                 CourseDetailScreen(courseDraftId: draft.courseDraftId),
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 왼쪽 난이도 색상 바 (완료=진한색, 미시작=연한색)
-            Container(
-              width: 5,
-              color: isCompleted
-                  ? diffColor
-                  : diffColor.withValues(alpha: 0.3),
-            ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 왼쪽 난이도 색상 바 (완료=진한색, 미시작=연한색)
+              Container(
+                width: 5,
+                color: isCompleted
+                    ? diffColor
+                    : diffColor.withValues(alpha: 0.3),
+              ),
 
-            // 썸네일
-            _Thumbnail(url: draft.trackImageUrl, isCompleted: isCompleted),
+              // 썸네일
+              _Thumbnail(url: draft.trackImageUrl, isCompleted: isCompleted),
 
-            // 정보 영역
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 제목 + 난이도 배지 + 상태 배지
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            draft.title,
-                            style: TextStyle(
-                              fontFamily: 'Pretendard',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: isCompleted
-                                  ? const Color(0xFF1C1C1E)
-                                  : const Color(0xFF6B7280),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        // 완료 여부 배지
-                        _StatusBadge(isCompleted: isCompleted),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-
-                    // 거리 + 난이도 라벨
-                    Row(
-                      children: [
-                        const Icon(Icons.straighten,
-                            size: 12, color: Color(0xFF9CA3AF)),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${draft.distance.toStringAsFixed(1)} km',
-                          style: const TextStyle(
-                            fontFamily: 'Pretendard',
-                            fontSize: 12,
-                            color: Color(0xFF9CA3AF),
-                          ),
-                        ),
-                        if (diffLabel.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: diffColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
+              // 정보 영역
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 제목 + 상태 배지
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              diffLabel,
+                              draft.title,
                               style: TextStyle(
                                 fontFamily: 'Pretendard',
-                                fontSize: 10,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w700,
+                                color: isCompleted
+                                    ? const Color(0xFF1C1C1E)
+                                    : const Color(0xFF6B7280),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _StatusBadge(isCompleted: isCompleted),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+
+                      // 거리 + 난이도 라벨
+                      Row(
+                        children: [
+                          const Icon(Icons.straighten,
+                              size: 12, color: Color(0xFF9CA3AF)),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${draft.distance.toStringAsFixed(1)} km',
+                            style: const TextStyle(
+                              fontFamily: 'Pretendard',
+                              fontSize: 12,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                          ),
+                          if (diffLabel.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: diffColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                diffLabel,
+                                style: TextStyle(
+                                  fontFamily: 'Pretendard',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: diffColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                          // 완료 시 유사도 점수 표시
+                          if (isCompleted &&
+                              draft.similarityScore != null) ...[
+                            const Spacer(),
+                            Text(
+                              '유사도 ${draft.similarityScore!.toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                fontFamily: 'Pretendard',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
                                 color: diffColor,
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                        // 완료 시 유사도 점수 표시
-                        if (isCompleted &&
-                            draft.similarityScore != null) ...[
-                          const Spacer(),
-                          Text(
-                            '유사도 ${draft.similarityScore!.toStringAsFixed(0)}%',
-                            style: TextStyle(
-                              fontFamily: 'Pretendard',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: diffColor,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 10),
+                      ),
+                      const SizedBox(height: 10),
 
-                    // 버튼 행
-                    Row(
-                      children: [
-                        // 편집 버튼 (미시작만 표시)
-                        if (!isCompleted) ...[
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        const CourseEditorScreen()),
+                      // 버튼 행
+                      Row(
+                        children: [
+                          // 편집 버튼 (미시작만 표시)
+                          if (!isCompleted) ...[
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const CourseEditorScreen()),
+                                ),
+                                icon: const Icon(Icons.edit_outlined, size: 14),
+                                label: const Text('편집'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF6B7280),
+                                  side: const BorderSide(
+                                      color: Color(0xFFE5E7EB)),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 6),
+                                  textStyle: const TextStyle(
+                                    fontFamily: 'Pretendard',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                              icon: const Icon(Icons.edit_outlined, size: 14),
-                              label: const Text('편집'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF6B7280),
-                                side: const BorderSide(
-                                    color: Color(0xFFE5E7EB)),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+
+                          // 러닝 시작 / 다시 도전 버튼
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                // courseId 있으면 완성된 코스 러닝, 없으면 에디터 검증 러닝
+                                ref
+                                    .read(runningViewModelProvider.notifier)
+                                    .setSessionContext(
+                                      challengeId: challengeId,
+                                      courseId: draft.courseId,
+                                      courseDraftId: draft.courseId == null
+                                          ? draft.courseDraftId
+                                          : null,
+                                    );
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const RunningCountdownScreen()),
+                                );
+                              },
+                              icon: Icon(
+                                isCompleted
+                                    ? Icons.refresh
+                                    : Icons.play_arrow,
+                                size: 14,
+                              ),
+                              label: Text(isCompleted ? '다시 도전' : '러닝 시작'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: diffColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10)),
                                 padding:
@@ -474,84 +461,39 @@ class _CourseDraftCard extends ConsumerWidget {
                                 textStyle: const TextStyle(
                                   fontFamily: 'Pretendard',
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                        ],
 
-                        // 러닝 시작 / 다시 도전 버튼
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              // courseId 있으면 완성된 코스 러닝, 없으면 에디터 검증 러닝
-                              ref
-                                  .read(runningViewModelProvider.notifier)
-                                  .setSessionContext(
-                                    challengeId: challengeId,
-                                    courseId: draft.courseId,
-                                    courseDraftId: draft.courseId == null
-                                        ? draft.courseDraftId
-                                        : null,
-                                  );
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        const RunningCountdownScreen()),
-                              );
-                            },
-                            icon: Icon(
-                              isCompleted
-                                  ? Icons.refresh
-                                  : Icons.play_arrow,
-                              size: 14,
-                            ),
-                            label: Text(isCompleted ? '다시 도전' : '러닝 시작'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: diffColor,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 6),
-                              textStyle: const TextStyle(
-                                fontFamily: 'Pretendard',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                          // 삭제 버튼
+                          SizedBox(
+                            height: 36,
+                            child: OutlinedButton(
+                              onPressed: onDelete,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFE74C3C),
+                                side:
+                                    const BorderSide(color: Color(0xFFE74C3C)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 10),
                               ),
+                              child:
+                                  const Icon(Icons.delete_outline, size: 16),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // 삭제 버튼
-                        SizedBox(
-                          height: 36,
-                          child: OutlinedButton(
-                            onPressed: onDelete,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFE74C3C),
-                              side:
-                                  const BorderSide(color: Color(0xFFE74C3C)),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 10),
-                            ),
-                            child:
-                                const Icon(Icons.delete_outline, size: 16),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -618,7 +560,7 @@ class _Thumbnail extends StatelessWidget {
             width: 80,
             height: 80,
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _placeholder(),
+            errorBuilder: (_, __, ___) => _placeholder(),
           )
         : _placeholder();
 
