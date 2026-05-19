@@ -408,8 +408,8 @@ public class EditorController {
     }
 
     @Operation(
-            summary = "특정 challengeId에 맞는 courseDraft 목록 조회",
-            description = "page는 기본값 0"
+            summary = "최근 챌린지 두개에 맞는 courseDraft 목록 조회",
+            description = "page는 기본값 0, similarityScore는 기록이 없을 경우 응답에 포함되지 않습니다."
     )
     @GetMapping("/challenge")
     public ApiResponse<DraftListResultResponse> getCourseDraftList(
@@ -425,7 +425,7 @@ public class EditorController {
     @Operation(
             summary = "특정 challengeId에 맞는 courseDraft 상세 조회"
     )
-    @GetMapping("/{courseDraftId}/challenge/{challengeId}")
+    @GetMapping("/{courseDraftId}/challenge/{challengeId}")us
     public ApiResponse<DraftDetailResponse> getCourseDraftDetail(
             @PathVariable Long courseDraftId,
             @PathVariable Long challengeId,
