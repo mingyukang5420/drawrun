@@ -373,49 +373,50 @@ class _ChallengeRankingTab extends ConsumerWidget {
 
     final state = ref.watch(challengeRankingViewModelProvider);
     final ranking = state.rankingFor(id);
-    final loading = state.isLoading(id);
     final error = state.errorFor(id);
 
-    // 로딩 — 첫 fetch 중 (캐시도 비었고 로딩 표시는 켜짐).
-    if (loading && ranking == null) {
+    // 캐시가 비어 있는 상태를 한 곳에서 모두 처리.
+    // - 에러가 잡혀 있으면 재시도 안내
+    // - 그 외에는 모두 로딩 인디케이터 (loading 플래그가 켜지기 전 한 프레임 포함)
+    //   이 분기 덕에 prefetch 가 시작되기 직전이나 build 와 microtask 사이의 짧은 순간에
+    //   null assertion 이 throw 되어 빨간 에러 박스가 깜빡이는 일이 없다.
+    if (ranking == null) {
+      if (error != null) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline,
+                    color: Color(0xFF9CA3AF), size: 32),
+                const SizedBox(height: 8),
+                Text(
+                  '랭킹을 불러오지 못했어요.\n$error',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Pretendard',
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => ref
+                      .read(challengeRankingViewModelProvider.notifier)
+                      .refresh(id),
+                  child: const Text('다시 시도'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
       return const Center(child: CircularProgressIndicator());
     }
 
-    // 에러 — 재시도 안내 (캐시도 비었고 에러만 있음).
-    if (error != null && ranking == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline,
-                  color: Color(0xFF9CA3AF), size: 32),
-              const SizedBox(height: 8),
-              Text(
-                '랭킹을 불러오지 못했어요.\n$error',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontSize: 13,
-                  color: Color(0xFF6B7280),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => ref
-                    .read(challengeRankingViewModelProvider.notifier)
-                    .refresh(id),
-                child: const Text('다시 시도'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     // 정상 — 응답 본체를 _RankingList 로 흘려보낸다.
-    return _RankingList(ranking: ranking!, accentColor: accentColor);
+    return _RankingList(ranking: ranking, accentColor: accentColor);
   }
 }
 
