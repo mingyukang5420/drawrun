@@ -8,7 +8,6 @@ import 'package:running/features/course/presentation/screen/course_detail_screen
 import 'package:running/features/course/presentation/screen/course_editor_screen.dart';
 import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
-import 'package:running/shared/network/api_exception.dart';
 
 // 챌린지 내 코스 관리 화면
 // 랭킹 화면과 동일한 DefaultTabController + TabBar 패턴으로 Easy/Hard 탭 전환
@@ -62,32 +61,23 @@ class _CourseManagementScreenState
               letterSpacing: -0.5,
             ),
           ),
-          // 각 탭에 코스 수 배지를 표시 (랭킹 화면과 동일한 기본 스타일 유지)
-          bottom: TabBar(
-            labelColor: const Color(0xFF1C1C1E),
-            unselectedLabelColor: const Color(0xFF9CA3AF),
-            labelStyle: const TextStyle(
+          // 랭킹 화면과 동일한 탭 바 스타일
+          bottom: const TabBar(
+            labelColor: Color(0xFF1C1C1E),
+            unselectedLabelColor: Color(0xFF9CA3AF),
+            labelStyle: TextStyle(
               fontFamily: 'Pretendard',
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
-            unselectedLabelStyle: const TextStyle(
+            unselectedLabelStyle: TextStyle(
               fontFamily: 'Pretendard',
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
-            indicatorColor: const Color(0xFF1C1C1E),
+            indicatorColor: Color(0xFF1C1C1E),
             indicatorWeight: 2.5,
-            tabs: [
-              _DifficultyTab(
-                  label: 'Easy',
-                  count: easyDrafts.length,
-                  color: _easyColor),
-              _DifficultyTab(
-                  label: 'Hard',
-                  count: hardDrafts.length,
-                  color: _hardColor),
-            ],
+            tabs: [Tab(text: 'Easy'), Tab(text: 'Hard')],
           ),
         ),
         body: _buildBody(state, easyDrafts, hardDrafts),
@@ -140,52 +130,6 @@ class _CourseManagementScreenState
           challengeId: widget.challengeId,
         ),
       ],
-    );
-  }
-}
-
-// ── 난이도 탭 라벨 + 코스 수 배지 ────────────────────────────────────────
-class _DifficultyTab extends StatelessWidget {
-  final String label;
-  final int count;
-  final Color color;
-
-  const _DifficultyTab({
-    required this.label,
-    required this.count,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tab(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label),
-          if (count > 0) ...[
-            const SizedBox(width: 6),
-            // 코스 수를 난이도 색상 배지로 표시
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '$count',
-                style: const TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -332,8 +276,6 @@ class _CourseListContentState extends State<_CourseListContent> {
                     itemBuilder: (_, i) => _CourseDraftCard(
                       draft: items[i],
                       challengeId: widget.challengeId,
-                      onDelete: () => _confirmDelete(
-                          context, widget.ref, items[i].courseDraftId),
                     ),
                   ),
                 ),
@@ -461,55 +403,14 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-Future<void> _confirmDelete(
-    BuildContext context, WidgetRef ref, int courseDraftId) async {
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('코스 삭제'),
-      content: const Text('이 코스를 삭제하면 되돌릴 수 없습니다.\n정말 삭제하시겠습니까?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('취소'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          style: TextButton.styleFrom(foregroundColor: const Color(0xFFE74C3C)),
-          child: const Text('삭제'),
-        ),
-      ],
-    ),
-  );
-  if (confirmed == true && context.mounted) {
-    try {
-      await ref
-          .read(courseManagementProvider.notifier)
-          .deleteCourse(courseDraftId);
-    } on ApiException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('삭제에 실패했습니다')));
-      }
-    }
-  }
-}
-
 // ── 코스 카드 ─────────────────────────────────────────────────────────
 // 왼쪽 난이도 색상 바 + 완료/미시작 상태를 시각적으로 구분
 class _CourseDraftCard extends ConsumerWidget {
   final CourseDraft draft;
-  final VoidCallback onDelete;
   final int? challengeId;
 
   const _CourseDraftCard({
     required this.draft,
-    required this.onDelete,
     this.challengeId,
   });
 
@@ -724,26 +625,6 @@ class _CourseDraftCard extends ConsumerWidget {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // 삭제 버튼
-                          SizedBox(
-                            height: 36,
-                            child: OutlinedButton(
-                              onPressed: onDelete,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFE74C3C),
-                                side:
-                                    const BorderSide(color: Color(0xFFE74C3C)),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 10),
-                              ),
-                              child:
-                                  const Icon(Icons.delete_outline, size: 16),
                             ),
                           ),
                         ],
