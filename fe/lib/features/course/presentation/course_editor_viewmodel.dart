@@ -32,6 +32,21 @@ class _PQEntry implements Comparable<_PQEntry> {
   int compareTo(_PQEntry other) => dist.compareTo(other.dist);
 }
 
+// 도로 선분 위 최근접 스냅 결과
+// point: 실제 노드로 추가할 선분 위 좌표
+// segmentStart/segmentEnd: 임시 그래프 연결을 위한 선분 양 끝 좌표
+class _SnapResult {
+  final NLatLng point;
+  final NLatLng segmentStart;
+  final NLatLng segmentEnd;
+
+  _SnapResult({
+    required this.point,
+    required this.segmentStart,
+    required this.segmentEnd,
+  });
+}
+
 // 코스 편집 화면의 불변 상태 클래스
 // 모든 필드는 final 로 선언하고 copyWith 로만 갱신한다
 class CourseEditorState {
@@ -65,6 +80,10 @@ class CourseEditorState {
   // true 이면 도로 밖 탭이 차단됨을 UI 에서 안내할 수 있다
   final bool hasWays;
 
+  // 도로 데이터 요청 진행 여부
+  // 로딩 중 탭 입력 차단 안내에 사용되는 상태
+  final bool isLoadingWays;
+
   // 챌린지 컨텍스트에서 진입 시 설정 — 저장 시 POST 바디에 포함
   // null 이면 일반 코스 저장 (challengeId 없이 전송)
   final int? challengeId;
@@ -84,6 +103,7 @@ class CourseEditorState {
     this.isSaving = false,
     this.saveError,
     this.hasWays = false,
+    this.isLoadingWays = false,
     this.challengeId,
     this.savedCourseDraftId,
   });
@@ -97,6 +117,7 @@ class CourseEditorState {
     bool? autoSnap,
     bool? isSaving,
     bool? hasWays,
+    bool? isLoadingWays,
     int? challengeId,
     int? savedCourseDraftId,
     // ?? 대신 직접 할당 → null 로 명시적으로 초기화 가능
@@ -111,11 +132,10 @@ class CourseEditorState {
       autoSnap: autoSnap ?? this.autoSnap,
       isSaving: isSaving ?? this.isSaving,
       hasWays: hasWays ?? this.hasWays,
+      isLoadingWays: isLoadingWays ?? this.isLoadingWays,
       challengeId: challengeId ?? this.challengeId,
       savedCourseDraftId: savedCourseDraftId ?? this.savedCourseDraftId,
-      saveError: saveError == _sentinel
-          ? this.saveError
-          : saveError as String?,
+      saveError: saveError == _sentinel ? this.saveError : saveError as String?,
     );
   }
 }
@@ -158,6 +178,10 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
 
   // 오버레이 고유 ID 생성용 카운터 (같은 osmId 세그먼트마다 다른 ID 부여)
   int _wayOverlaySeq = 0;
+
+  // 도로 데이터 요청 순번
+  // 늦게 도착한 이전 뷰포트 응답 무시를 위한 기준값
+  int _loadWaysRequestSeq = 0;
 
   // Dijkstra 라우팅 그래프
   // 키: "${lat},${lng}" 문자열, 값: 인접 꼭짓점으로 가는 엣지 목록
@@ -222,18 +246,14 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
 
   // 지도 탭 → 새 노드 추가
   // 도로 그래프가 로드돼 있으면 탭 지점에서 30m 이내의 가장 가까운
-  // 도로 꼭짓점에 스냅하고, 이전 노드에서 그 꼭짓점까지 Dijkstra 로
-  // 도로 위 최단 경로를 그린다.
-  // 반환값: true = 노드 추가됨, false = 도로 30m 밖 탭으로 차단됨
+  // 도로 선분 위 지점에 스냅하고, 이전 노드에서 해당 지점까지 Dijkstra 로
+  // 도로 위 최단 경로 구성
+  // 반환값: true = 노드 추가됨, false = 도로 미로딩 또는 30m 밖 탭 차단
   bool addNode(NLatLng tapPoint) {
-    final NLatLng point;
-    if (_wayCoordinates.isNotEmpty) {
-      final snapped = _snapToNearestVertex(tapPoint);
-      if (snapped == null) return false; // 도로 30m 밖 탭은 무시
-      point = snapped;
-    } else {
-      point = tapPoint; // 도로 미표시 상태의 폴백
-    }
+    if (_wayCoordinates.isEmpty) return false; // 도로 데이터 로딩 전 입력 차단
+    final snapped = _snapToNearestSegment(tapPoint);
+    if (snapped == null) return false; // 도로 30m 밖 탭 차단
+    final point = snapped.point;
     final newUndo = [...state.undoStack, List<NLatLng>.from(state.nodes)];
     final newNodes = [...state.nodes, point];
     state = state.copyWith(
@@ -332,8 +352,9 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // thumbnailBase64: TrackSnapshotMap 이 캡처한 PNG 를 base64 인코딩한 문자열
   Future<void> saveCourse({String? thumbnailBase64}) async {
     // 도로를 따라가는 전체 좌표가 있으면 그것을, 없으면 스냅 노드만 사용
-    final pathPoints =
-        _currentRouteCoords.isNotEmpty ? _currentRouteCoords : state.nodes;
+    final pathPoints = _currentRouteCoords.isNotEmpty
+        ? _currentRouteCoords
+        : state.nodes;
 
     // 지도 SDK 타입(NLatLng) → 도메인 타입(shared.LatLng) 변환
     final domainPoints = pathPoints
@@ -351,11 +372,12 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       // 저장 성공 시 BE 가 발급한 courseDraftId 를 받는다.
       // reset() 이 다른 state 필드를 비우므로 ID 보관은 reset 직후에 한 번 더 갱신.
       // 화면(_askToStartRun) 이 이 값을 꺼내 RunningNotifier.setSessionContext 에 전달한다.
-      final draftId =
-          await _repository.saveCourse(course, thumbnailBase64: thumbnailBase64);
+      final draftId = await _repository.saveCourse(
+        course,
+        thumbnailBase64: thumbnailBase64,
+      );
       reset();
-      state =
-          state.copyWith(isSaving: false, savedCourseDraftId: draftId);
+      state = state.copyWith(isSaving: false, savedCourseDraftId: draftId);
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e.message);
     } catch (_) {
@@ -375,7 +397,10 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   void _drawRoute(List<NLatLng> nodes) {
     if (_mapController == null) return;
     _clearPolyline();
-    if (nodes.length < 2) return;
+    if (nodes.length < 2) {
+      _currentRouteCoords = [];
+      return;
+    }
 
     final coords = _buildFullRoute(nodes);
     _currentRouteCoords = coords;
@@ -408,17 +433,21 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // (지도 초기 진입 시 기본 줌이 14~15 이므로 별도 확대 없이 바로 표시됨)
   Future<void> loadWays() async {
     if (_mapController == null) return;
+    final requestSeq = ++_loadWaysRequestSeq;
     try {
       // 현재 카메라 위치와 줌 레벨을 조회한다
       final position = await _mapController!.getCameraPosition();
+      if (requestSeq != _loadWaysRequestSeq) return;
       if (position.zoom < 14) {
         // 줌 13 이하에서는 새로 요청하지 않는다
         // 기존에 로드된 도로는 유지해 사용자가 다시 확대했을 때 즉시 표시된다
         return;
       }
+      state = state.copyWith(isLoadingWays: true);
       // 현재 화면에 보이는 지도 범위를 조회한다
       // _kBoundsPaddingDeg 여백을 추가해 화면 경계 도로가 중간에 끊기지 않도록 한다
       final bounds = await _mapController!.getContentBounds();
+      if (requestSeq != _loadWaysRequestSeq) return;
       final ways = await _repository.getWays(
         minLat: bounds.southWest.latitude - _kBoundsPaddingDeg,
         minLng: bounds.southWest.longitude - _kBoundsPaddingDeg,
@@ -426,11 +455,16 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         maxLng: bounds.northEast.longitude + _kBoundsPaddingDeg,
         zoom: position.zoom.toInt(),
       );
+      if (requestSeq != _loadWaysRequestSeq) return;
       _drawWays(ways);
     } on ApiException {
       // 도로 데이터 로드 실패는 조용히 무시한다 (보조 기능이므로 UX 방해 최소화)
     } catch (_) {
       // SDK 호출 실패 등 예상치 못한 오류도 무시
+    } finally {
+      if (requestSeq == _loadWaysRequestSeq) {
+        state = state.copyWith(isLoadingWays: false);
+      }
     }
   }
 
@@ -521,15 +555,25 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     return result;
   }
 
-  // Dijkstra 알고리즘으로 그래프 상의 from → to 최단 경로 좌표 목록을 반환한다
-  // 두 꼭짓점이 같거나 경로가 없으면 null 을 반환한다
+  // Dijkstra 알고리즘 기반 from → to 최단 경로 좌표 목록
+  // 선분 위 스냅 좌표를 임시 노드로 연결해 끝점 쏠림 없이 경로 복원
   List<NLatLng>? _findPath(NLatLng from, NLatLng to) {
-    final startKey = _latlngKey(from);
-    final endKey = _latlngKey(to);
-    if (startKey == endKey) return [from];
-    if (!_graph.containsKey(startKey) || !_graph.containsKey(endKey)) {
-      return null;
+    final fromSnap = _snapToNearestSegment(from);
+    final toSnap = _snapToNearestSegment(to);
+    if (fromSnap == null || toSnap == null) return null;
+    if (_isSameSegment(fromSnap, toSnap)) {
+      return [fromSnap.point, toSnap.point];
     }
+
+    final graph = <String, List<_GraphEdge>>{
+      for (final entry in _graph.entries) entry.key: List.of(entry.value),
+    };
+    final graphNodes = Map<String, NLatLng>.of(_graphNodes);
+
+    final startKey = _attachPointToGraph(from, graph, graphNodes);
+    final endKey = _attachPointToGraph(to, graph, graphNodes);
+    if (startKey == null || endKey == null) return null;
+    if (startKey == endKey) return [graphNodes[startKey]!];
 
     final dist = <String, double>{startKey: 0.0};
     final prev = <String, String?>{};
@@ -541,7 +585,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       final cur = open.removeAt(0);
       if (cur.key == endKey) break;
       final curDist = dist[cur.key]!;
-      for (final edge in _graph[cur.key] ?? []) {
+      for (final edge in graph[cur.key] ?? []) {
         final nd = curDist + edge.dist;
         if (nd < (dist[edge.to] ?? double.infinity)) {
           dist[edge.to] = nd;
@@ -556,28 +600,96 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     final path = <NLatLng>[];
     String? k = endKey;
     while (k != null) {
-      path.add(_graphNodes[k]!);
+      path.add(graphNodes[k]!);
       k = prev[k];
     }
     return path.reversed.toList();
   }
 
-  // 탭 지점에서 가장 가까운 도로 꼭짓점을 반환한다
-  // 꼭짓점에 스냅해야 _graph 에서 Dijkstra 시작/끝 노드를 정확히 찾을 수 있다
-  // _kSnapThresholdM 초과이면 null 을 반환해 노드 추가를 차단한다
-  NLatLng? _snapToNearestVertex(NLatLng tap) {
-    NLatLng? best;
+  // 두 스냅 지점의 기준 도로 선분 동일 여부
+  // 같은 선분 위 노드 간 끝점 우회 방지를 위한 비교
+  bool _isSameSegment(_SnapResult a, _SnapResult b) {
+    final aStart = _latlngKey(a.segmentStart);
+    final aEnd = _latlngKey(a.segmentEnd);
+    final bStart = _latlngKey(b.segmentStart);
+    final bEnd = _latlngKey(b.segmentEnd);
+    return (aStart == bStart && aEnd == bEnd) ||
+        (aStart == bEnd && aEnd == bStart);
+  }
+
+  // 탭 지점에서 가장 가까운 도로 선분 위 좌표 반환
+  // 꼭짓점이 아닌 선분 투영 좌표 사용으로 끝점 쏠림 완화
+  // _kSnapThresholdM 초과이면 null 반환을 통한 노드 추가 차단
+  _SnapResult? _snapToNearestSegment(NLatLng tap) {
+    _SnapResult? best;
     double bestDist = double.infinity;
     for (final coords in _wayCoordinates) {
-      for (final coord in coords) {
-        final d = _haversineKm(tap, coord) * 1000; // m 단위
+      for (int i = 0; i < coords.length - 1; i++) {
+        final a = coords[i];
+        final b = coords[i + 1];
+        final point = _closestPointOnSegment(tap, a, b);
+        final d = _haversineKm(tap, point) * 1000; // m 단위
         if (d < bestDist) {
           bestDist = d;
-          best = coord;
+          best = _SnapResult(point: point, segmentStart: a, segmentEnd: b);
         }
       }
     }
     return (bestDist <= _kSnapThresholdM) ? best : null;
+  }
+
+  // 임의의 스냅 좌표를 Dijkstra 임시 그래프에 연결
+  // 선분 양 끝점과의 양방향 엣지 추가를 통한 경로 탐색 준비
+  String? _attachPointToGraph(
+    NLatLng point,
+    Map<String, List<_GraphEdge>> graph,
+    Map<String, NLatLng> graphNodes,
+  ) {
+    final pointKey = _latlngKey(point);
+    if (graph.containsKey(pointKey)) return pointKey;
+
+    final snapped = _snapToNearestSegment(point);
+    if (snapped == null) return null;
+
+    final startKey = _latlngKey(snapped.segmentStart);
+    final endKey = _latlngKey(snapped.segmentEnd);
+    if (!graph.containsKey(startKey) || !graph.containsKey(endKey)) {
+      return null;
+    }
+
+    graphNodes[pointKey] = snapped.point;
+    graph.putIfAbsent(pointKey, () => []);
+
+    final startDist = _haversineKm(snapped.point, snapped.segmentStart) * 1000;
+    final endDist = _haversineKm(snapped.point, snapped.segmentEnd) * 1000;
+    graph[pointKey]!.add(_GraphEdge(startKey, startDist));
+    graph[pointKey]!.add(_GraphEdge(endKey, endDist));
+    graph[startKey]!.add(_GraphEdge(pointKey, startDist));
+    graph[endKey]!.add(_GraphEdge(pointKey, endDist));
+
+    return pointKey;
+  }
+
+  // 위경도 좌표를 로컬 평면 좌표처럼 투영해 선분 위 최근접점 계산
+  // 화면 단위의 짧은 도로 선분에서 충분한 근사 정확도 확보
+  NLatLng _closestPointOnSegment(NLatLng p, NLatLng a, NLatLng b) {
+    final latScale = 111320.0;
+    final lngScale = 111320.0 * cos(_toRad((a.latitude + b.latitude) / 2));
+
+    final px = p.longitude * lngScale;
+    final py = p.latitude * latScale;
+    final ax = a.longitude * lngScale;
+    final ay = a.latitude * latScale;
+    final bx = b.longitude * lngScale;
+    final by = b.latitude * latScale;
+
+    final dx = bx - ax;
+    final dy = by - ay;
+    final len2 = dx * dx + dy * dy;
+    if (len2 == 0) return a;
+
+    final t = (((px - ax) * dx + (py - ay) * dy) / len2).clamp(0.0, 1.0);
+    return NLatLng((ay + dy * t) / latScale, (ax + dx * t) / lngScale);
   }
 
   // 좌표를 그래프 키로 변환한다 (부동소수점 동등 비교를 문자열 비교로 대체)
@@ -603,7 +715,8 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     const r = 6371.0;
     final dLat = _toRad(b.latitude - a.latitude);
     final dLon = _toRad(b.longitude - a.longitude);
-    final h = sin(dLat / 2) * sin(dLat / 2) +
+    final h =
+        sin(dLat / 2) * sin(dLat / 2) +
         cos(_toRad(a.latitude)) *
             cos(_toRad(b.latitude)) *
             sin(dLon / 2) *
