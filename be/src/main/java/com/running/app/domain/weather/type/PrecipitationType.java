@@ -2,22 +2,33 @@ package com.running.app.domain.weather.type;
 
 public enum PrecipitationType {
 
-    NONE(0, "없음"),
-    RAIN(1, "비"),
-    RAIN_SNOW(2, "비/눈"),
-    SNOW(3, "눈"),
-    SHOWER(4, "소나기");
+    NONE(0, "없음", "null"),
+    RAIN(1, "비", "가벼운 빗속 러닝도 매력 있어요!"),
+    RAIN_SNOW(2, "비/눈", "미끄러우니 달릴 때 조심!"),
+    SNOW(3, "눈", "미끄러우니 달릴 때 조심!"),
+    SHOWER(4, "소나기", "소나기가 지나가고 달려볼까요?");
 
     private final int code;
     private final String label;
+    private final String message;
 
-    PrecipitationType(int code, String label) {
+    PrecipitationType(int code, String label, String message) {
         this.code = code;
         this.label = label;
+        this.message = message;
     }
 
-    public int getCode() { return code; }
-    public String getLabel() { return label; }
+    public int getCode() {
+        return code;
+    }
+
+    public String getLabel() {
+        return label;
+    }
+
+    public String getMessage() {
+        return message;
+    }
 
     // 기상청에서 받은 숫자 코드 → PrecipitationType enum으로 변환
     // 예: fromCode(1) → RAIN
