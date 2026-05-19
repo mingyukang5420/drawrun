@@ -1,5 +1,5 @@
 // 내 코스 목록 한 항목을 표현하는 데이터 모델
-// GET /api/v1/editor 응답의 content 배열 원소 하나에 대응한다
+// GET /api/v1/editor 및 GET /api/v1/editor/challenge 응답의 content 배열 원소에 대응한다
 class CourseDraft {
   // 에디터에서 저장된 "초안" 코스 식별자 — 러닝 완료 전까지 이 ID로 관리
   final int courseDraftId;
@@ -9,16 +9,16 @@ class CourseDraft {
   final int? courseId;
 
   final String title;
-  final String? difficulty; // 'EASY' | 'NORMAL' | 'HARD'
-  final String? status; // 'READY' | 'DONE' | 'REGISTERED'
+  final String? difficulty;  // 에디터에서 그린 코스의 난이도 — 'EASY' | 'NORMAL' | 'HARD'
+  final String? status;      // 'READY' | 'DONE' | 'REGISTERED'
   final double distance;
   final String? trackImageUrl;
   final DateTime? createdAt;
 
   // 챌린지 코스 목록 API(/api/v1/editor/challenge)에서만 내려오는 필드
   // 일반 내 코스 목록 API(/api/v1/editor)에서는 null
-  final String? challengeTitle;   // 소속 챌린지 이름
-  final double? similarityScore;  // 챌린지 코스와의 유사도 점수
+  final double? similarityScore;      // 챌린지 코스와의 유사도 점수
+  final String? challengeDifficulty;  // 챌린지 자체 난이도 — 'EASY' | 'HARD'
 
   const CourseDraft({
     required this.courseDraftId,
@@ -29,8 +29,8 @@ class CourseDraft {
     required this.distance,
     this.trackImageUrl,
     this.createdAt,
-    this.challengeTitle,
     this.similarityScore,
+    this.challengeDifficulty,
   });
 
   factory CourseDraft.fromJson(Map<String, dynamic> json) => CourseDraft(
@@ -45,7 +45,7 @@ class CourseDraft {
             ? DateTime.tryParse(json['createdAt'] as String)
             : null,
         // 챌린지 API에서만 내려오므로 없으면 null 처리
-        challengeTitle: json['challengeTitle'] as String?,
         similarityScore: (json['similarityScore'] as num?)?.toDouble(),
+        challengeDifficulty: json['challengeDifficulty'] as String?,
       );
 }
