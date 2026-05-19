@@ -142,8 +142,8 @@ public class ChallengeService {
 
         int year = startedAt.getYear();
         int month = startedAt.getMonthValue();
-        int weekOfMont = startedAt.get(WeekFields.ISO.weekOfMonth());
+        int weekOfMonth = startedAt.get(WeekFields.ISO.weekOfMonth());
 
-        return year + "년 " + month + "월 " + weekOfMont + "주차 " + title;
+        return year + "년 " + month + "월 " + weekOfMonth + "주차 " + title;
     }
 }
