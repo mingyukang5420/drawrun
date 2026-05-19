@@ -73,6 +73,11 @@ public abstract class RecordResponse {
         private String periodLabel;
         private List<ChartDTO> chart;
 
+        // 마이페이지 주간 잔디 위젯용 — 오늘을 포함한 최근 7일의 일별 활동 기록.
+        // period 값과 무관하게 항상 같은 7일 데이터가 들어간다 (잔디는 별도 트랙).
+        // 활동이 없던 날도 distance=0.0, count=0 으로 빠짐없이 채워 7개를 보장.
+        private List<DailyActivityDTO> weeklyActivity;
+
     }
 
     @Getter
@@ -84,5 +89,19 @@ public abstract class RecordResponse {
         //차트는 우선 달린 거리 데이터만(nikerun)
         private String label;
         private Double distance;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DailyActivityDTO {
+
+        // 활동일 (yyyy-MM-dd) — FE 가 요일 / 잔디 셀 매핑에 사용
+        private String date;
+        // 해당 일자 누적 거리(km). 활동 없으면 0.0
+        private Double distance;
+        // 해당 일자 러닝 횟수. 활동 없으면 0
+        private Integer count;
     }
 }
