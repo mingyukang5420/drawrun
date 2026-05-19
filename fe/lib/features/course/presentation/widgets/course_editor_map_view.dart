@@ -17,20 +17,21 @@ class CourseEditorMapView extends ConsumerWidget {
       showCurrentLocation: true,
       onMapReady: (mapController) {
         // ref.read: 콜백은 1회 호출이므로 watch 불필요
-        ref
-            .read(courseEditorProvider.notifier)
-            .setMapController(mapController);
+        ref.read(courseEditorProvider.notifier).setMapController(mapController);
       },
       onMapTapped: (point, latLng) {
-        final added =
-            ref.read(courseEditorProvider.notifier).addNode(latLng);
-        // 도로 밖을 탭했을 때 스낵바로 안내 메시지를 표시한다
+        final added = ref.read(courseEditorProvider.notifier).addNode(latLng);
+        final editorState = ref.read(courseEditorProvider);
+        // 도로 데이터 상태별 탭 차단 안내
         if (!added && context.mounted) {
+          final message = editorState.isLoadingWays || !editorState.hasWays
+              ? '도로 데이터를 불러오는 중입니다'
+              : '달릴 수 있는 도로(파란 선) 위를 탭해 주세요';
           ScaffoldMessenger.of(context)
             ..clearSnackBars()
             ..showSnackBar(
-              const SnackBar(
-                content: Text('달릴 수 있는 도로(파란 선) 위를 탭해 주세요'),
+              SnackBar(
+                content: Text(message),
                 duration: Duration(seconds: 1),
                 behavior: SnackBarBehavior.floating,
                 margin: EdgeInsets.only(bottom: 110, left: 16, right: 16),
