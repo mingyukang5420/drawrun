@@ -31,6 +31,10 @@ class ChallengeRanking {
   // 상위 5명 랭킹. 항상 길이가 0 또는 5 (BE 가 잘라 줌).
   final List<RankEntry> rankings;
 
+  // 챌린지 폴리곤 이미지 URL. 랭킹 페이지 상단 미리보기에 표시.
+  // BE 가 항상 채워 주지만 방어적으로 nullable.
+  final String? polygonImageUrl;
+
   const ChallengeRanking({
     required this.totalCount,
     required this.startedAt,
@@ -40,6 +44,7 @@ class ChallengeRanking {
     required this.myRank,
     required this.prevRank,
     required this.rankings,
+    required this.polygonImageUrl,
   });
 
   // BE 응답 envelope.result 를 받아 도메인 객체로 변환.
@@ -56,6 +61,7 @@ class ChallengeRanking {
               ?.map((e) => RankEntry.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
+      polygonImageUrl: json['polygonImageUrl'] as String?,
     );
   }
 
