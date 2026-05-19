@@ -59,6 +59,10 @@ public abstract class ChallengeResponse {
         private Integer totalParticipantCount;
         private Double myBestSimilarityScore;
         private Integer myBestRank;
+        private LocalDateTime startedAt;
+        private LocalDateTime endedAt;
+        private String challengeWeek;
+        private String dDay;
 
     }
 
