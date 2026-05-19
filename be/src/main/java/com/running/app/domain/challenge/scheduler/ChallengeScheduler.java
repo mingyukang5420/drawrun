@@ -67,14 +67,11 @@ public class ChallengeScheduler {
             // 같은 그룹임을 명시할 uuid 생성(easy, hard 묶음)
             String uuid = UUID.randomUUID().toString();
 
-            // challenge 저장 헬퍼 메서드 호출
-            saveChallenge(object, easyImageResult.storedPath(), easyPolygonPoints,
-                    ChallengeDifficulty.EASY, uuid);
-            log.info("EASY 챌린지 저장 완료");
-
-            saveChallenge(object, hardImageResult.storedPath(), hardPolygonPoints,
-                    ChallengeDifficulty.HARD, uuid);
-            log.info("HARD 챌린지 저장 완료");
+            // challenge 저장 헬퍼 메서드 호출 롤백 대비 하나의 트랜잭션으로 묶음
+            log.info("챌린지 저장 메서드 호출");
+            saveChallenge(object, easyImageResult.storedPath(), hardImageResult.storedPath(),
+                    easyPolygonPoints,
+                    hardPolygonPoints, uuid);
         }
     }
 
@@ -87,14 +84,18 @@ public class ChallengeScheduler {
         }
     }
 
-    private void saveChallenge(String object, String imagePath, String polygonPoints,
-            ChallengeDifficulty difficulty, String uuid
-    ) {
+    private void saveChallenge(String object, String easyImagePath, String hardImagePath,
+            String easyPolygonPoints, String hardPolygonPoints, String uuid) {
 
-        Challenge challenge = ChallengeConverter.toChallenge(object, imagePath, polygonPoints,
-                difficulty, uuid);
+        Challenge easyChallenge = ChallengeConverter.toChallenge(object, easyImagePath,
+                easyPolygonPoints,
+                ChallengeDifficulty.EASY, uuid);
+
+        Challenge hardChallenge = ChallengeConverter.toChallenge(object, hardImagePath,
+                hardPolygonPoints, ChallengeDifficulty.HARD, uuid);
+
         // challenge 저장 로직 호출
-        challengeService.create(challenge);
+        challengeService.create(easyChallenge, hardChallenge);
 
     }
 
@@ -135,13 +136,10 @@ public class ChallengeScheduler {
         // 같은 그룹임을 명시할 uuid 생성(easy, hard 묶음)
         String uuid = UUID.randomUUID().toString();
 
-        // challenge 저장 헬퍼 메서드 호출
-        saveChallenge(object, easyImageResult.storedPath(), easyPolygonPoints,
-                ChallengeDifficulty.EASY, uuid);
-        log.info("EASY 챌린지 저장 완료");
-
-        saveChallenge(object, hardImageResult.storedPath(), hardPolygonPoints,
-                ChallengeDifficulty.HARD, uuid);
-        log.info("HARD 챌린지 저장 완료");
+        // challenge 저장 헬퍼 메서드 호출 롤백 대비 하나의 트랜잭션으로 묶음
+        log.info("챌린지 저장 메서드 호출");
+        saveChallenge(object, easyImageResult.storedPath(), hardImageResult.storedPath(),
+                easyPolygonPoints,
+                hardPolygonPoints, uuid);
     }
 }

@@ -36,9 +36,11 @@ public class ChallengeService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public Challenge create(Challenge challenge) {
+    public void create(Challenge easyChallenge, Challenge hardChallenge) {
+        
+        challengeRepository.save(easyChallenge);
+        challengeRepository.save(hardChallenge);
 
-        return challengeRepository.save(challenge);
     }
 
     @Transactional(readOnly = true)
