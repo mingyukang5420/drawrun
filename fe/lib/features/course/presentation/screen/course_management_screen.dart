@@ -129,8 +129,8 @@ class _CourseManagementScreenState
   }
 }
 
-// ── 탭별 코스 목록 ─────────────────────────────────────────────────────
-class _CourseListContent extends StatelessWidget {
+// ── 탭별 코스 목록 (전체 / 진행 중 / 완료 필터 포함) ─────────────────────
+class _CourseListContent extends StatefulWidget {
   final List<CourseDraft> drafts;
   final WidgetRef ref;
   final int? challengeId;
@@ -142,46 +142,32 @@ class _CourseListContent extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (drafts.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.route_outlined, size: 56, color: Color(0xFFD1D5DB)),
-            SizedBox(height: 12),
-            Text(
-              '해당 난이도의 코스가 없습니다',
-              style: TextStyle(
-                fontFamily: 'Pretendard',
-                fontSize: 15,
-                color: Color(0xFF9CA3AF),
-              ),
-            ),
-          ],
-        ),
-      );
+  State<_CourseListContent> createState() => _CourseListContentState();
+}
+
+class _CourseListContentState extends State<_CourseListContent> {
+  // 현재 선택된 필터: 'all' | 'progress' | 'done'
+  String _filter = 'all';
+
+  // 선택된 필터에 따라 코스 목록을 걸러낸다
+  List<CourseDraft> get _filtered {
+    switch (_filter) {
+      case 'progress':
+        // 아직 러닝을 완료하지 않은 코스
+        return widget.drafts
+            .where((d) => d.status != 'DONE' && d.status != 'REGISTERED')
+            .toList();
+      case 'done':
+        // 러닝을 완료한 코스
+        return widget.drafts
+            .where((d) => d.status == 'DONE' || d.status == 'REGISTERED')
+            .toList();
+      default:
+        // 전체: 완료된 코스를 위로 정렬
+        return [...widget.drafts]..sort(
+            (a, b) => _statusOrder(a.status).compareTo(_statusOrder(b.status)),
+          );
     }
-
-    // 완료된 코스를 위로, 미시작 코스를 아래로 정렬
-    final sorted = [...drafts]..sort((a, b) {
-        return _statusOrder(a.status).compareTo(_statusOrder(b.status));
-      });
-
-    return RefreshIndicator(
-      onRefresh: () =>
-          ref.read(courseManagementProvider.notifier).loadMyCourses(),
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        itemCount: sorted.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => _CourseDraftCard(
-          draft: sorted[i],
-          challengeId: challengeId,
-          onDelete: () => _confirmDelete(context, ref, sorted[i].courseDraftId),
-        ),
-      ),
-    );
   }
 
   // 완료(0) → 등록(1) → 미시작(2) 순서로 정렬
@@ -190,6 +176,124 @@ class _CourseListContent extends StatelessWidget {
         'REGISTERED' => 1,
         _ => 2,
       };
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _filtered;
+
+    return Column(
+      children: [
+        // 상태 필터 버튼 행
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+          child: Row(
+            children: [
+              _FilterChip(
+                label: '전체',
+                selected: _filter == 'all',
+                onTap: () => setState(() => _filter = 'all'),
+              ),
+              const SizedBox(width: 8),
+              _FilterChip(
+                label: '진행 중',
+                selected: _filter == 'progress',
+                onTap: () => setState(() => _filter = 'progress'),
+              ),
+              const SizedBox(width: 8),
+              _FilterChip(
+                label: '완료',
+                selected: _filter == 'done',
+                onTap: () => setState(() => _filter = 'done'),
+              ),
+            ],
+          ),
+        ),
+
+        // 코스 목록
+        Expanded(
+          child: items.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.route_outlined,
+                          size: 56, color: Color(0xFFD1D5DB)),
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.drafts.isEmpty
+                            ? '해당 난이도의 코스가 없습니다'
+                            : '해당 조건의 코스가 없습니다',
+                        style: const TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 15,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: () => widget.ref
+                      .read(courseManagementProvider.notifier)
+                      .loadMyCourses(),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, i) => _CourseDraftCard(
+                      draft: items[i],
+                      challengeId: widget.challengeId,
+                      onDelete: () => _confirmDelete(
+                          context, widget.ref, items[i].courseDraftId),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 상태 필터 칩 버튼 ─────────────────────────────────────────────────
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF1C1C1E)
+                : const Color(0xFFE5E7EB),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            color: selected ? Colors.white : const Color(0xFF6B7280),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _confirmDelete(
