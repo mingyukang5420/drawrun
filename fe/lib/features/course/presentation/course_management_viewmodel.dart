@@ -18,14 +18,9 @@ class CourseManagementState {
     this.challengeTitle,
   });
 
-  // 아직 러닝을 완료하지 않은 코스 목록
-  List<CourseDraft> get notStarted => drafts
-      .where((d) => d.status != 'DONE' && d.status != 'REGISTERED')
-      .toList();
-
-  // 러닝을 완료한 코스 목록
-  List<CourseDraft> get completed => drafts
-      .where((d) => d.status == 'DONE' || d.status == 'REGISTERED')
+  // challengeDifficulty 기준으로 난이도별 목록 반환 (탭 필터링은 UI 레벨에서 처리)
+  List<CourseDraft> byDifficulty(String difficulty) => drafts
+      .where((d) => d.challengeDifficulty?.toUpperCase() == difficulty)
       .toList();
 
   CourseManagementState copyWith({

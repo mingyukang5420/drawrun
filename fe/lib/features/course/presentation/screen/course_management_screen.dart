@@ -62,7 +62,7 @@ class _CourseManagementScreenState
               ),
             ],
           ),
-          // 완료 여부 기준 탭 (랭킹 화면과 동일한 스타일)
+          // 랭킹 화면과 동일한 탭 바 스타일
           bottom: const TabBar(
             labelColor: Color(0xFF1C1C1E),
             unselectedLabelColor: Color(0xFF9CA3AF),
@@ -78,7 +78,7 @@ class _CourseManagementScreenState
             ),
             indicatorColor: Color(0xFF1C1C1E),
             indicatorWeight: 2.5,
-            tabs: [Tab(text: '시작 전'), Tab(text: '완료')],
+            tabs: [Tab(text: 'Easy'), Tab(text: 'Hard')],
           ),
         ),
         body: _buildBody(state),
@@ -111,16 +111,16 @@ class _CourseManagementScreenState
       );
     }
 
-    // 완료 여부 기준으로 탭별 코스 목록 표시
+    // 탭별로 byDifficulty 로 클라이언트 필터링하여 각 리스트 표시
     return TabBarView(
       children: [
         _CourseListContent(
-          drafts: state.notStarted,
+          drafts: state.byDifficulty('EASY'),
           ref: ref,
           challengeId: widget.challengeId,
         ),
         _CourseListContent(
-          drafts: state.completed,
+          drafts: state.byDifficulty('HARD'),
           ref: ref,
           challengeId: widget.challengeId,
         ),
@@ -151,7 +151,7 @@ class _CourseListContent extends StatelessWidget {
             Icon(Icons.route_outlined, size: 56, color: Color(0xFFD1D5DB)),
             SizedBox(height: 12),
             Text(
-              '해당하는 코스가 없습니다',
+              '해당 난이도의 코스가 없습니다',
               style: TextStyle(
                 fontFamily: 'Pretendard',
                 fontSize: 15,
@@ -163,21 +163,33 @@ class _CourseListContent extends StatelessWidget {
       );
     }
 
+    // 완료된 코스를 위로, 미시작 코스를 아래로 정렬
+    final sorted = [...drafts]..sort((a, b) {
+        return _statusOrder(a.status).compareTo(_statusOrder(b.status));
+      });
+
     return RefreshIndicator(
       onRefresh: () =>
           ref.read(courseManagementProvider.notifier).loadMyCourses(),
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        itemCount: drafts.length,
+        itemCount: sorted.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (_, i) => _CourseDraftCard(
-          draft: drafts[i],
+          draft: sorted[i],
           challengeId: challengeId,
-          onDelete: () => _confirmDelete(context, ref, drafts[i].courseDraftId),
+          onDelete: () => _confirmDelete(context, ref, sorted[i].courseDraftId),
         ),
       ),
     );
   }
+
+  // 완료(0) → 등록(1) → 미시작(2) 순서로 정렬
+  int _statusOrder(String? status) => switch (status) {
+        'DONE' => 0,
+        'REGISTERED' => 1,
+        _ => 2,
+      };
 }
 
 Future<void> _confirmDelete(
