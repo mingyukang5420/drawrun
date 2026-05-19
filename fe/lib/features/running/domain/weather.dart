@@ -21,15 +21,19 @@ class Weather {
         gu: json['gu'] as String,
         message: json['message'] as String,
         precipitation: json['precipitation'] as String,
-        skyCondition: json['skyCondition'] as String? ?? '',
+        skyCondition: json['weather'] as String? ?? '',
       );
 
-  String get weatherEmoji => switch (skyCondition.toUpperCase()) {
-        'CLEAR' => '☀️',
-        'CLOUDY' => '⛅',
-        'OVERCAST' => '☁️',
-        _ => '🌤️',
-      };
+  String get weatherEmoji {
+    if (precipitation == '비' || precipitation == '소나기') return '🌧️';
+    if (precipitation == '비/눈' || precipitation == '눈') return '🌨️';
+    return switch (skyCondition) {
+      '맑음'    => '☀️',
+      '구름많음' => '⛅',
+      '흐림'    => '☁️',
+      _         => '🌤️',
+    };
+  }
 
   String get locationLine =>
       '$sido $gu ${temperature.toStringAsFixed(0)}°C $weatherEmoji';

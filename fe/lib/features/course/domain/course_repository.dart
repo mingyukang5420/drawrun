@@ -15,6 +15,10 @@ abstract class CourseRepository {
   // GET /api/v1/editor?filter=&page= — 내 코스 목록 조회 (status 로 필터)
   Future<List<CourseDraft>> getMyCourses(CourseStatus status, {int page = 0});
 
+  // GET /api/v1/editor/challenge?page= — 챌린지 소속 내 코스 목록 조회
+  // 반환: (코스 목록, 챌린지 제목) — challengeTitle 은 result 레벨에서 파싱
+  Future<(List<CourseDraft>, String?)> getChallengeCourses({int page = 0});
+
   // 새 코스를 서버에 저장 (응답 바디 불필요)
   // thumbnailBase64: 경로 스냅샷 base64 인코딩 문자열 (신규 에디터에서는 필수)
   Future<void> saveCourse(Course course, {String? thumbnailBase64});

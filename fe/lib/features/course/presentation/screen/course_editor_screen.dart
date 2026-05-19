@@ -33,12 +33,17 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
   // 폴리곤 이미지 버튼 전용 타이틀 (코스명과 별개). null 이면 기본 텍스트 표시
   final String? polygonTitle;
 
+  // [추가] 챌린지 컨텍스트에서 진입했을 때 전달받는 챌린지 ID
+  // null 이면 일반 코스 저장, 값이 있으면 저장 시 POST 바디에 포함됨
+  final int? challengeId;
+
   const CourseEditorScreen({
     super.key,
     this.initialNodes,
     this.difficulty,
     this.polygonImageUrl,
     this.polygonTitle,
+    this.challengeId,
   });
 
   @override
@@ -52,6 +57,15 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   @override
   void initState() {
     super.initState();
+    // 챌린지 컨텍스트 진입 시 challengeId 를 notifier 에 전달
+    // 이후 saveCourse() 가 POST 바디에 challengeId 를 포함시켜 403 방지
+    final cid = widget.challengeId;
+    if (cid != null) {
+      Future.microtask(
+        () => ref.read(courseEditorProvider.notifier).setChallengeId(cid),
+      );
+    }
+
     // 기존 좌표가 있으면 지도 준비 후 에디터에 채운다
     final initial = widget.initialNodes;
     if (initial != null && initial.isNotEmpty) {

@@ -65,6 +65,10 @@ class CourseEditorState {
   // true 이면 도로 밖 탭이 차단됨을 UI 에서 안내할 수 있다
   final bool hasWays;
 
+  // [추가] 챌린지 컨텍스트에서 진입했을 때 설정되는 챌린지 ID
+  // null 이면 일반 코스 저장, 값이 있으면 POST /api/v1/editor 바디에 포함
+  final int? challengeId;
+
   const CourseEditorState({
     this.courseName = '5월 3주차 EASY 코스',
     this.nodes = const [],
@@ -75,6 +79,7 @@ class CourseEditorState {
     this.isSaving = false,
     this.saveError,
     this.hasWays = false,
+    this.challengeId,
   });
 
   CourseEditorState copyWith({
@@ -86,6 +91,7 @@ class CourseEditorState {
     bool? autoSnap,
     bool? isSaving,
     bool? hasWays,
+    int? challengeId,
     // ?? 대신 직접 할당 → null 로 명시적으로 초기화 가능
     Object? saveError = _sentinel,
   }) {
@@ -98,6 +104,7 @@ class CourseEditorState {
       autoSnap: autoSnap ?? this.autoSnap,
       isSaving: isSaving ?? this.isSaving,
       hasWays: hasWays ?? this.hasWays,
+      challengeId: challengeId ?? this.challengeId,
       saveError: saveError == _sentinel
           ? this.saveError
           : saveError as String?,
@@ -299,6 +306,13 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     );
   }
 
+  // [추가] 챌린지 컨텍스트 진입 시 화면 initState 에서 한 번 호출
+  // 저장 시 POST /api/v1/editor 바디에 challengeId 가 포함되어
+  // 서버가 403을 반환하는 문제를 방지
+  void setChallengeId(int? id) {
+    state = state.copyWith(challengeId: id);
+  }
+
   // ── 저장 1단계: 화면이 캡처를 시작하기 직전에 호출 ──────────────────
   // isSaving 플래그를 올려 저장 버튼을 비활성화하고 로딩 표시를 켠다.
   // 실제 API 호출은 캡처·업로드가 끝난 뒤 saveCourse() 가 담당한다.
@@ -323,6 +337,8 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       title: state.courseName,
       distance: state.totalDistanceKm,
       points: domainPoints,
+      // challengeId 가 있으면 toJson() 을 통해 바디에 포함됨
+      challengeId: state.challengeId,
     );
 
     try {
