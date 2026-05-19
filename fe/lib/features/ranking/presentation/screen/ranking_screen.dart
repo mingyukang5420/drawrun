@@ -39,10 +39,26 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
         selected: selected,
         onSelect: (g) {
           setState(() => _selected = g);
+          // 새 챌린지가 선택되는 순간 두 난이도 랭킹을 동시에 미리 받아 둔다.
+          // 그 다음 탭 토글은 캐시 hit 이라 API 호출이 추가로 나가지 않는다.
+          _prefetchPair(g);
           Navigator.of(context).pop();
         },
       ),
     );
+  }
+
+  // 한 챌린지 그룹의 Easy / Hard 두 랭킹을 한꺼번에 prefetch.
+  // null 인 ID(해당 난이도 코스가 없는 경우) 는 건너뛴다.
+  // build 안에서 호출되어도 빌드 루프가 생기지 않도록 microtask 로 지연 트리거.
+  void _prefetchPair(ParticipatedChallengeGroup group) {
+    final easyId = group.easyChallengeId;
+    final hardId = group.hardChallengeId;
+    final notifier = ref.read(challengeRankingViewModelProvider.notifier);
+    Future.microtask(() {
+      if (easyId != null) notifier.loadIfNeeded(easyId);
+      if (hardId != null) notifier.loadIfNeeded(hardId);
+    });
   }
 
   @override
@@ -129,7 +145,11 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
 
     // 응답 도착 후 첫 빌드에서 _selected 가 비어 있으면 첫 항목으로 세팅.
     // null-assign 이라 한 번만 실행되며, 사용자가 시트로 다른 항목을 골랐다면 그 값을 유지한다.
-    _selected ??= groups.first;
+    // 첫 세팅이 일어난 빌드에서만 prefetch 를 트리거 — 이후 빌드에서는 캐시 hit 으로 무료.
+    if (_selected == null) {
+      _selected = groups.first;
+      _prefetchPair(_selected!);
+    }
     final selected = _selected!;
 
     // DefaultTabController 가 Scaffold 의 body 안쪽 — TabBar 가 본문에 내려와 있는 구조.
@@ -363,14 +383,8 @@ class _ChallengeRankingTab extends ConsumerWidget {
       );
     }
 
-    // build 안에서 직접 load 를 부르면 빌드 루프 위험이 있어 microtask 로 지연한다.
-    // Notifier 가 캐시 hit / in-flight 가드를 들고 있어 같은 challengeId 가 여러 번 build 돼도 안전.
-    Future.microtask(() {
-      ref
-          .read(challengeRankingViewModelProvider.notifier)
-          .loadIfNeeded(id);
-    });
-
+    // 본 탭이 직접 fetch 를 트리거하지 않는다 — 사용자가 시트에서 챌린지를 고른 시점에
+    // 부모(_RankingScreenState) 가 두 난이도를 함께 prefetch 한다. 탭 토글은 캐시 hit.
     final state = ref.watch(challengeRankingViewModelProvider);
     final ranking = state.rankingFor(id);
     final error = state.errorFor(id);
