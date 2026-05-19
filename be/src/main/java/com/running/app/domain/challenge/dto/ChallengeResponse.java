@@ -80,6 +80,8 @@ public abstract class ChallengeResponse {
         private RankEntryDTO myRank;
         private RankEntryDTO prevRank;
         private List<RankEntryDTO> rankings;
+        // 챌린지 폴리곤 이미지 URL. FE 가 랭킹 페이지 상단 미리보기에 표시한다.
+        private String polygonImageUrl;
     }
 
     @Getter
