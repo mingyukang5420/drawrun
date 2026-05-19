@@ -693,7 +693,14 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   }
 
   // 좌표를 그래프 키로 변환한다 (부동소수점 동등 비교를 문자열 비교로 대체)
-  String _latlngKey(NLatLng p) => '${p.latitude},${p.longitude}';
+  //
+  // 두 way 가 만나는 도로 분기점은 OSM 상 같은 좌표여야 하지만, GeoJSON 파싱이나
+  // double 산술 결과 미세한 부동소수점 잔차로 11번째 자리에서 차이가 날 수 있다.
+  // 그대로 키로 쓰면 분기점이 서로 다른 노드 두 개로 인식되어 그래프가 끊기고,
+  // Dijkstra 가 그 분기점을 통과하지 못해 도로 꼭짓점이 누락된 경로가 나온다.
+  // 소수점 7자리(~1cm) 까지 라운딩해 같은 분기점 좌표가 항상 같은 키로 매핑되도록 한다.
+  String _latlngKey(NLatLng p) =>
+      '${p.latitude.toStringAsFixed(7)},${p.longitude.toStringAsFixed(7)}';
 
   // 세그먼트 지문: 시작·끝 좌표를 문자열로 결합해 동일 세그먼트를 식별
   String _segmentKey(List<List<double>> coords) {
