@@ -144,7 +144,11 @@ class RunningScreen extends ConsumerWidget {
                 seedContextForChallenge();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => CourseEditorScreen(difficulty: difficulty),
+                    // challengeId 전달: 에디터 저장 시 서버가 챌린지 코스임을 인식할 수 있도록
+                    builder: (_) => CourseEditorScreen(
+                      difficulty: difficulty,
+                      challengeId: challengeId,
+                    ),
                   ),
                 );
               },

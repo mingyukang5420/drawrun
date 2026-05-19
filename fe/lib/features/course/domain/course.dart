@@ -66,8 +66,8 @@ class Course {
   // 코스 상태: READY | DONE | REGISTERED (내 코스 관리 API 에서 반환)
   final CourseStatus? status;
 
-  // [추가] 챌린지 저장 시 서버로 전달할 챌린지 ID
-  // POST /api/v1/editor 요청 바디에 포함되며, null이면 필드 자체를 생략
+  // 챌린지 저장 시 POST /api/v1/editor 바디에 포함할 챌린지 ID
+  // null 이면 toJson 에서 필드 자체를 생략 (일반 코스 저장과 동일)
   final int? challengeId;
 
   const Course({
@@ -111,11 +111,7 @@ class Course {
 
   // POST /api/v1/editor 저장 요청 시 서버로 전송할 JSON
   // coordinates 의 order 는 1부터 시작하는 순서값
-  //
-  // [변경 사항]
-  // - challengeId 가 있을 때만 바디에 포함
-  //   이유: challengeId 미전송 시 서버가 403을 반환하고, 앱이 이를 권한 오류로
-  //         잘못 표시하는 문제 방지
+  // challengeId 가 있을 때만 포함 — 누락 시 서버 403 원인이 되므로 조건부 삽입
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{
       'title': title,

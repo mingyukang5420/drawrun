@@ -532,8 +532,11 @@ class _CourseDraftCard extends ConsumerWidget {
                               child: OutlinedButton.icon(
                                 onPressed: () => Navigator.of(context).push(
                                   MaterialPageRoute(
-                                      builder: (_) =>
-                                          const CourseEditorScreen()),
+                                    // challengeId 전달: 챌린지 코스 저장 시 서버 인증에 필요
+                                    builder: (_) => CourseEditorScreen(
+                                      challengeId: challengeId,
+                                    ),
+                                  ),
                                 ),
                                 icon: const Icon(Icons.edit_outlined, size: 14),
                                 label: const Text('편집'),

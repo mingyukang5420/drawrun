@@ -67,7 +67,7 @@ class ApiException implements Exception {
         final serverMessage = _extractServerMessage(data);
         return ApiException(
           statusCode: statusCode,
-          message: serverMessage ?? _messageForStatus(statusCode),
+          message: _extractServerMessage(data) ?? _messageForStatus(statusCode),
         );
       default:
         return const ApiException(
