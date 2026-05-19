@@ -419,11 +419,6 @@ class _CourseDraftCard extends ConsumerWidget {
     'HARD': Color(0xFFE74C3C),
     'NORMAL': Color(0xFFE67E22),
   };
-  static const _difficultyLabel = {
-    'EASY': '쉬움',
-    'HARD': '어려움',
-    'NORMAL': '보통',
-  };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -432,9 +427,6 @@ class _CourseDraftCard extends ConsumerWidget {
     final diffColor =
         _difficultyColor[draft.challengeDifficulty?.toUpperCase()] ??
             const Color(0xFF6B7280);
-    final diffLabel =
-        _difficultyLabel[draft.challengeDifficulty?.toUpperCase()] ?? '';
-
     // 러닝을 완료한 코스 여부
     final isCompleted =
         draft.status == 'DONE' || draft.status == 'REGISTERED';
@@ -513,26 +505,6 @@ class _CourseDraftCard extends ConsumerWidget {
                               color: Color(0xFF9CA3AF),
                             ),
                           ),
-                          if (diffLabel.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: diffColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                diffLabel,
-                                style: TextStyle(
-                                  fontFamily: 'Pretendard',
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: diffColor,
-                                ),
-                              ),
-                            ),
-                          ],
                           // 완료 시 유사도 점수 표시
                           if (isCompleted &&
                               draft.similarityScore != null) ...[
