@@ -406,10 +406,19 @@ class _ChallengeButtons extends ConsumerWidget {
   //  intl 의존성을 새로 추가하기보다 별도 헬퍼로 처리하는 게 가볍다.)
   String _formatAttemptCount(int count) => '$count명 도전';
 
-  // 내 최고 순위 포맷 — null 이면 미참여로 간주
-  // 점수(myBestSimilarityScore) 는 본 작업에선 카드에 노출하지 않는다
-  String _formatBestInfo(int? rank) {
-    if (rank == null) return '최고 기록 없음';
+  // 내 최고 기록 포맷.
+  // 트로피 아이콘 옆 한 줄에 노출 — 순위 먼저, 점수는 괄호 안에 부가 정보로.
+  // - 둘 다 null   → '최고 기록 없음'      : 미참여
+  // - 둘 다 있음   → '3위 (91.80%)'        : 일반
+  // - 점수만 있음  → '91.80%'              : 이론상 비정상, 있는 값만 노출하는 폴백
+  // - 순위만 있음  → '3위'                 : 이론상 비정상, 있는 값만 노출하는 폴백
+  String _formatBestInfo(int? rank, double? score) {
+    if (rank == null && score == null) return '최고 기록 없음';
+    if (rank != null && score != null) {
+      // BE 가 setScale(2, HALF_UP) 로 미리 잘라 주지만 FE 도 한 번 더 안전장치.
+      return '$rank위 (${score.toStringAsFixed(2)}%)';
+    }
+    if (score != null) return '${score.toStringAsFixed(2)}%';
     return '$rank위';
   }
 
@@ -427,13 +436,13 @@ class _ChallengeButtons extends ConsumerWidget {
         : _formatAttemptCount(list.easy.totalParticipantCount);
     final easyBest = list == null
         ? _placeholderBest
-        : _formatBestInfo(list.easy.myBestRank);
+        : _formatBestInfo(list.easy.myBestRank, list.easy.myBestSimilarityScore);
     final hardAttempt = list == null
         ? _placeholderAttempt
         : _formatAttemptCount(list.hard.totalParticipantCount);
     final hardBest = list == null
         ? _placeholderBest
-        : _formatBestInfo(list.hard.myBestRank);
+        : _formatBestInfo(list.hard.myBestRank, list.hard.myBestSimilarityScore);
     // 폴리곤 이미지 URL — 로딩/에러 중에는 null 이라 카드 안에서 자동으로 기존 아이콘 fallback
     final easyImageUrl = list?.easy.polygonImageUrl;
     final hardImageUrl = list?.hard.polygonImageUrl;
