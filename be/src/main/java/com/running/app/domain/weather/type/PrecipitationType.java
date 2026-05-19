@@ -3,10 +3,10 @@ package com.running.app.domain.weather.type;
 public enum PrecipitationType {
 
     NONE(0, "없음", "null"),
-    RAIN(1, "비", "가벼운 빗속 러닝도 매력 있어요!"),
-    RAIN_SNOW(2, "비/눈", "미끄러우니 달릴 때 조심!"),
-    SNOW(3, "눈", "미끄러우니 달릴 때 조심!"),
-    SHOWER(4, "소나기", "소나기가 지나가고 달려볼까요?");
+    RAIN(1, "비", "빗속 러닝도 매력!"),
+    RAIN_SNOW(2, "비/눈", "미끄러우니 조심!"),
+    SNOW(3, "눈", "눈길은 조심조심!"),
+    SHOWER(4, "소나기", "소나기후에 달려요!");
 
     private final int code;
     private final String label;
