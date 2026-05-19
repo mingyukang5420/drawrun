@@ -572,6 +572,12 @@ class RunningNotifier extends Notifier<RunningState> {
     int? courseDraftId,
     int? challengeId,
   }) async {
+    // 옛 세션을 식별하는 키. await 동안 사용자가 결과 화면을 닫고
+    // 새 세션을 시작해 setSessionContext 가 호출되면 startedAt 이 바뀐다.
+    // finally 가 늦게 실행될 때 이 키로 "내 세션이 아직 그대로인지" 를 확인해
+    // 새 세션의 컨텍스트를 옛 finally 가 null 로 덮어쓰는 race 를 막는다.
+    final mySessionKey = state.startedAt;
+
     state = state.copyWith(isSaving: true, saveError: null);
     try {
       await _repository.save(
@@ -591,7 +597,12 @@ class RunningNotifier extends Notifier<RunningState> {
       //
       // 직전 챌린지 러닝의 잔여가 다음 세션으로 흘러가지 않도록 보수적 가드.
       // 측정 데이터(거리/시간/points 등) 는 결과 화면이 계속 표시해야 하므로 이 메서드에서 건드리지 않는다.
-      _resetSessionContext();
+      //
+      // 단, await 동안 새 세션이 시작되어 startedAt 이 달라졌다면 그 새 세션의
+      // 컨텍스트(challengeId/courseId/courseDraftId) 를 옛 finally 가 덮어쓰지 않도록 스킵.
+      if (state.startedAt == mySessionKey) {
+        _resetSessionContext();
+      }
     }
   }
 
