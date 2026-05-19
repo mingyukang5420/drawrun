@@ -32,46 +32,72 @@ class _MainTabScreenState extends State<MainTabScreen> {
       // 선택된 탭에 해당하는 화면만 표시
       body: _pages[_selectedIndex],
 
-      bottomNavigationBar: BottomNavigationBar(
+      // 탭을 누르면 인덱스를 갱신하고 화면을 전환
+      bottomNavigationBar: _CustomBottomNav(
         currentIndex: _selectedIndex,
-
-        // 탭을 누르면 인덱스를 갱신하고 화면을 전환
         onTap: (i) => setState(() => _selectedIndex = i),
+      ),
+    );
+  }
+}
 
-        type: BottomNavigationBarType.fixed,
+// ── 커스텀 하단 내비게이션 바 ────────────────────────────────────────────
+// 검정 둥근 직사각형 바. 선택 항목만 흰 원으로 강조, 라벨 없음.
+// 아이콘: 코스(route) · 챌린지(달리기) · 랭킹(트로피)
+class _CustomBottomNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
 
-        // 선택된 탭 색상 (진한 검정)
-        selectedItemColor: const Color(0xFF1C1C1E),
+  const _CustomBottomNav({required this.currentIndex, required this.onTap});
 
-        // 비선택 탭 색상 (회색)
-        unselectedItemColor: const Color(0xFF9CA3AF),
+  static const _icons = [
+    Icons.route_rounded,
+    Icons.directions_run_rounded,
+    Icons.emoji_events_rounded,
+  ];
 
-        // 선택된 라벨 폰트 크기
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-
-        items: const [
-          // 탭 0: GPS 드로우 코스 생성·관리
-          BottomNavigationBarItem(
-            icon: Icon(Icons.route_outlined),
-            activeIcon: Icon(Icons.route),
-            label: '코스',
-          ),
-
-          // 탭 1: 챌린지 러닝 진입 — 앱의 핵심 기능
-          BottomNavigationBarItem(
-            icon: Icon(Icons.directions_run_outlined),
-            activeIcon: Icon(Icons.directions_run),
-            label: '챌린지',
-          ),
-
-          // 탭 2: 챌린지 결과 기록과 코스별 랭킹 확인
-          BottomNavigationBarItem(
-            icon: Icon(Icons.emoji_events_outlined),
-            activeIcon: Icon(Icons.emoji_events),
-            label: '랭킹',
-          ),
-        ],
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    return Container(
+      color: Colors.transparent,
+      padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPadding + 16),
+      child: Container(
+        height: 64,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: List.generate(_icons.length, (i) {
+            final selected = i == currentIndex;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onTap(i),
+                behavior: HitTestBehavior.opaque,
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: selected ? Colors.white : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _icons[i],
+                      size: 24,
+                      color: selected
+                          ? const Color(0xFF1C1C1E)
+                          : Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
