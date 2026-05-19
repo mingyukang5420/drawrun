@@ -147,7 +147,9 @@ class RunningState {
   );
 
   String get caloriesLabel => '$caloriesKcal';
-  String get altitudeLabel => '${altitudeM.toStringAsFixed(0)} m';
+  // toStringAsFixed(0) 는 -0.3 같은 음수 작은 값에서 "-0" 을 반환한다.
+  // .round() 는 int 를 반환해 -0 이 생기지 않으므로 0 / 양수 / 음수가 정확히 노출된다.
+  String get altitudeLabel => '${altitudeM.round()} m';
   String get bpmLabel => '$bpm';
   String get cadenceLabel => cadenceSpm < 90 ? '--' : '$cadenceSpm';
 }
