@@ -74,6 +74,9 @@ public abstract class EditorResponse {
         private Double distance;        // 소수점 1째 자리 반올림 (예: 2.3)
         private String trackImageUrl;
         private String createdAt;       // YYYY-MM-DD
+
+        @JsonInclude(Include.NON_NULL)
+        private Double similarityScore;
     }
 
     // 에디터 목록 조회 — Slice 결과 wrapper

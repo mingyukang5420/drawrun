@@ -51,7 +51,7 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
                 and cd.challenge.id = :challengeId
             order by cd.createdAt desc
             """)
-    Slice<CourseDraftListItem> findAllByMemberIdWithChallengeId(
+    Slice<CourseDraft> findAllByMemberIdWithChallengeId(
             @Param("memberId") Long memberId,
             @Param("challengeId") Long challengeId,
             Pageable pageable

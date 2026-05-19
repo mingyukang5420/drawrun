@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.springframework.data.domain.Slice;
@@ -97,6 +98,36 @@ public abstract class EditorConverter {
         }
 
         return WayResponse.builder().ways(ways).build();
+    }
+
+    public static DraftListResponse toDraftListResponse(CourseDraft draft,
+            Map<Long, Double> maxScoreMap) {
+        return DraftListResponse.builder()
+                .courseDraftId(draft.getId())
+                .courseId(null)  // 등록된 코스 연결 로직은 별도 처리 필요
+                .title(draft.getTitle())
+                .difficulty(draft.getDifficulty().name())
+                .status(draft.getStatus().name())
+                .distance(draft.getTrack().getDistance())
+                .trackImageUrl(draft.getTrack().getTrackImageUrl())
+                .createdAt(draft.getCreatedAt().toLocalDate().toString())
+                .similarityScore(maxScoreMap.getOrDefault(draft.getId(), null))
+                .build();
+    }
+
+    public static DraftListResultResponse toDraftListResultResponse(
+            List<DraftListResponse> content,
+            Integer page,
+            Boolean hasNext,
+            String challengeTitle) {
+
+        return DraftListResultResponse.builder()
+                .content(content)
+                .page(page)
+                .size(content.size())
+                .hasNext(hasNext)
+                .challengeTitle(challengeTitle)
+                .build();
     }
 
     // 에디터 목록 조회 — 단일 항목 변환.
