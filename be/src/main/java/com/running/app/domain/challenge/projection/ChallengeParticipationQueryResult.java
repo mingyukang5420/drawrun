@@ -1,6 +1,7 @@
 package com.running.app.domain.challenge.projection;
 
 import com.running.app.domain.challenge.type.ChallengeDifficulty;
+import java.time.LocalDateTime;
 
 public interface ChallengeParticipationQueryResult {
 
@@ -12,5 +13,9 @@ public interface ChallengeParticipationQueryResult {
     String getTitle();
 
     ChallengeDifficulty getDifficulty();
+
+    String getGroupUUID();
+
+    LocalDateTime getStartedAt();
 
 }

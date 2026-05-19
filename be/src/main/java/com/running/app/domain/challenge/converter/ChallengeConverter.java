@@ -1,6 +1,7 @@
 package com.running.app.domain.challenge.converter;
 
 import com.running.app.domain.challenge.dto.ChallengeResponse;
+import com.running.app.domain.challenge.dto.ChallengeResponse.ParticipatedChallengeGroupDTO;
 import com.running.app.domain.challenge.dto.GmsImageDTO;
 import com.running.app.domain.challenge.dto.GmsImageDTO.GmsImageRequest;
 import com.running.app.domain.challenge.dto.GmsImageDTO.ImageRequestBody;
@@ -16,7 +17,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 public abstract class ChallengeConverter {
 
     public static GmsTextRequest toGmsTextRequest(String model,
@@ -165,6 +168,16 @@ public abstract class ChallengeConverter {
                 .build();
     }
 
+    public static ParticipatedChallengeGroupDTO toParticipatedChallengeGroupDTO(String title,
+            Map<ChallengeDifficulty, Long> map) {
+
+        return ParticipatedChallengeGroupDTO.builder()
+                .title(title)
+                .easyChallengeId(map.get(ChallengeDifficulty.EASY))
+                .hardChallengeId(map.get(ChallengeDifficulty.HARD))
+                .build();
+    }
+
     // 같은 타이틀 끼리 묶어주는 converter
     // repository에서 가져온 row를 grouped DTO List로 변환
     public static List<ChallengeResponse.ParticipatedChallengeGroupDTO> toParticipatedChallengeGroupDTOList(
@@ -191,6 +204,8 @@ public abstract class ChallengeConverter {
             // 난이도에 따라 challengeId 채움
             if (result.getDifficulty() == ChallengeDifficulty.EASY) {
                 builder.easyChallengeId(result.getChallengeId());
+                // uuid값을 통해 다른 난이도의 challenge를 가져옴
+
             } else if (result.getDifficulty() == ChallengeDifficulty.HARD) {
                 builder.hardChallengeId(result.getChallengeId());
             }
