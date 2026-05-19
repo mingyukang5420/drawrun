@@ -11,6 +11,7 @@ import 'package:running/features/course/presentation/course_editor_viewmodel.dar
 import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/widgets/course_editor_map_view.dart';
 import 'package:running/shared/map/widgets/track_snapshot_map.dart';
+import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 import 'package:running/shared/model/lat_lng.dart' as shared;
 
@@ -127,6 +128,22 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
           ),
           FilledButton(
             onPressed: () {
+              // 직전 저장 성공으로 받은 courseDraftId 를 러닝 세션 컨텍스트에 박는다.
+              //
+              // 주의: setSessionContext 는 명시하지 않은 인자도 null 로 강제 리셋한다.
+              // 따라서 진입 시 박아 둔 challengeId 도 같이 명시 전달해야 종료 API 에 그대로
+              // 실린다 (명시 안 하면 챌린지 참여 집계가 끊긴다).
+              final draftId =
+                  ref.read(courseEditorProvider).savedCourseDraftId;
+              if (draftId != null) {
+                final currentChallengeId =
+                    ref.read(runningViewModelProvider).challengeId;
+                ref.read(runningViewModelProvider.notifier).setSessionContext(
+                      challengeId: currentChallengeId,
+                      courseDraftId: draftId,
+                    );
+              }
+
               Navigator.of(ctx)
                 ..pop() // 다이얼로그 닫기
                 ..pop(); // 에디터 닫기

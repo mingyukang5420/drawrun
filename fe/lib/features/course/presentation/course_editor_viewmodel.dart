@@ -69,6 +69,11 @@ class CourseEditorState {
   // null 이면 일반 코스 저장 (challengeId 없이 전송)
   final int? challengeId;
 
+  // 직전 저장 성공 시 BE 가 발급한 courseDraftId.
+  // "달리기 시작" 다이얼로그가 이 값을 꺼내 RunningNotifier.setSessionContext 에 전달한다.
+  // 다음 저장 호출에서 덮어써진다 — 다이얼로그가 닫히기 전까지만 의미 있는 값.
+  final int? savedCourseDraftId;
+
   const CourseEditorState({
     this.courseName = '5월 3주차 EASY 코스',
     this.nodes = const [],
@@ -80,6 +85,7 @@ class CourseEditorState {
     this.saveError,
     this.hasWays = false,
     this.challengeId,
+    this.savedCourseDraftId,
   });
 
   CourseEditorState copyWith({
@@ -92,6 +98,7 @@ class CourseEditorState {
     bool? isSaving,
     bool? hasWays,
     int? challengeId,
+    int? savedCourseDraftId,
     // ?? 대신 직접 할당 → null 로 명시적으로 초기화 가능
     Object? saveError = _sentinel,
   }) {
@@ -105,6 +112,7 @@ class CourseEditorState {
       isSaving: isSaving ?? this.isSaving,
       hasWays: hasWays ?? this.hasWays,
       challengeId: challengeId ?? this.challengeId,
+      savedCourseDraftId: savedCourseDraftId ?? this.savedCourseDraftId,
       saveError: saveError == _sentinel
           ? this.saveError
           : saveError as String?,
@@ -340,9 +348,14 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     );
 
     try {
-      await _repository.saveCourse(course, thumbnailBase64: thumbnailBase64);
-      state = state.copyWith(isSaving: false);
-      reset(); // 저장 성공 후 편집 상태를 초기화
+      // 저장 성공 시 BE 가 발급한 courseDraftId 를 받는다.
+      // reset() 이 다른 state 필드를 비우므로 ID 보관은 reset 직후에 한 번 더 갱신.
+      // 화면(_askToStartRun) 이 이 값을 꺼내 RunningNotifier.setSessionContext 에 전달한다.
+      final draftId =
+          await _repository.saveCourse(course, thumbnailBase64: thumbnailBase64);
+      reset();
+      state =
+          state.copyWith(isSaving: false, savedCourseDraftId: draftId);
     } on ApiException catch (e) {
       state = state.copyWith(isSaving: false, saveError: e.message);
     } catch (_) {
