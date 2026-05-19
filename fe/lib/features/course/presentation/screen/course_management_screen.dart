@@ -44,21 +44,37 @@ class _CourseManagementScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 헤더
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Text(
-                '내 챌린지 코스',
-                style: TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1C1C1E),
-                  letterSpacing: -0.5,
-                ),
+            // 헤더 — 챌린지 제목을 부제목으로 표시
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '내 챌린지 코스',
+                    style: TextStyle(
+                      fontFamily: 'Pretendard',
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1C1C1E),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  if (state.challengeTitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      state.challengeTitle!,
+                      style: const TextStyle(
+                        fontFamily: 'Pretendard',
+                        fontSize: 13,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            // 쉬움 / 어려움 난이도 탭
+            // 쉬움 / 어려움 난이도 탭 (전체 탭 없음 — 탭 재선택 시 전체로 토글됨)
             _DifficultyTabs(
               selected: state.selectedDifficulty,
               onSelect: (d) =>
@@ -80,9 +96,10 @@ class _CourseManagementScreenState
 }
 
 // ── 난이도 탭 ──────────────────────────────────────────────────────────
+// 전체 탭 없음 — 선택된 탭을 다시 누르면 전체 보기로 토글
 class _DifficultyTabs extends StatelessWidget {
-  final String? selected; // null=전체, 'EASY', 'HARD'
-  final ValueChanged<String?> onSelect;
+  final String? selected; // null=전체(토글), 'EASY', 'HARD'
+  final ValueChanged<String> onSelect;
 
   const _DifficultyTabs({required this.selected, required this.onSelect});
 
@@ -92,13 +109,6 @@ class _DifficultyTabs extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          _Tab(
-            label: '전체',
-            color: const Color(0xFF6B7280),
-            isSelected: selected == null,
-            onTap: () => onSelect(null),
-          ),
-          const SizedBox(width: 8),
           _Tab(
             label: '쉬움',
             color: const Color(0xFF27AE60),
@@ -315,11 +325,13 @@ class _CourseDraftCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 카드 색상/라벨은 챌린지 자체 난이도(challengeDifficulty) 기준
+    // difficulty 는 에디터 코스 난이도로 별개 개념
     final diffColor =
-        _difficultyColor[draft.difficulty?.toUpperCase()] ??
+        _difficultyColor[draft.challengeDifficulty?.toUpperCase()] ??
             const Color(0xFF6B7280);
     final diffLabel =
-        _difficultyLabel[draft.difficulty?.toUpperCase()] ?? '';
+        _difficultyLabel[draft.challengeDifficulty?.toUpperCase()] ?? '';
 
     // 러닝을 완료한 코스 여부
     final isCompleted =
