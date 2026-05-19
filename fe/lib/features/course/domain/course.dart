@@ -66,6 +66,10 @@ class Course {
   // 코스 상태: READY | DONE | REGISTERED (내 코스 관리 API 에서 반환)
   final CourseStatus? status;
 
+  // [추가] 챌린지 저장 시 서버로 전달할 챌린지 ID
+  // POST /api/v1/editor 요청 바디에 포함되며, null이면 필드 자체를 생략
+  final int? challengeId;
+
   const Course({
     this.id,
     required this.title,
@@ -78,6 +82,7 @@ class Course {
     this.createdAt,
     this.completionScore = 0,
     this.status,
+    this.challengeId,
   });
 
   // GET /v1/courses 응답 아이템 JSON → Course 변환
@@ -106,12 +111,21 @@ class Course {
 
   // POST /api/v1/editor 저장 요청 시 서버로 전송할 JSON
   // coordinates 의 order 는 1부터 시작하는 순서값
-  Map<String, dynamic> toJson() => {
-        'title': title,
-        'coordinates': points.asMap().entries.map((entry) => {
-              'lat': entry.value.latitude,
-              'lng': entry.value.longitude,
-              'order': entry.key + 1,
-            }).toList(),
-      };
+  //
+  // [변경 사항]
+  // - challengeId 가 있을 때만 바디에 포함
+  //   이유: challengeId 미전송 시 서버가 403을 반환하고, 앱이 이를 권한 오류로
+  //         잘못 표시하는 문제 방지
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'title': title,
+      'coordinates': points.asMap().entries.map((entry) => {
+            'lat': entry.value.latitude,
+            'lng': entry.value.longitude,
+            'order': entry.key + 1,
+          }).toList(),
+    };
+    if (challengeId != null) json['challengeId'] = challengeId;
+    return json;
+  }
 }
