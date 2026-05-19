@@ -28,22 +28,26 @@ public class ChallengeImageGenerateService {
     private static final String TEXT_SYSTEM_PROMPT = """
             You output only a single Korean noun — no explanation, no punctuation, nothing else.
             
-            The object must meet these conditions:
-            - Has a distinctive, recognizable silhouette that can be traced as a running route
-            - NOT too small or complex (no pencil, fork, cup, etc.)
-            - Avoid objects that are primarily circular or curved (no ball, wheel, coin, etc.)
-            - Prefer objects with mostly straight edges
+            The object must meet ALL of the following conditions:
+            - Has a distinctive, recognizable SILHOUETTE that can be identified by outline shape alone
+            - The entire outline forms a single continuous loop — no disconnected parts
+            - NOT primarily circular or curved (no ball, coin, tire, etc.)
+            - NOT composed of multiple separate parts (no glasses, no bicycle, no butterfly)
+            - NOT built from repetitive parallel structures (no ladder, no fence, no bookshelf)
+            - NOT recognized by surface texture or pattern rather than shape
+              (avoid: 옥수수, 딸기, 파인애플, 수박, 솔방울 — their outer boundary alone looks like a generic oval)
+            - Prefer objects with strong, unique outer silhouettes using mostly straight edges
             
-            Each call must output a DIFFERENT object from a DIFFERENT category each time.
-            Vary broadly across these categories — heavily favor animals, food, and nature:
-            - Animals: 강아지, 고양이, 고래, 독수리, 상어, 말, 코끼리 ...
-            - Food: 고구마, 붕어빵, 케이크, 피자, 아이스크림 ...
-            - Nature: 나무, 선인장, 산, 구름, 꽃 ...
+            Each call must output a DIFFERENT object from a DIFFERENT category.
+            Vary broadly — heavily favor animals, food, and nature:
+            - Animals: 강아지, 고양이, 고래, 독수리, 상어, 말, 코끼리, 토끼, 공룡, 기린 ...
+            - Food: 고구마, 붕어빵, 케이크, 피자, 아이스크림, 버섯 ...
+            - Nature: 나무, 선인장, 산, 구름, 꽃, 번개 ...
             - Buildings: 집, 성, 피라미드, 등대, 교회 ...
-            - Common objects: 기타, 왕관, 열쇠, 방패, 옷걸이 ...
-            - Vehicles (occasionally): 자전거, 자동차, 보트, 비행기 ...
+            - Common objects: 기타, 왕관, 열쇠, 방패, 옷걸이, 우산 ...
+            - Vehicles (occasionally): 자동차, 보트, 비행기, 기차 ...
             
-            Do NOT output any of the following already-used objects:""";
+            Do NOT output any of the following already-used objects: """;
 
     private static final String IMAGE_MODEL = "gpt-image-1.5";
     private static final String IMAGE_URI = "/api.openai.com/v1/images/generations";
@@ -63,32 +67,53 @@ public class ChallengeImageGenerateService {
             Object in Korean (translate to English and draw): """;
 
     private static final String IMAGE_PROMPT_EASY = """
-            Minimalist geometric polygon outline of a given object,
-            drawn using only straight lines with sharp angular vertices,
-            no curves allowed,
-            bright neon green thick outline on pure black background,
-            flat 2D side profile silhouette,
-            ONLY the outer boundary silhouette — no interior lines, no windows, no wheels, no internal details,
-            the outline must form a single continuous closed loop with no gaps or breaks,
-            extremely simplified — use as few line segments as possible (aim for 6 to 10 segments),
-            abstract minimalist representation is acceptable,
-            simple enough to be easily traced by a person running outdoors,
-            simple vector style
+            Minimalist geometric polygon silhouette of a given object.
+            Pure black background. Bright neon green thick stroke outline only.
+            Flat 2D side-view profile.
+            
+            CRITICAL — SINGLE CLOSED LOOP ONLY:
+            Imagine drawing this shape with one pen on paper — the pen touches the paper at one point,
+            traces the entire outer boundary without ever lifting, and returns exactly to the starting point.
+            The result is a single closed path with no open ends, no gaps, no disconnected segments.
+            Any break in the loop is a fatal error.
+            
+            CRITICAL — EMPTY INTERIOR:
+            The inside of the shape must be completely empty black.
+            No lines, no circles, no holes, no details of any kind inside the boundary. Nothing.
+            
+            Line style: all line segments must be strictly horizontal or vertical — no diagonal lines.
+            Shape goal: capture the single most iconic outline feature that makes this object immediately recognizable.
+            Simplify everything else into the plainest possible boundary.
+            Sharp angular corners only — no curves, no rounded edges, no smooth arcs.
+            No internal details — no eyes, no windows, no wheels, no textures.
+            Simple vector icon style.
+            
             Object in Korean (translate to English and draw): """;
 
     private static final String IMAGE_PROMPT_HARD = """
-            Minimalist geometric polygon outline of a given object,
-            drawn using only straight lines with sharp angular vertices,
-            no curves allowed,
-            bright neon green thick outline on pure black background,
-            flat 2D side profile silhouette,
-            ONLY the outer boundary silhouette — no interior lines, no windows, no wheels, no internal details,
-            the outline must form a single continuous closed loop with no gaps or breaks,
-            more detailed outline that better captures the object's actual shape,
-            use more line segments to represent the silhouette more accurately (aim for 15 to 25 segments),
-            still simplified but clearly recognizable,
-            simple enough to be traced by a person running outdoors,
-            simple vector style
+            Minimalist geometric polygon silhouette of a given object.
+            Pure black background. Bright neon green thick stroke outline only.
+            Flat 2D side-view profile.
+            
+            CRITICAL — SINGLE CLOSED LOOP ONLY:
+            Imagine drawing this shape with one pen on paper — the pen touches the paper at one point,
+            traces the entire outer boundary without ever lifting, and returns exactly to the starting point.
+            The result is a single closed path with no open ends, no gaps, no disconnected segments.
+            Any break in the loop is a fatal error.
+            
+            CRITICAL — EMPTY INTERIOR:
+            The inside of the shape must be completely empty black.
+            No lines, no circles, no holes, no details of any kind inside the boundary. Nothing.
+            
+            Line style: strongly prefer horizontal and vertical line segments.
+            Use diagonal lines only where absolutely essential to the object's defining shape.
+            Shape goal: include 2 to 3 key protrusions or indentations that make this specific object
+            uniquely distinguishable — not just the category, but this exact object.
+            Sharp angular corners only — no curves, no rounded edges, no smooth arcs.
+            Still simple enough for a person to physically run this route outdoors.
+            No internal details — no eyes, no windows, no wheels, no textures.
+            Simple vector icon style.
+            
             Object in Korean (translate to English and draw): """;
 
     public String callTextModel() {
