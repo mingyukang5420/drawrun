@@ -75,9 +75,16 @@ class CourseManagementNotifier extends Notifier<CourseManagementState> {
 
   // 난이도 탭 선택 — 서버 재요청 없이 클라이언트 필터만 교체
   // 이미 선택된 탭을 다시 누르면 null (전체 보기)로 토글
+  // copyWith 의 ?? 패턴으로는 null 리셋이 안 되므로 state 를 직접 생성
   void selectDifficulty(String difficulty) {
     final next = state.selectedDifficulty == difficulty ? null : difficulty;
-    state = state.copyWith(selectedDifficulty: next);
+    state = CourseManagementState(
+      drafts: state.drafts,
+      isLoading: state.isLoading,
+      errorMessage: state.errorMessage,
+      challengeTitle: state.challengeTitle,
+      selectedDifficulty: next, // null 도 정상 반영됨
+    );
   }
 
   Future<void> deleteCourse(int id) async {
