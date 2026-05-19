@@ -372,21 +372,7 @@ class _ChallengeRankingTab extends ConsumerWidget {
     // BE 가 그 자리 challengeId 를 null 로 내려 — API 호출 자체가 필요 없다.
     final id = challengeId;
     if (id == null) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: Text(
-            '아직 아무도 뛰지 않았어요\n첫 번째 러너가 되어 볼까요?',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Pretendard',
-              fontSize: 14,
-              height: 1.5,
-              color: Color(0xFF6B7280),
-            ),
-          ),
-        ),
-      );
+      return _buildEmptyState();
     }
 
     // 본 탭이 직접 fetch 를 트리거하지 않는다 — 사용자가 시트에서 챌린지를 고른 시점에
@@ -435,8 +421,34 @@ class _ChallengeRankingTab extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // 응답은 도착했으나 참가자가 0명인 경우 — 챌린지 코스는 존재하지만 아직 누구도 안 뛴 상태.
+    // challengeId 가 null 인 경우와 사용자 입장에서는 같은 의미이므로 동일한 빈 상태로 그린다.
+    if (ranking.totalCount == 0) {
+      return _buildEmptyState();
+    }
+
     // 정상 — 응답 본체를 _RankingList 로 흘려보낸다.
     return _RankingList(ranking: ranking, accentColor: accentColor);
+  }
+
+  // "아직 아무도 뛰지 않은 챌린지" 빈 상태 카드.
+  // challengeId 자체가 없는 경우와 totalCount 가 0 인 경우 둘 다 같은 모양으로 노출한다.
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 24),
+        child: Text(
+          '아직 아무도 뛰지 않았어요\n첫 번째 러너가 되어 볼까요?',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 14,
+            height: 1.5,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+      ),
+    );
   }
 }
 
