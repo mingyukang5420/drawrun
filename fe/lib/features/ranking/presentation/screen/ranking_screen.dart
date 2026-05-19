@@ -65,6 +65,12 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(participatedViewModelProvider);
 
+    // 챌린지 랭킹 Provider 의 watcher 를 화면 본체에서 유지 — TabBarView 가
+    // 보이지 않는 탭 자식을 잠깐 unmount 할 때 watcher 카운트가 0 으로 떨어져
+    // autoDispose 가 캐시를 날리는 케이스를 막는다.
+    // select 로 dummy 값만 보므로 이 watch 는 추가 rebuild 를 유발하지 않는다.
+    ref.watch(challengeRankingViewModelProvider.select((_) => 0));
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
