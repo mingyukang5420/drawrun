@@ -65,8 +65,8 @@ class CourseEditorState {
   // true 이면 도로 밖 탭이 차단됨을 UI 에서 안내할 수 있다
   final bool hasWays;
 
-  // [추가] 챌린지 컨텍스트에서 진입했을 때 설정되는 챌린지 ID
-  // null 이면 일반 코스 저장, 값이 있으면 POST /api/v1/editor 바디에 포함
+  // 챌린지 컨텍스트에서 진입 시 설정 — 저장 시 POST 바디에 포함
+  // null 이면 일반 코스 저장 (challengeId 없이 전송)
   final int? challengeId;
 
   const CourseEditorState({
@@ -306,9 +306,8 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     );
   }
 
-  // [추가] 챌린지 컨텍스트 진입 시 화면 initState 에서 한 번 호출
-  // 저장 시 POST /api/v1/editor 바디에 challengeId 가 포함되어
-  // 서버가 403을 반환하는 문제를 방지
+  // 챌린지 컨텍스트에서 에디터 진입 시 화면 initState 에서 한 번 호출
+  // state 에 challengeId 를 저장해 두면 saveCourse 가 POST 바디에 포함시킴
   void setChallengeId(int? id) {
     state = state.copyWith(challengeId: id);
   }
@@ -337,8 +336,7 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       title: state.courseName,
       distance: state.totalDistanceKm,
       points: domainPoints,
-      // challengeId 가 있으면 toJson() 을 통해 바디에 포함됨
-      challengeId: state.challengeId,
+      challengeId: state.challengeId, // null 이면 toJson 에서 필드 생략
     );
 
     try {
