@@ -1,6 +1,8 @@
 package com.running.app.domain.challenge.controller;
 
+import com.running.app.domain.challenge.dto.GmsImageDTO.ImageRequestBody;
 import com.running.app.domain.challenge.dto.TestDTO;
+import com.running.app.domain.challenge.scheduler.ChallengeScheduler;
 import com.running.app.domain.challenge.service.ChallengeImageGenerateService;
 import com.running.app.domain.challenge.service.TestService;
 import com.running.app.global.response.ApiResponse;
@@ -29,8 +31,9 @@ public class TestController {
 
     private final ChallengeImageGenerateService challengeImageGenerateService;
     private final TestService testService;
+    private final ChallengeScheduler challengeScheduler;
 
-    @Operation(summary = "텍스트 생성 모델 호출")
+    @Operation(summary = "텍스트 생성 모델 호출", description = "body에 EASY / HARD 중 하나 입력")
     @PostMapping("/text")
     public ApiResponse<Void> textRequest() {
         challengeImageGenerateService.callTextModel();
@@ -39,18 +42,22 @@ public class TestController {
 
     @Operation(summary = "이미지 생성 모델 호출")
     @PostMapping("/img")
-    public ApiResponse<String> imgRequest(
-            @RequestBody TestDTO request
+    public ApiResponse<Void> imgRequest(
+            @RequestBody String request
     ) {
-        ChallengeImageGenerateService.ImageModelResult result =
-                challengeImageGenerateService.callImageModel(request.getImgString());
-        return ApiResponse.onSuccess(result.storedPath());
+        ImageRequestBody imageRequestBody = challengeImageGenerateService.ImageRequestBodyBuilder(
+                request);
+
+        challengeImageGenerateService.callImageModel(imageRequestBody.getEasyImageBody());
+        challengeImageGenerateService.callImageModel(imageRequestBody.getHardImageBody());
+
+        return ApiResponse.OK;
     }
 
     @Operation(summary = "전체 흐름 테스트")
     @PostMapping("/pipeline")
     public ApiResponse<Void> pipeline() {
-        testService.testPipeline();
+        challengeScheduler.schedulerTester();
         return ApiResponse.OK;
     }
 
@@ -97,7 +104,8 @@ public class TestController {
             )
             @RequestBody TestDTO.SimilarityRequestDTO request
     ) {
-        return ApiResponse.onSuccess(testService.testSimilarity(request.getChallengeId(), request.getNodes()));
+        return ApiResponse.onSuccess(
+                testService.testSimilarity(request.getChallengeId(), request.getNodes()));
     }
 
 }

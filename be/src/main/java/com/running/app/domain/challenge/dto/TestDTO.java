@@ -9,11 +9,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class TestDTO {
 
-    private String imgString;
+    private String easy;
+    private String hard;
 
     @Getter
     @NoArgsConstructor
     public static class SimilarityRequestDTO {
+
         private Long challengeId;
         private List<TrackRequest.NodeDTO> nodes;
     }

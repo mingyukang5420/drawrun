@@ -1,6 +1,8 @@
 package com.running.app.domain.challenge.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,6 +24,9 @@ public abstract class GmsImageDTO {
         private String size;
         @JsonProperty("output_format")
         private String outputFormat;
+
+        @JsonIgnore
+        private ChallengeDifficulty difficulty;
     }
 
     @Getter
@@ -41,6 +46,16 @@ public abstract class GmsImageDTO {
 
         @JsonProperty("b64_json")
         private String b64Json;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ImageRequestBody {
+
+        private GmsImageRequest easyImageBody;
+        private GmsImageRequest hardImageBody;
     }
 
 }

@@ -2,6 +2,8 @@ package com.running.app.domain.challenge.converter;
 
 import com.running.app.domain.challenge.dto.ChallengeResponse;
 import com.running.app.domain.challenge.dto.GmsImageDTO;
+import com.running.app.domain.challenge.dto.GmsImageDTO.GmsImageRequest;
+import com.running.app.domain.challenge.dto.GmsImageDTO.ImageRequestBody;
 import com.running.app.domain.challenge.dto.GmsTextDTO;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.entity.Challenge;
@@ -33,7 +35,8 @@ public abstract class ChallengeConverter {
                 .build();
     }
 
-    public static GmsImageDTO.GmsImageRequest toGmsImageRequest(String prompt, String model) {
+    public static GmsImageDTO.GmsImageRequest toGmsImageRequest(String prompt, String model,
+            ChallengeDifficulty difficulty) {
 
         return GmsImageDTO.GmsImageRequest.builder()
                 .model(model)
@@ -41,6 +44,7 @@ public abstract class ChallengeConverter {
                 .n(1)
                 .size("1024x1024")
                 .outputFormat("png")
+                .difficulty(difficulty)
                 .build();
 
     }
@@ -142,6 +146,17 @@ public abstract class ChallengeConverter {
         return ChallengeResponse.ChallengeListDTO.builder()
                 .easy(easy)
                 .hard(hard)
+                .build();
+    }
+
+
+    // easy, hard의 요청 body를 내부 DTO로 합침
+    public static ImageRequestBody toImageRequestBody(GmsImageRequest easyRequest,
+            GmsImageRequest hardRequest) {
+
+        return ImageRequestBody.builder()
+                .easyImageBody(easyRequest)
+                .hardImageBody(hardRequest)
                 .build();
     }
 

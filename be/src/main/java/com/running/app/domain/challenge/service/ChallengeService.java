@@ -33,8 +33,8 @@ public class ChallengeService {
     }
 
     @Transactional(readOnly = true)
-    public List<String> getChallengeAllTitle() {
-        return challengeRepository.findAllTitles();
+    public List<String> getChallengeAllTitle(ChallengeDifficulty difficulty) {
+        return challengeRepository.findAllTitleByDifficulty(difficulty);
     }
 
     @Transactional(readOnly = true)

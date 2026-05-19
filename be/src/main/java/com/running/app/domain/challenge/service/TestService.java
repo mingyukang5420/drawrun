@@ -2,11 +2,9 @@ package com.running.app.domain.challenge.service;
 
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
-import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import com.running.app.domain.track.dto.TrackRequest;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
-import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,28 +21,6 @@ public class TestService {
     private final ChallengeImageStorageService challengeImageStorageService;
     private final ChallengeOutlineExtractService challengeOutlineExtractService;
     private final SimilarityService similarityService;
-
-    @Transactional
-    public void testPipeline() {
-
-        String object = challengeImageGenerateService.callTextModel();
-        ChallengeImageGenerateService.ImageModelResult imageResult =
-                challengeImageGenerateService.callImageModel(object);
-        String polygonPoints = challengeOutlineExtractService.extract(imageResult.b64Json());
-
-        Challenge build = Challenge.builder()
-                .title(object)
-                .endedAt(LocalDateTime.now().plusDays(14))
-                .startedAt(LocalDateTime.now())
-                .polygonPoints(polygonPoints)
-                .polygonImageUrl(imageResult.storedPath())
-                .polygonPoints(polygonPoints)
-                .difficulty(ChallengeDifficulty.EASY)
-                .build();
-
-        challengeRepository.save(build);
-
-    }
 
     @Transactional
     public void backfillPolygonPoints(Long challengeId) {
