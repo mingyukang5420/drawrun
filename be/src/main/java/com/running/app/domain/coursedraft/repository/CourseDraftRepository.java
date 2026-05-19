@@ -37,16 +37,9 @@ public interface CourseDraftRepository extends JpaRepository<CourseDraft, Long> 
 
     // challengeId에 맞는 요청한 사용자의 courseDraft 목록을 불러옴
     @Query("""
-            select cd.id as courseDraftId,
-                   cast(null as java.lang.Long) as courseId,
-                   cd.title as title,
-                   cd.difficulty as difficulty,
-                   cd.status as status,
-                   t.distance as distance,
-                   t.trackImageUrl as trackImageUrl,
-                   cd.createdAt as createdAt
+            select cd
             from CourseDraft cd
-                left join cd.track t
+                join fetch cd.track t
             where cd.memberId = :memberId
                 and cd.challenge.id = :challengeId
             order by cd.createdAt desc
