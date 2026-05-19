@@ -288,6 +288,33 @@ class RunningNotifier extends Notifier<RunningState> {
     );
   }
 
+  // 다음 세션 시작 직전에 호출 — 옛 세션의 측정값(거리/시간/포인트/케이던스/고도 등) 을
+  // 깨끗이 비우면서 컨텍스트 ID 만 보존한다.
+  //
+  // finish() 는 의도적으로 측정값을 보존한다 (결과 화면이 그 값을 표시해야 하므로).
+  // 따라서 "측정값 0 부터 시작" 책임은 다음 세션 시작 진입점이 맡는다 —
+  // setSessionContext 와 동일한 패턴.
+  //
+  // 보존:
+  //   challengeId / courseId / courseDraftId — 시작 진입점이 setSessionContext 로 박은 값.
+  //                                            여기서 비우면 종료 API 가 그 ID 들을 잃는다.
+  // 리셋 (RunningState 의 기본값으로 돌아감):
+  //   distanceKm=0, points=[], elapsedSeconds=0,
+  //   altitudeM/bpm/cadenceSpm 기본값, isRunning/isPaused/isSaving=false,
+  //   startedAt/endedAt/saveError=null,
+  //   referenceNodes=[] (시작 API 응답이 곧 다시 채움 — 옛 챌린지 경로 잔여 방지).
+  //
+  // _stopwatch 도 함께 reset — finish() 가 stop 만 하고 reset 은 안 해서,
+  // 다음 startRunning 시 옛 elapsed 위에서 시계가 재개되는 버그가 있다.
+  void resetMeasurementsForNewSession() {
+    _stopwatch.reset();
+    state = RunningState(
+      challengeId: state.challengeId,
+      courseId: state.courseId,
+      courseDraftId: state.courseDraftId,
+    );
+  }
+
   void startRunning() {
     if (_locationSub != null) return; // 중복 구독 방지
     _stopwatch.start();
