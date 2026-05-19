@@ -1,6 +1,7 @@
 package com.running.app.domain.editor.converter;
 
 import com.running.app.domain.challenge.entity.Challenge;
+import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.editor.dto.EditorRequest;
@@ -101,7 +102,7 @@ public abstract class EditorConverter {
     }
 
     public static DraftListResponse toDraftListResponse(CourseDraft draft,
-            Map<Long, Double> maxScoreMap) {
+            Map<Long, Double> maxScoreMap, ChallengeDifficulty difficulty) {
         return DraftListResponse.builder()
                 .courseDraftId(draft.getId())
                 .courseId(null)  // 등록된 코스 연결 로직은 별도 처리 필요
@@ -112,6 +113,7 @@ public abstract class EditorConverter {
                 .trackImageUrl(draft.getTrack().getTrackImageUrl())
                 .createdAt(draft.getCreatedAt().toLocalDate().toString())
                 .similarityScore(maxScoreMap.getOrDefault(draft.getId(), null))
+                .challengeDifficulty(difficulty)
                 .build();
     }
 

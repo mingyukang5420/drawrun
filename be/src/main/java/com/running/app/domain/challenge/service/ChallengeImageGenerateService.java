@@ -29,16 +29,21 @@ public class ChallengeImageGenerateService {
             You output only a single Korean noun — no explanation, no punctuation, nothing else.
             
             The object must meet these conditions:
-            - Has a simple, recognizable side-profile silhouette
-            - Large enough that its outline can be traced by running (vehicles, animals, buildings, etc.)
+            - Has a distinctive, recognizable silhouette that can be traced as a running route
             - NOT too small or complex (no pencil, fork, cup, etc.)
             - Avoid objects that are primarily circular or curved (no ball, wheel, coin, etc.)
-            - Prefer objects with mostly straight edges (vehicles, buildings, tools, etc.)
+            - Prefer objects with mostly straight edges
             
-            Each call must output a DIFFERENT object. Avoid repeating common ones.
-            Vary across categories: vehicles, animals, buildings, nature, tools, food, etc.
+            Each call must output a DIFFERENT object from a DIFFERENT category each time.
+            Vary broadly across these categories — heavily favor animals, food, and nature:
+            - Animals: 강아지, 고양이, 고래, 독수리, 상어, 말, 코끼리 ...
+            - Food: 고구마, 붕어빵, 케이크, 피자, 아이스크림 ...
+            - Nature: 나무, 선인장, 산, 구름, 꽃 ...
+            - Buildings: 집, 성, 피라미드, 등대, 교회 ...
+            - Common objects: 기타, 왕관, 열쇠, 방패, 옷걸이 ...
+            - Vehicles (occasionally): 자전거, 자동차, 보트, 비행기 ...
             
-            Do NOT output any of the following already-used objects: """;
+            Do NOT output any of the following already-used objects:""";
 
     private static final String IMAGE_MODEL = "gpt-image-1.5";
     private static final String IMAGE_URI = "/api.openai.com/v1/images/generations";

@@ -266,11 +266,13 @@ public class EditorService {
         // draft 목록 순회하며 컨버터 변환 시작
         // easy, hard 각각 변환
         List<DraftListResponse> easyContent = easyCourseDraftList.stream()
-                .map(draft -> EditorConverter.toDraftListResponse(draft, maxScoreMap))
+                .map(draft -> EditorConverter.toDraftListResponse(draft, maxScoreMap,
+                        ChallengeDifficulty.EASY))
                 .toList();
 
         List<DraftListResponse> hardContent = hardCourseDraftList.stream()
-                .map(draft -> EditorConverter.toDraftListResponse(draft, maxScoreMap))
+                .map(draft -> EditorConverter.toDraftListResponse(draft, maxScoreMap,
+                        ChallengeDifficulty.HARD))
                 .toList();
 
         // 리스트 합치기
