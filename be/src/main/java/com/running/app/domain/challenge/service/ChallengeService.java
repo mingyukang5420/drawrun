@@ -104,6 +104,7 @@ public class ChallengeService {
         // 챌린지 목록의 uuid 한번에 추출(순서 보장을 위해 LinkedHashSet 사용)
         Set<String> groupUUIDs = participatedList.stream()
                 .map(ChallengeParticipationQueryResult::getGroupUUID)
+                .filter(uuid -> uuid != null) // 기존 DB에 들어있을 null값 제외
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         // 추출한 uuid 목록을 통해 Easy/Hard 챌린지 한번에 조회
@@ -126,10 +127,12 @@ public class ChallengeService {
         List<ChallengeResponse.ParticipatedChallengeGroupDTO> result = new ArrayList<>();
         // uuid 리스트를 순회하며 응답 조립
         for (String groupUUID : groupUUIDs) {
+            if (titleMap.isEmpty() || challengeMap.isEmpty()) {
+                break;
+            }
             // 응답에 포함시킴
             result.add(ChallengeConverter.toParticipatedChallengeGroupDTO(titleMap.get(groupUUID),
                     challengeMap.get(groupUUID)));
-
         }
         return result;
     }
