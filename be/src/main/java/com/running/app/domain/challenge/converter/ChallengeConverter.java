@@ -50,7 +50,7 @@ public abstract class ChallengeConverter {
     }
 
     public static Challenge toChallenge(String title, String imagePath, String polygonPoints,
-            ChallengeDifficulty difficulty) {
+            ChallengeDifficulty difficulty, String uuid) {
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -67,6 +67,7 @@ public abstract class ChallengeConverter {
                 .startedAt(now)
                 .endedAt(end)
                 .difficulty(difficulty)
+                .groupUUID(uuid)
                 .build();
     }
 

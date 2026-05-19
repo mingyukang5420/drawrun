@@ -45,6 +45,9 @@ public class Challenge extends BaseRDBEntity {
     @Column(name = "polygon_points", columnDefinition = "TEXT")
     private String polygonPoints;
 
+    @Column(name = "group_uuid")
+    private String groupUUID;
+
     public void updatePolygonPoints(String polygonPoints) {
         this.polygonPoints = polygonPoints;
     }

@@ -10,6 +10,7 @@ import com.running.app.domain.challenge.service.ChallengeOutlineExtractService;
 import com.running.app.domain.challenge.service.ChallengeService;
 import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -63,13 +64,16 @@ public class ChallengeScheduler {
             // 로그 헬퍼 메서드 호출
             extractLog(object, easyPolygonPoints);
 
+            // 같은 그룹임을 명시할 uuid 생성(easy, hard 묶음)
+            String uuid = UUID.randomUUID().toString();
+
             // challenge 저장 헬퍼 메서드 호출
             saveChallenge(object, easyImageResult.storedPath(), easyPolygonPoints,
-                    ChallengeDifficulty.EASY);
+                    ChallengeDifficulty.EASY, uuid);
             log.info("EASY 챌린지 저장 완료");
 
             saveChallenge(object, hardImageResult.storedPath(), hardPolygonPoints,
-                    ChallengeDifficulty.HARD);
+                    ChallengeDifficulty.HARD, uuid);
             log.info("HARD 챌린지 저장 완료");
         }
     }
@@ -83,14 +87,14 @@ public class ChallengeScheduler {
         }
     }
 
-    private Challenge saveChallenge(String object, String imagePath, String polygonPoints,
-            ChallengeDifficulty difficulty
+    private void saveChallenge(String object, String imagePath, String polygonPoints,
+            ChallengeDifficulty difficulty, String uuid
     ) {
 
         Challenge challenge = ChallengeConverter.toChallenge(object, imagePath, polygonPoints,
-                difficulty);
+                difficulty, uuid);
         // challenge 저장 로직 호출
-        return challengeService.create(challenge);
+        challengeService.create(challenge);
 
     }
 
@@ -128,15 +132,16 @@ public class ChallengeScheduler {
         // 로그 헬퍼 메서드 호출
         extractLog(object, easyPolygonPoints);
 
+        // 같은 그룹임을 명시할 uuid 생성(easy, hard 묶음)
+        String uuid = UUID.randomUUID().toString();
+
         // challenge 저장 헬퍼 메서드 호출
-        saveChallenge(object, easyImageResult.storedPath(),
-                easyPolygonPoints,
-                ChallengeDifficulty.EASY);
+        saveChallenge(object, easyImageResult.storedPath(), easyPolygonPoints,
+                ChallengeDifficulty.EASY, uuid);
         log.info("EASY 챌린지 저장 완료");
 
-        saveChallenge(object, hardImageResult.storedPath(),
-                hardPolygonPoints,
-                ChallengeDifficulty.HARD);
+        saveChallenge(object, hardImageResult.storedPath(), hardPolygonPoints,
+                ChallengeDifficulty.HARD, uuid);
         log.info("HARD 챌린지 저장 완료");
     }
 }
