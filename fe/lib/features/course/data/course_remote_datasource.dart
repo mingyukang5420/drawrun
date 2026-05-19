@@ -83,6 +83,29 @@ class CourseRemoteDataSource {
     }
   }
 
+  // GET /api/v1/editor/challenge?page= — 챌린지 소속 내 코스 목록 조회
+  // 챌린지 ID는 백엔드가 JWT 토큰으로 판단하므로 별도 파라미터 불필요
+  // 반환: (코스 목록, 챌린지 제목)
+  // challengeTitle 은 content 배열 밖 result 레벨에 위치하므로 별도로 파싱
+  Future<(List<CourseDraft>, String?)> fetchChallengeCourses(
+      {int page = 0}) async {
+    try {
+      final response = await _dio.get(
+        '/api/v1/editor/challenge',
+        queryParameters: {'page': page},
+      );
+      final result = response.data['result'] as Map<String, dynamic>;
+      final content = result['content'] as List<dynamic>;
+      final challengeTitle = result['challengeTitle'] as String?;
+      final courses = content
+          .map((e) => CourseDraft.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return (courses, challengeTitle);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   // GET /api/v1/editor/way — 지도 영역 내 주행 가능 도로 목록 조회
   // 바운딩 박스(minLat~maxLat, minLng~maxLng)와 zoom 을 쿼리 파라미터로 전달
   Future<List<Way>> fetchWays({

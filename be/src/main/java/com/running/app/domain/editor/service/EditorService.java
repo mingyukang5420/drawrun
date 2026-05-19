@@ -2,6 +2,7 @@ package com.running.app.domain.editor.service;
 
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
+import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import com.running.app.domain.coursedraft.dto.CourseDraftListItem;
 import com.running.app.domain.coursedraft.entity.CourseDraft;
 import com.running.app.domain.coursedraft.repository.CourseDraftRepository;
@@ -16,12 +17,17 @@ import com.running.app.domain.editor.dto.EditorResponse.DraftListResponse;
 import com.running.app.domain.editor.dto.EditorResponse.DraftListResultResponse;
 import com.running.app.domain.member.entity.Member;
 import com.running.app.domain.member.repository.MemberRepository;
+import com.running.app.domain.record.entity.RunningRecord;
 import com.running.app.domain.record.repository.RunningRecordRepository;
 import com.running.app.domain.track.repository.TrackRepository;
 import com.running.app.domain.track.service.TrackImageStorageService;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -204,27 +210,88 @@ public class EditorService {
 
     // 특정 challengeId에 맞는 사용자의 courseDraft 목록을 조회
     @Transactional(readOnly = true)
-    public DraftListResultResponse getCourseDraftList(Long challengeId, String loginId,
-            Integer page) {
+    public DraftListResultResponse getCourseDraftList(String loginId, Integer page) {
 
         Member member = memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        Challenge challenge = challengeRepository.findById(challengeId)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+        // easy, hard 각 challenge 가져오기
+        Challenge easyChallenge = getChallenge(ChallengeDifficulty.EASY);
+        Challenge hardChallenge = getChallenge(ChallengeDifficulty.HARD);
 
         long memberId = member.getMemberId().longValue();
         Pageable pageable = PageRequest.of(page, DRAFT_LIST_PAGE_SIZE);
 
-        Slice<CourseDraftListItem> courseDraftListItems = courseDraftRepository.findAllByMemberIdWithChallengeId(
-                memberId, challengeId, pageable);
+        // slice 객체로 가져오기
+        Slice<CourseDraft> easyCourseDraftSlice = courseDraftRepository.findAllByMemberIdWithChallengeId(
+                memberId, easyChallenge.getId(), pageable);
 
-        List<DraftListResponse> content = courseDraftListItems.getContent().stream()
-                .map(EditorConverter::toDraftListResponse).toList();
+        Slice<CourseDraft> hardCourseDraftSlice = courseDraftRepository.findAllByMemberIdWithChallengeId(
+                memberId, hardChallenge.getId(), pageable);
 
-        return EditorConverter.toDraftListResultResponseV2(courseDraftListItems, content,
-                challenge.getTitle());
+        List<CourseDraft> easyCourseDraftList = easyCourseDraftSlice.getContent();
+        List<CourseDraft> hardCourseDraftList = hardCourseDraftSlice.getContent();
+
+        // 위 슬라이스에서 draftId만 수집
+        List<Long> draftIdList = Stream.concat(
+                        easyCourseDraftSlice.getContent().stream(),
+                        hardCourseDraftSlice.getContent().stream()
+                ).map(CourseDraft::getId)
+                .toList();
+
+        // Id를 모아서 한번에 courseDraft의 record 가져오기
+        List<RunningRecord> runningRecords = runningRecordRepository.findByMemberIdAndCourseDraftIdIn(
+                memberId, draftIdList);
+
+        // key: courseDraftId, value: 유사도 점수
+        Map<Long, Double> maxScoreMap = new HashMap<>();
+
+        for (RunningRecord runningRecord : runningRecords) {
+
+            Long courseDraftId = runningRecord.getCourseDraftId();
+            Double similarityScore = runningRecord.getSimilarityScore();
+
+            if (similarityScore == null) {
+                continue;
+            }
+
+            if (!maxScoreMap.containsKey(courseDraftId)) {
+                maxScoreMap.put(courseDraftId, similarityScore);
+            } else {
+                maxScoreMap.put(courseDraftId,
+                        Math.max(maxScoreMap.get(courseDraftId), similarityScore));
+            }
+        }
+
+        // draft 목록 순회하며 컨버터 변환 시작
+        // easy, hard 각각 변환
+        List<DraftListResponse> easyContent = easyCourseDraftList.stream()
+                .map(draft -> EditorConverter.toDraftListResponse(draft, maxScoreMap,
+                        ChallengeDifficulty.EASY))
+                .toList();
+
+        List<DraftListResponse> hardContent = hardCourseDraftList.stream()
+                .map(draft -> EditorConverter.toDraftListResponse(draft, maxScoreMap,
+                        ChallengeDifficulty.HARD))
+                .toList();
+
+        // 리스트 합치기
+        List<DraftListResponse> content = new ArrayList<>();
+        content.addAll(easyContent);
+        content.addAll(hardContent);
+
+        boolean hasNext = easyCourseDraftSlice.hasNext() || hardCourseDraftSlice.hasNext();
+
+        return EditorConverter.toDraftListResultResponse(content, page, hasNext,
+                easyChallenge.getTitle());
     }
+
+    private Challenge getChallenge(ChallengeDifficulty difficulty) {
+
+        return challengeRepository.findTopByDifficultyOrderByIdDesc(difficulty)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+    }
+
 
     // 특정 challengeId에 맞는 사용자의 courseDraft 상세 조회
     @Transactional(readOnly = true)

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/bookmark/presentation/bookmark_provider.dart';
-import 'package:running/features/bookmark/presentation/bookmarked_course_ids_notifier.dart';
 import 'package:running/features/course/domain/course.dart';
 import 'package:running/features/course/presentation/course_provider.dart';
 import 'package:running/features/course/presentation/course_viewmodel.dart';
@@ -255,7 +254,7 @@ class _CourseCard extends ConsumerWidget {
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
-      shadowColor: Colors.black.withOpacity(0.06),
+      shadowColor: Colors.black.withValues(alpha: 0.06),
       elevation: 2,
       child: InkWell(
         // onTap 이 null 이면 InkWell 이 자동으로 비활성 (ripple 없음).

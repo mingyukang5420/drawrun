@@ -136,6 +136,10 @@ public abstract class ChallengeConverter {
                 .myBestRank(
                         myRank != null ? myRank.getRank() : null
                 )
+                .startedAt(challenge.getStartedAt())
+                .endedAt(challenge.getEndedAt())
+                .challengeWeek(formatChallengeWeek(challenge.getStartedAt()))
+                .dDay(formatDDay(challenge.getEndedAt()))
                 .build();
     }
 
@@ -195,4 +199,31 @@ public abstract class ChallengeConverter {
                 .map(ChallengeResponse.ParticipatedChallengeGroupDTO.ParticipatedChallengeGroupDTOBuilder::build)
                 .toList();
     }
+
+    private static String formatChallengeWeek(LocalDateTime startedAt) {
+        int month = startedAt.getMonthValue();
+        int weekOfMonth = ((startedAt.getDayOfMonth() - 1) / 7) + 1;
+        return month + "월 " + weekOfMonth + "주차";
+    }
+
+    // 종료일이 오늘이면 `D-Day`
+    // 종료일까지 3일 남았으면 `D-3`
+    // 이미 끝났으면 `종료`
+    private static String formatDDay(LocalDateTime endedAt) {
+        long days = java.time.temporal.ChronoUnit.DAYS.between(
+                java.time.LocalDate.now(),
+                endedAt.toLocalDate()
+        );
+
+        if (days == 0) {
+            return "D-Day";
+        }
+
+        if (days > 0) {
+            return "D-" + days;
+        }
+
+        return "종료";
+    }
+
 }

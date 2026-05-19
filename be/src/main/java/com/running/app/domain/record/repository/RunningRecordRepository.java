@@ -123,4 +123,8 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
     List<ChallengeParticipationQueryResult> findParticipatedChallengesByMemberId(
             @Param("memberId") Long memberId
     );
+
+    // CourseDraft의 id 묶음과 member의 id를 받아 courseDrat 묶음들의 모든 record값을 가져옴
+    List<RunningRecord> findByMemberIdAndCourseDraftIdIn(Long memberId, List<Long> courseDraftIds);
+
 }

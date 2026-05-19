@@ -20,6 +20,10 @@ class CourseRepositoryImpl implements CourseRepository {
       _datasource.fetchMyCourses(status, page: page);
 
   @override
+  Future<(List<CourseDraft>, String?)> getChallengeCourses({int page = 0}) =>
+      _datasource.fetchChallengeCourses(page: page);
+
+  @override
   Future<void> saveCourse(Course course, {String? thumbnailBase64}) =>
       _datasource.createCourse(course, thumbnailBase64: thumbnailBase64);
 
