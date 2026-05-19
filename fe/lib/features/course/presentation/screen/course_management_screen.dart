@@ -34,9 +34,15 @@ class _CourseManagementScreenState
     );
   }
 
+  static const _easyColor = Color(0xFF27AE60);
+  static const _hardColor = Color(0xFFE74C3C);
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(courseManagementProvider);
+
+    final easyDrafts = state.byDifficulty('EASY');
+    final hardDrafts = state.byDifficulty('HARD');
 
     // DefaultTabController 로 TabBar ↔ TabBarView 를 자동 연결
     return DefaultTabController(
@@ -46,47 +52,54 @@ class _CourseManagementScreenState
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
-          // 화면 제목 + 챌린지 이름(있을 때) 을 세로로 배치
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '내 챌린지 코스 관리',
-                style: TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1C1C1E),
-                  letterSpacing: -0.5,
-                ),
-              ),
-            ],
+          title: const Text(
+            '내 챌린지 코스 관리',
+            style: TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1C1C1E),
+              letterSpacing: -0.5,
+            ),
           ),
-          // 랭킹 화면과 동일한 탭 바 스타일
-          bottom: const TabBar(
-            labelColor: Color(0xFF1C1C1E),
-            unselectedLabelColor: Color(0xFF9CA3AF),
-            labelStyle: TextStyle(
+          // 각 탭에 코스 수 배지를 표시 (랭킹 화면과 동일한 기본 스타일 유지)
+          bottom: TabBar(
+            labelColor: const Color(0xFF1C1C1E),
+            unselectedLabelColor: const Color(0xFF9CA3AF),
+            labelStyle: const TextStyle(
               fontFamily: 'Pretendard',
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
-            unselectedLabelStyle: TextStyle(
+            unselectedLabelStyle: const TextStyle(
               fontFamily: 'Pretendard',
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
-            indicatorColor: Color(0xFF1C1C1E),
+            indicatorColor: const Color(0xFF1C1C1E),
             indicatorWeight: 2.5,
-            tabs: [Tab(text: 'Easy'), Tab(text: 'Hard')],
+            tabs: [
+              _DifficultyTab(
+                  label: 'Easy',
+                  count: easyDrafts.length,
+                  color: _easyColor),
+              _DifficultyTab(
+                  label: 'Hard',
+                  count: hardDrafts.length,
+                  color: _hardColor),
+            ],
           ),
         ),
-        body: _buildBody(state),
+        body: _buildBody(state, easyDrafts, hardDrafts),
       ),
     );
   }
 
-  Widget _buildBody(CourseManagementState state) {
+  Widget _buildBody(
+    CourseManagementState state,
+    List<CourseDraft> easyDrafts,
+    List<CourseDraft> hardDrafts,
+  ) {
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -111,16 +124,18 @@ class _CourseManagementScreenState
       );
     }
 
-    // 탭별로 byDifficulty 로 클라이언트 필터링하여 각 리스트 표시
+    // 각 탭에 난이도 색상을 전달해 필터 칩 색상이 탭과 일치하도록 한다
     return TabBarView(
       children: [
         _CourseListContent(
-          drafts: state.byDifficulty('EASY'),
+          drafts: easyDrafts,
+          difficultyColor: _easyColor,
           ref: ref,
           challengeId: widget.challengeId,
         ),
         _CourseListContent(
-          drafts: state.byDifficulty('HARD'),
+          drafts: hardDrafts,
+          difficultyColor: _hardColor,
           ref: ref,
           challengeId: widget.challengeId,
         ),
@@ -129,14 +144,63 @@ class _CourseManagementScreenState
   }
 }
 
+// ── 난이도 탭 라벨 + 코스 수 배지 ────────────────────────────────────────
+class _DifficultyTab extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _DifficultyTab({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          if (count > 0) ...[
+            const SizedBox(width: 6),
+            // 코스 수를 난이도 색상 배지로 표시
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 // ── 탭별 코스 목록 (전체 / 진행 중 / 완료 필터 포함) ─────────────────────
 class _CourseListContent extends StatefulWidget {
   final List<CourseDraft> drafts;
+  // 선택된 필터 칩 색상을 탭 난이도 색상과 맞춘다
+  final Color difficultyColor;
   final WidgetRef ref;
   final int? challengeId;
 
   const _CourseListContent({
     required this.drafts,
+    required this.difficultyColor,
     required this.ref,
     this.challengeId,
   });
@@ -177,37 +241,62 @@ class _CourseListContentState extends State<_CourseListContent> {
         _ => 2,
       };
 
+  // 각 필터별 코스 수를 미리 계산해 칩에 표시
+  int get _allCount => widget.drafts.length;
+  int get _progressCount => widget.drafts
+      .where((d) => d.status != 'DONE' && d.status != 'REGISTERED')
+      .length;
+  int get _doneCount => widget.drafts
+      .where((d) => d.status == 'DONE' || d.status == 'REGISTERED')
+      .length;
+
   @override
   Widget build(BuildContext context) {
     final items = _filtered;
+    final color = widget.difficultyColor;
 
     return Column(
       children: [
-        // 상태 필터 버튼 행
+        // 상태 필터 버튼 행 — 각 칩에 해당 조건의 코스 수 표시
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
           child: Row(
             children: [
               _FilterChip(
                 label: '전체',
+                count: _allCount,
                 selected: _filter == 'all',
+                selectedColor: color,
                 onTap: () => setState(() => _filter = 'all'),
               ),
               const SizedBox(width: 8),
               _FilterChip(
                 label: '진행 중',
+                count: _progressCount,
                 selected: _filter == 'progress',
+                selectedColor: color,
                 onTap: () => setState(() => _filter = 'progress'),
               ),
               const SizedBox(width: 8),
               _FilterChip(
                 label: '완료',
+                count: _doneCount,
                 selected: _filter == 'done',
+                selectedColor: color,
                 onTap: () => setState(() => _filter = 'done'),
               ),
             ],
           ),
         ),
+
+        // 완료 필터 선택 시 — 완료 수와 평균 유사도 요약
+        if (_filter == 'done' && _doneCount > 0)
+          _CompletedSummary(
+            completedDrafts: items,
+            color: color,
+          ),
+
+        const Divider(height: 1, thickness: 1, color: Color(0xFFF3F4F6)),
 
         // 코스 목록
         Expanded(
@@ -254,15 +343,75 @@ class _CourseListContentState extends State<_CourseListContent> {
   }
 }
 
+// ── 완료 탭 요약 행 ───────────────────────────────────────────────────
+// 완료 필터 선택 시 상단에 완료 개수 + 평균 유사도를 한 줄로 표시
+class _CompletedSummary extends StatelessWidget {
+  final List<CourseDraft> completedDrafts;
+  final Color color;
+
+  const _CompletedSummary({
+    required this.completedDrafts,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 유사도 점수가 있는 항목만 평균 계산
+    final scores = completedDrafts
+        .where((d) => d.similarityScore != null)
+        .map((d) => d.similarityScore!)
+        .toList();
+    final avgScore =
+        scores.isEmpty ? null : scores.reduce((a, b) => a + b) / scores.length;
+
+    return Container(
+      width: double.infinity,
+      color: color.withValues(alpha: 0.06),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: [
+          Icon(Icons.emoji_events_rounded, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            '${completedDrafts.length}개 완료',
+            style: TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          if (avgScore != null) ...[
+            const SizedBox(width: 12),
+            Text(
+              '평균 유사도 ${avgScore.toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontFamily: 'Pretendard',
+                fontSize: 12,
+                color: color.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 // ── 상태 필터 칩 버튼 ─────────────────────────────────────────────────
+// 선택 시 selectedColor 로 채워지고, 코스 수(count)를 라벨 옆에 표시
 class _FilterChip extends StatelessWidget {
   final String label;
+  final int count;
   final bool selected;
+  final Color selectedColor;
   final VoidCallback onTap;
 
   const _FilterChip({
     required this.label,
+    required this.count,
     required this.selected,
+    required this.selectedColor,
     required this.onTap,
   });
 
@@ -274,22 +423,38 @@ class _FilterChip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF1C1C1E) : Colors.white,
+          color: selected ? selectedColor : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected
-                ? const Color(0xFF1C1C1E)
-                : const Color(0xFFE5E7EB),
+            color: selected ? selectedColor : const Color(0xFFE5E7EB),
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Pretendard',
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-            color: selected ? Colors.white : const Color(0xFF6B7280),
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Pretendard',
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                color: selected ? Colors.white : const Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // 해당 조건의 코스 수
+            Text(
+              '$count',
+              style: TextStyle(
+                fontFamily: 'Pretendard',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: selected
+                    ? Colors.white.withValues(alpha: 0.85)
+                    : const Color(0xFF9CA3AF),
+              ),
+            ),
+          ],
         ),
       ),
     );
