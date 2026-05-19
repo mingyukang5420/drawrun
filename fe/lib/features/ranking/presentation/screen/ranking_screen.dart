@@ -1,41 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:running/features/ranking/domain/challenge_ranking.dart';
+import 'package:running/features/ranking/domain/participated_challenge_group.dart';
+import 'package:running/features/ranking/domain/rank_entry.dart';
+import 'package:running/features/ranking/presentation/participated_viewmodel.dart';
+import 'package:running/features/ranking/presentation/ranking_provider.dart';
 
 // 랭킹 탭 메인 화면.
-// 챌린지 선택 헤더가 위에, 그 아래 Easy / Hard 난이도 탭이 자리한다.
-// 챌린지 선택 상태(_selected) 는 본 화면이 들고 있어 두 난이도 탭이 같은 챌린지를 본다.
-// TODO: 백엔드 GET /v1/challenge/ranking?challengeId=&difficulty= 연동 후 목업 제거
-class RankingScreen extends StatefulWidget {
+// 참여 챌린지 목록을 받아 시트에 띄우고, 사용자가 고른 챌린지의 Easy/Hard 랭킹을 본문에 그린다.
+//
+// 진입 시점에 participatedViewModelProvider 가 GET /v1/challenge/participated 를 호출,
+// 응답이 도착하면 첫 항목을 _selected 로 자동 지정한다.
+class RankingScreen extends ConsumerStatefulWidget {
   const RankingScreen({super.key});
 
   @override
-  State<RankingScreen> createState() => _RankingScreenState();
+  ConsumerState<RankingScreen> createState() => _RankingScreenState();
 }
 
-class _RankingScreenState extends State<RankingScreen> {
-  // 현재 선택된 챌린지. 첫 진입 시 "이번 주" 챌린지를 기본 선택한다.
-  late _Challenge _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = _challenges.firstWhere(
-      (c) => c.isCurrent,
-      orElse: () => _challenges.first,
-    );
-  }
+class _RankingScreenState extends ConsumerState<RankingScreen> {
+  // 현재 선택된 챌린지 묶음. participated 응답이 도착하기 전에는 null.
+  // 응답 도착 후 첫 빌드에서 첫 항목으로 세팅된다 (build() 안에서 처리).
+  ParticipatedChallengeGroup? _selected;
 
   // 챌린지 선택 바텀시트를 띄운다. 시트가 항목을 고르면 setState 로 본 화면을 다시 그린다.
-  void _openChallengePicker() {
+  void _openChallengePicker(List<ParticipatedChallengeGroup> groups) {
+    final selected = _selected;
+    if (selected == null) return;
+
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => _ChallengePickerSheet(
-        challenges: _challenges,
-        selected: _selected,
-        onSelect: (c) {
-          setState(() => _selected = c);
+        groups: groups,
+        selected: selected,
+        onSelect: (g) {
+          setState(() => _selected = g);
           Navigator.of(context).pop();
         },
       ),
@@ -44,8 +47,8 @@ class _RankingScreenState extends State<RankingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // DefaultTabController 가 Scaffold 의 body 안쪽에 들어간다 —
-    // AppBar.bottom 에 있던 TabBar 도 함께 안쪽으로 내려간다.
+    final state = ref.watch(participatedViewModelProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
@@ -61,259 +64,131 @@ class _RankingScreenState extends State<RankingScreen> {
           ),
         ),
       ),
-      body: DefaultTabController(
-        length: 2,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 1) 챌린지 선택 헤더 — AppBar 바로 아래에 붙는다.
-            _ChallengeHeader(
-              challenge: _selected,
-              onTap: _openChallengePicker,
-            ),
-            const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
-            // 2) 난이도 탭 — 헤더 아래로 내려온다.
-            //    Material 로 감싸야 TabBar 의 잉크 / 폰트가 정상으로 그려진다.
-            const Material(
-              color: Colors.white,
-              child: TabBar(
-                labelColor: Color(0xFF1C1C1E),
-                unselectedLabelColor: Color(0xFF9CA3AF),
-                labelStyle: TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-                unselectedLabelStyle: TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                ),
-                indicatorColor: Color(0xFF1C1C1E),
-                indicatorWeight: 2.5,
-                tabs: [
-                  Tab(text: 'Easy'),
-                  Tab(text: 'Hard'),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
-            // 3) 두 난이도 본문 — 선택된 챌린지의 EASY / HARD 랭킹을 각각 그린다.
-            //    Expanded 로 감싸야 TabBarView 가 남은 세로 공간을 채운다.
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _ChallengeRankingTab(
-                    challenge: _selected,
-                    difficulty: 'EASY',
-                  ),
-                  _ChallengeRankingTab(
-                    challenge: _selected,
-                    difficulty: 'HARD',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      body: _buildBody(state),
     );
   }
-}
 
-// ── 랭킹 한 줄 데이터 ────────────────────────────────────────────────
-class _RankingEntry {
-  final int rank;
-  final String username;
-  final double similarityPct; // 경로 유사도 (%)
-  final String duration;       // 달린 시간 (예: "23:14")
-  final bool isMe;
+  // 참여 챌린지 응답 상태에 따라 본문을 분기.
+  // 1) 로딩 중 → 인디케이터
+  // 2) 에러 → 재시도 안내
+  // 3) 빈 결과 → "아직 참여한 챌린지가 없습니다"
+  // 4) 정상 → 헤더 + 탭 + TabBarView
+  Widget _buildBody(ParticipatedListState state) {
+    if (state.groups == null && state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  const _RankingEntry({
-    required this.rank,
-    required this.username,
-    required this.similarityPct,
-    required this.duration,
-    this.isMe = false,
-  });
-}
-
-// ── 챌린지 목록 ────────────────────────────────────────────────────
-// 한 챌린지(주차) 안에 Easy / Hard 두 코스가 함께 묶인다.
-// TODO: 백엔드 API 연동 후 제거 — 실제로는 GET /v1/challenge 응답 형태에 맞춰 모델 교체.
-class _Challenge {
-  // 챌린지 식별자. 목업에선 주차 키('w20') 를 그대로 쓴다.
-  final String id;
-
-  // 사용자에게 보여줄 주차 라벨. 예: "2026년 5월 3주차"
-  final String weekLabel;
-
-  // 같은 챌린지의 Easy 코스 이름. 예: "다람쥐 런"
-  final String easyName;
-
-  // 같은 챌린지의 Hard 코스 이름. 예: "매 런"
-  final String hardName;
-
-  // "이번 주" 뱃지 노출용 플래그.
-  final bool isCurrent;
-
-  const _Challenge({
-    required this.id,
-    required this.weekLabel,
-    required this.easyName,
-    required this.hardName,
-    this.isCurrent = false,
-  });
-
-  // 선택된 난이도에 해당하는 코스 이름을 돌려준다.
-  // 'EASY' / 'HARD' 외 값이 들어오면 안전하게 easyName 으로 폴백.
-  String nameOf(String difficulty) =>
-      difficulty == 'HARD' ? hardName : easyName;
-}
-
-// 챌린지 목록 — 같은 주차의 Easy / Hard 두 코스를 한 항목으로 묶는다.
-// 위에서 아래로 최신순(가장 최근 주차가 0번 인덱스).
-const List<_Challenge> _challenges = [
-  _Challenge(
-    id: 'w20',
-    weekLabel: '2026년 5월 3주차',
-    easyName: '다람쥐 런',
-    hardName: '매 런',
-    isCurrent: true,
-  ),
-  _Challenge(
-    id: 'w19',
-    weekLabel: '2026년 5월 2주차',
-    easyName: '여우 런',
-    hardName: '늑대 런',
-  ),
-  _Challenge(
-    id: 'w18',
-    weekLabel: '2026년 5월 1주차',
-    easyName: '토끼 런',
-    hardName: '독수리 런',
-  ),
-  _Challenge(
-    id: 'w17',
-    weekLabel: '2026년 4월 4주차',
-    easyName: '고양이 런',
-    hardName: '표범 런',
-  ),
-];
-
-// 챌린지 ID + 난이도 두 단계로 인덱싱된 목업 랭킹.
-// 키: challenge.id (예: 'w20'),  내부 키: 'EASY' | 'HARD'
-// TODO: 백엔드 API 연동 시 challengeId + difficulty 쿼리로 top5 + myEntry 형태로 교체.
-const Map<String, Map<String, List<_RankingEntry>>> _rankingsByChallenge = {
-  'w20': {
-    'EASY': [
-      _RankingEntry(rank: 1, username: '달리기왕', similarityPct: 97.3, duration: '18:42'),
-      _RankingEntry(rank: 2, username: '스피드런', similarityPct: 95.1, duration: '21:05'),
-      _RankingEntry(rank: 3, username: '나', similarityPct: 91.8, duration: '24:33', isMe: true),
-      _RankingEntry(rank: 4, username: '조깅러버', similarityPct: 88.4, duration: '27:11'),
-      _RankingEntry(rank: 5, username: '마라토너', similarityPct: 85.0, duration: '29:54'),
-    ],
-    'HARD': [
-      _RankingEntry(rank: 1, username: '울트라러너', similarityPct: 93.5, duration: '31:07'),
-      _RankingEntry(rank: 2, username: '철인', similarityPct: 90.2, duration: '34:22'),
-      _RankingEntry(rank: 3, username: '도전자', similarityPct: 85.7, duration: '39:14'),
-      _RankingEntry(rank: 4, username: '페이스킵', similarityPct: 81.3, duration: '43:58'),
-      _RankingEntry(rank: 5, username: '산악러너', similarityPct: 77.9, duration: '47:30'),
-      _RankingEntry(rank: 13, username: '나', similarityPct: 54.2, duration: '01:12:44', isMe: true),
-    ],
-  },
-  // 다른 주차들은 화면 테스트 편의를 위해 빈 리스트로 둔다.
-  // 실 BE 연동 시 challengeId 별 진짜 랭킹이 들어온다.
-  'w19': {'EASY': <_RankingEntry>[], 'HARD': <_RankingEntry>[]},
-  'w18': {'EASY': <_RankingEntry>[], 'HARD': <_RankingEntry>[]},
-  'w17': {'EASY': <_RankingEntry>[], 'HARD': <_RankingEntry>[]},
-};
-
-// ── 난이도별 랭킹 탭 본문 ─────────────────────────────────────────────
-// 한 챌린지의 한 난이도 랭킹만 그린다.
-// 챌린지 선택 상태는 부모(_RankingScreenState) 가 들고, 본 위젯은 받은
-// 챌린지 + 난이도로 데이터만 꺼내 그리므로 Stateless.
-class _ChallengeRankingTab extends StatelessWidget {
-  // 부모가 내려주는 현재 챌린지. 두 난이도 탭이 같은 인스턴스를 공유한다.
-  final _Challenge challenge;
-
-  // 본 탭이 책임지는 난이도 — 'EASY' 또는 'HARD'.
-  final String difficulty;
-
-  const _ChallengeRankingTab({
-    required this.challenge,
-    required this.difficulty,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // 난이도별 강조색. EASY 는 초록, HARD 는 검정 계열로 옛 색을 그대로 재사용.
-    final accentColor = difficulty == 'EASY'
-        ? const Color(0xFF27AE60)
-        : const Color(0xFF1C1C1E);
-
-    // (챌린지 ID, 난이도) 두 키로 랭킹을 꺼낸다. 키가 없으면 빈 리스트로 폴백.
-    final rankings =
-        _rankingsByChallenge[challenge.id]?[difficulty] ?? const [];
-
-    // 헤더는 부모가 두 탭 위에서 그리므로 본 위젯은 랭킹 리스트만 반환.
-    return _RankingList(rankings: rankings, accentColor: accentColor);
-  }
-}
-
-// ── 상위 5위 목록 + 내 순위 고정 바 ──────────────────────────────────────
-class _RankingList extends StatelessWidget {
-  final List<_RankingEntry> rankings;
-  final Color accentColor;
-
-  const _RankingList({required this.rankings, required this.accentColor});
-
-  @override
-  Widget build(BuildContext context) {
-    final top5 = rankings.where((e) => e.rank <= 5).toList()
-      ..sort((a, b) => a.rank.compareTo(b.rank));
-
-    // 내 순위가 상위 5위 밖인 경우에만 하단에 별도 표시
-    final myEntry = rankings.where((e) => e.isMe && e.rank > 5).firstOrNull;
-
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            itemCount: top5.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (_, i) =>
-                _RankingCard(entry: top5[i], accentColor: accentColor),
+    if (state.errorMessage != null && state.groups == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline,
+                  color: Color(0xFF9CA3AF), size: 32),
+              const SizedBox(height: 8),
+              Text(
+                '참여 챌린지를 불러오지 못했어요.\n${state.errorMessage}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () =>
+                    ref.read(participatedViewModelProvider.notifier).refresh(),
+                child: const Text('다시 시도'),
+              ),
+            ],
           ),
         ),
-        if (myEntry != null) ...[
-          // 생략된 순위(6위 ~ 내 순위 직전)를 점 세 개로 표현
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Column(
-              children: [
-                for (int i = 0; i < 3; i++)
-                  Container(
-                    width: 4,
-                    height: 4,
-                    margin: const EdgeInsets.symmetric(vertical: 3),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFD1D5DB),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+      );
+    }
+
+    final groups = state.groups!;
+    if (groups.isEmpty) {
+      // 빈 상태 — 참여한 챌린지가 없을 때.
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            '아직 참여한 챌린지가 없습니다',
+            style: TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 14,
+              color: Color(0xFF9CA3AF),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 응답 도착 후 첫 빌드에서 _selected 가 비어 있으면 첫 항목으로 세팅.
+    // null-assign 이라 한 번만 실행되며, 사용자가 시트로 다른 항목을 골랐다면 그 값을 유지한다.
+    _selected ??= groups.first;
+    final selected = _selected!;
+
+    // DefaultTabController 가 Scaffold 의 body 안쪽 — TabBar 가 본문에 내려와 있는 구조.
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1) 챌린지 선택 헤더 — AppBar 바로 아래.
+          _ChallengeHeader(
+            group: selected,
+            onTap: () => _openChallengePicker(groups),
+          ),
+          const Divider(height: 1, color: Color(0xFFF0F0F0)),
+
+          // 2) 난이도 탭 — 헤더 아래.
+          //    Material 로 감싸야 TabBar 의 잉크 / 폰트가 정상으로 그려진다.
+          const Material(
+            color: Colors.white,
+            child: TabBar(
+              labelColor: Color(0xFF1C1C1E),
+              unselectedLabelColor: Color(0xFF9CA3AF),
+              labelStyle: TextStyle(
+                fontFamily: 'Pretendard',
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+              unselectedLabelStyle: TextStyle(
+                fontFamily: 'Pretendard',
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+              ),
+              indicatorColor: Color(0xFF1C1C1E),
+              indicatorWeight: 2.5,
+              tabs: [
+                Tab(text: 'Easy'),
+                Tab(text: 'Hard'),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: _RankingCard(entry: myEntry, accentColor: accentColor),
+          const Divider(height: 1, color: Color(0xFFF0F0F0)),
+
+          // 3) 두 난이도 본문 — 각 탭이 자기 challengeId 로 ranking API 를 호출.
+          Expanded(
+            child: TabBarView(
+              children: [
+                _ChallengeRankingTab(
+                  challengeId: selected.easyChallengeId,
+                  difficulty: 'EASY',
+                ),
+                _ChallengeRankingTab(
+                  challengeId: selected.hardChallengeId,
+                  difficulty: 'HARD',
+                ),
+              ],
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -321,10 +196,11 @@ class _RankingList extends StatelessWidget {
 // ── 챌린지 선택 헤더 ────────────────────────────────────────────────
 // AppBar 바로 아래에 자리하는 흰 카드. 탭하면 챌린지 선택 시트가 열린다.
 class _ChallengeHeader extends StatelessWidget {
-  final _Challenge challenge;
+  // BE 가 주는 ParticipatedChallengeGroup 한 항목. title 한 개만 들어 있다.
+  final ParticipatedChallengeGroup group;
   final VoidCallback onTap;
 
-  const _ChallengeHeader({required this.challenge, required this.onTap});
+  const _ChallengeHeader({required this.group, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -338,35 +214,21 @@ class _ChallengeHeader extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    challenge.weekLabel,
-                    style: const TextStyle(
-                      fontFamily: 'Pretendard',
-                      fontSize: 12,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  // 한 챌린지의 두 코스를 함께 노출 — 시트 항목과 동일한 컨벤션.
-                  // "다람쥐 런 · 매 런" 처럼 EASY → HARD 순서 고정.
-                  Text(
-                    '${challenge.easyName} · ${challenge.hardName}',
-                    style: const TextStyle(
-                      fontFamily: 'Pretendard',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1C1C1E),
-                    ),
-                    // 두 줄로 늘어나 헤더 높이가 점프하지 않도록 한 줄에서 자른다.
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+              // 챌린지 제목 한 줄 — BE 가 주차 라벨까지 포함해 합쳐 보낸다.
+              // 길어지면 한 줄에서 잘려 헤더 높이가 흔들리지 않도록 한다.
+              child: Text(
+                group.title,
+                style: const TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1C1C1E),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 8),
             // 다른 챌린지로 바꾸기 안내 아이콘
             const Icon(
               Icons.keyboard_arrow_down_rounded,
@@ -383,12 +245,18 @@ class _ChallengeHeader extends StatelessWidget {
 // ── 챌린지 선택 바텀 시트 ─────────────────────────────────────────────
 // 챌린지 단위로 항목을 보여준다. 한 항목을 고르면 두 난이도 탭의 데이터가 갱신된다.
 class _ChallengePickerSheet extends StatelessWidget {
-  final List<_Challenge> challenges;
-  final _Challenge selected;
-  final ValueChanged<_Challenge> onSelect;
+  // BE 가 주는 참여 챌린지 묶음 리스트. 빈 리스트일 일은 없다 —
+  // 빈 경우 시트 자체를 띄우지 않게 화면 본체에서 분기한다.
+  final List<ParticipatedChallengeGroup> groups;
+
+  // 현재 선택된 챌린지 — 이 항목만 굵게 / 진하게 강조.
+  final ParticipatedChallengeGroup selected;
+
+  // 시트 항목 탭 콜백.
+  final ValueChanged<ParticipatedChallengeGroup> onSelect;
 
   const _ChallengePickerSheet({
-    required this.challenges,
+    required this.groups,
     required this.selected,
     required this.onSelect,
   });
@@ -419,62 +287,28 @@ class _ChallengePickerSheet extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // 각 챌린지 항목 — 위 줄에 주차 라벨(작은 회색), 아래 줄에 두 코스명(큰 검정).
-        ...challenges.map(
-          (c) {
-            // 한 챌린지의 두 코스를 함께 노출 — "다람쥐 런 · 매 런".
-            // 가운데 점은 가독성 구분자(EASY → HARD 순서 고정).
-            final coursesLabel = '${c.easyName} · ${c.hardName}';
-
+        // 각 챌린지 항목 — title 한 줄을 그대로 노출.
+        // 선택된 항목은 굵게 + 검정, 아니면 가늘게 + 회색.
+        // 두 ID 가 nullable 이라 한쪽만 비교하면 (null, null) 끼리도 같다고 잘못 판정될
+        // 위험이 있어 title + 두 ID 모두 비교.
+        ...groups.map(
+          (g) {
+            final isSelected = g.title == selected.title &&
+                g.easyChallengeId == selected.easyChallengeId &&
+                g.hardChallengeId == selected.hardChallengeId;
             return ListTile(
-              // 위 줄(작은 회색): 주차 라벨
               title: Text(
-                c.weekLabel,
-                style: const TextStyle(
+                g.title,
+                style: TextStyle(
                   fontFamily: 'Pretendard',
-                  fontSize: 12,
-                  color: Color(0xFF9CA3AF),
+                  fontSize: 15,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                  color: isSelected
+                      ? const Color(0xFF1C1C1E)
+                      : const Color(0xFF6B7280),
                 ),
               ),
-              // 아래 줄(큰 검정): 두 코스명. 선택된 항목은 굵게 + 진하게.
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  coursesLabel,
-                  style: TextStyle(
-                    fontFamily: 'Pretendard',
-                    fontSize: 15,
-                    fontWeight: c.id == selected.id
-                        ? FontWeight.w700
-                        : FontWeight.w400,
-                    color: c.id == selected.id
-                        ? const Color(0xFF1C1C1E)
-                        : const Color(0xFF6B7280),
-                  ),
-                ),
-              ),
-              trailing: c.isCurrent
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        '이번 주',
-                        style: TextStyle(
-                          fontFamily: 'Pretendard',
-                          fontSize: 11,
-                          color: Color(0xFF3B82F6),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    )
-                  : null,
-              onTap: () => onSelect(c),
+              onTap: () => onSelect(g),
             );
           },
         ),
@@ -484,25 +318,226 @@ class _ChallengePickerSheet extends StatelessWidget {
   }
 }
 
-// ── 랭킹 카드 ────────────────────────────────────────────────────────
-class _RankingCard extends StatelessWidget {
-  final _RankingEntry entry;
+// ── 난이도별 랭킹 탭 본문 ─────────────────────────────────────────────
+// 한 챌린지의 한 난이도 랭킹만 그린다.
+// challengeRankingViewModelProvider(단일 Notifier) 를 watch 하고,
+// state 에서 자기 challengeId 의 캐시 / 로딩 / 에러를 꺼내 분기 표시.
+class _ChallengeRankingTab extends ConsumerWidget {
+  // 부모가 내려주는 그 탭의 challengeId — Easy 탭이면 group.easyChallengeId, Hard 면 hardChallengeId.
+  // 해당 난이도 코스가 없으면 null 로 들어와 빈 상태 분기.
+  final int? challengeId;
+
+  // 본 탭이 책임지는 난이도 — 카드 강조색 / 빈 상태 문구 결정에 사용.
+  final String difficulty;
+
+  const _ChallengeRankingTab({
+    required this.challengeId,
+    required this.difficulty,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 난이도별 강조색 — EASY 는 초록, HARD 는 검정 계열.
+    final accentColor = difficulty == 'EASY'
+        ? const Color(0xFF27AE60)
+        : const Color(0xFF1C1C1E);
+
+    // 이 챌린지에 본 난이도 코스가 아예 없는 경우.
+    // API 호출 자체가 필요 없으니 미리 빈 상태로 끊어 둔다.
+    final id = challengeId;
+    if (id == null) {
+      final difficultyLabel = difficulty == 'EASY' ? 'Easy' : 'Hard';
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            '이 챌린지에는 $difficultyLabel 코스가 없습니다',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 14,
+              color: Color(0xFF9CA3AF),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // build 안에서 직접 load 를 부르면 빌드 루프 위험이 있어 microtask 로 지연한다.
+    // Notifier 가 캐시 hit / in-flight 가드를 들고 있어 같은 challengeId 가 여러 번 build 돼도 안전.
+    Future.microtask(() {
+      ref
+          .read(challengeRankingViewModelProvider.notifier)
+          .loadIfNeeded(id);
+    });
+
+    final state = ref.watch(challengeRankingViewModelProvider);
+    final ranking = state.rankingFor(id);
+    final loading = state.isLoading(id);
+    final error = state.errorFor(id);
+
+    // 로딩 — 첫 fetch 중 (캐시도 비었고 로딩 표시는 켜짐).
+    if (loading && ranking == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // 에러 — 재시도 안내 (캐시도 비었고 에러만 있음).
+    if (error != null && ranking == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline,
+                  color: Color(0xFF9CA3AF), size: 32),
+              const SizedBox(height: 8),
+              Text(
+                '랭킹을 불러오지 못했어요.\n$error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => ref
+                    .read(challengeRankingViewModelProvider.notifier)
+                    .refresh(id),
+                child: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 정상 — 응답 본체를 _RankingList 로 흘려보낸다.
+    return _RankingList(ranking: ranking!, accentColor: accentColor);
+  }
+}
+
+// ── 한 챌린지 한 난이도의 랭킹 본문 ───────────────────────────────────
+// 상위 5명 + (선택) 점점점 + prevRank + myRank 순으로 카드를 그린다.
+//
+// 분기 규칙:
+//   myRank == null        → top5 만 그린다.
+//   myRank.rank <= 5      → 본인이 이미 top5 에 있어 추가 카드 없음.
+//   myRank.rank == 6      → top5 다음 줄에 myRank 카드 하나만 (prevRank 는 top5 의 5위와 중복이라 무시).
+//   myRank.rank == 7      → top5 → prevRank(6) → myRank(7) 자연 연속, 점점점 없음.
+//   myRank.rank >= 8      → top5 → 점점점 → prevRank → myRank.
+class _RankingList extends StatelessWidget {
+  final ChallengeRanking ranking;
   final Color accentColor;
 
-  const _RankingCard({required this.entry, required this.accentColor});
+  const _RankingList({required this.ranking, required this.accentColor});
 
   @override
   Widget build(BuildContext context) {
+    final myRank = ranking.myRank;
+    final prevRank = ranking.prevRank;
+
+    // top5 자리는 항상 BE 가 준 rankings 리스트 그대로.
+    final top5 = ranking.rankings;
+
+    // 본인 카드를 어떻게 표시할지 케이스 분류.
+    // 6위면 본인만, 7위면 prevRank + 본인, 8위 이상이면 점점점 + prevRank + 본인.
+    final showMyCard = myRank != null && myRank.rank >= 6;
+    final showPrevCard =
+        myRank != null && myRank.rank >= 7 && prevRank != null;
+    final showEllipsis = myRank != null && myRank.rank >= 8;
+
+    return Column(
+      children: [
+        // 1) 상위 5명 — 항상 리스트로 그린다.
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            itemCount: top5.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (_, i) => _RankingCard(
+              entry: top5[i],
+              accentColor: accentColor,
+              isMe: false,
+            ),
+          ),
+        ),
+
+        // 2) 8위 이상일 때만 6위 자리에 들어갈 점 세 개.
+        if (showEllipsis)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              children: [
+                for (int i = 0; i < 3; i++)
+                  Container(
+                    width: 4,
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFD1D5DB),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+        // 3) prevRank 카드 — 7위 이상에서만 (6위면 prevRank 가 5위라 top5 와 중복).
+        if (showPrevCard)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: _RankingCard(
+              entry: prevRank,
+              accentColor: accentColor,
+              isMe: false,
+            ),
+          ),
+
+        // 4) 내 순위 카드 — 6위 이상에서만 (5위 이내면 top5 에 이미 있음).
+        if (showMyCard)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: _RankingCard(
+              entry: myRank,
+              accentColor: accentColor,
+              isMe: true,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── 랭킹 카드 한 장 ─────────────────────────────────────────────────
+// 한 줄의 순위 / 닉네임 / 유사도를 그린다.
+// "본인 여부" 는 모델이 아니라 호출 측(_RankingList) 이 전달한다 —
+// BE 응답이 자기 자신을 따로 표시해 주지 않기 때문.
+class _RankingCard extends StatelessWidget {
+  final RankEntry entry;
+  final Color accentColor;
+  final bool isMe;
+
+  const _RankingCard({
+    required this.entry,
+    required this.accentColor,
+    required this.isMe,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 1~3위는 강조색 + 큰 글씨로 차별화.
     final isTop3 = entry.rank <= 3;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: entry.isMe
-            ? accentColor.withValues(alpha: 0.06)
-            : Colors.white,
+        // 본인 카드는 옅은 강조색 배경 + 테두리로 시각 구분.
+        color: isMe ? accentColor.withValues(alpha: 0.06) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: entry.isMe
+        border: isMe
             ? Border.all(color: accentColor.withValues(alpha: 0.3), width: 1.5)
             : null,
       ),
@@ -524,12 +559,12 @@ class _RankingCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
 
-          // 아바타
+          // 아바타 — 닉네임 첫 글자.
           CircleAvatar(
             radius: 18,
             backgroundColor: const Color(0xFFE5E7EB),
             child: Text(
-              entry.username.substring(0, 1),
+              entry.nickname.isNotEmpty ? entry.nickname.substring(0, 1) : '?',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -539,40 +574,27 @@ class _RankingCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
 
-          // 닉네임 + 달린 시간
+          // 닉네임 — 본인이면 "(나)" 접미사.
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.isMe ? '${entry.username} (나)' : entry.username,
-                  style: TextStyle(
-                    fontFamily: 'Pretendard',
-                    fontSize: 14,
-                    fontWeight:
-                        entry.isMe ? FontWeight.w700 : FontWeight.w500,
-                    color: const Color(0xFF1C1C1E),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  entry.duration,
-                  style: const TextStyle(
-                    fontFamily: 'Pretendard',
-                    fontSize: 12,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                ),
-              ],
+            child: Text(
+              isMe ? '${entry.nickname} (나)' : entry.nickname,
+              style: TextStyle(
+                fontFamily: 'Pretendard',
+                fontSize: 14,
+                fontWeight: isMe ? FontWeight.w700 : FontWeight.w500,
+                color: const Color(0xFF1C1C1E),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
 
-          // 유사도 점수
+          // 유사도 점수 — 항상 소수점 둘째 자리까지.
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${entry.similarityPct.toStringAsFixed(1)}%',
+                '${entry.similarityScore.toStringAsFixed(2)}%',
                 style: TextStyle(
                   fontFamily: 'Pretendard',
                   fontSize: 16,
