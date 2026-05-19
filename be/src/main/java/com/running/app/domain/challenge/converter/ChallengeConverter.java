@@ -1,6 +1,7 @@
 package com.running.app.domain.challenge.converter;
 
 import com.running.app.domain.challenge.dto.ChallengeResponse;
+import com.running.app.domain.challenge.dto.ChallengeResponse.ParticipatedChallengeGroupDTO;
 import com.running.app.domain.challenge.dto.GmsImageDTO;
 import com.running.app.domain.challenge.dto.GmsImageDTO.GmsImageRequest;
 import com.running.app.domain.challenge.dto.GmsImageDTO.ImageRequestBody;
@@ -50,7 +51,7 @@ public abstract class ChallengeConverter {
     }
 
     public static Challenge toChallenge(String title, String imagePath, String polygonPoints,
-            ChallengeDifficulty difficulty) {
+            ChallengeDifficulty difficulty, String uuid) {
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -67,6 +68,7 @@ public abstract class ChallengeConverter {
                 .startedAt(now)
                 .endedAt(end)
                 .difficulty(difficulty)
+                .groupUUID(uuid)
                 .build();
     }
 
@@ -164,6 +166,16 @@ public abstract class ChallengeConverter {
                 .build();
     }
 
+    public static ParticipatedChallengeGroupDTO toParticipatedChallengeGroupDTO(String title,
+            Map<ChallengeDifficulty, Long> map) {
+
+        return ParticipatedChallengeGroupDTO.builder()
+                .title(title)
+                .easyChallengeId(map.get(ChallengeDifficulty.EASY))
+                .hardChallengeId(map.get(ChallengeDifficulty.HARD))
+                .build();
+    }
+
     // 같은 타이틀 끼리 묶어주는 converter
     // repository에서 가져온 row를 grouped DTO List로 변환
     public static List<ChallengeResponse.ParticipatedChallengeGroupDTO> toParticipatedChallengeGroupDTOList(
@@ -190,6 +202,8 @@ public abstract class ChallengeConverter {
             // 난이도에 따라 challengeId 채움
             if (result.getDifficulty() == ChallengeDifficulty.EASY) {
                 builder.easyChallengeId(result.getChallengeId());
+                // uuid값을 통해 다른 난이도의 challenge를 가져옴
+
             } else if (result.getDifficulty() == ChallengeDifficulty.HARD) {
                 builder.hardChallengeId(result.getChallengeId());
             }

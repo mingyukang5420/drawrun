@@ -112,7 +112,8 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
     @Query("""
               SELECT c.id AS challengeId,
                      c.title AS title,
-                     c.difficulty AS difficulty
+                     c.difficulty AS difficulty,
+                     c.groupUUID AS groupUUID
               FROM RunningRecord r
               JOIN Challenge c ON r.challengeId = c.id
               WHERE r.memberId = :memberId
@@ -121,6 +122,23 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
               ORDER BY c.title ASC, c.id ASC
             """)
     List<ChallengeParticipationQueryResult> findParticipatedChallengesByMemberId(
+            @Param("memberId") Long memberId
+    );
+
+    @Query("""
+              SELECT c.id AS challengeId,
+                     c.title AS title,
+                     c.difficulty AS difficulty,
+                     c.groupUUID AS groupUUID,
+                     c.startedAt AS startedAt
+              FROM RunningRecord r
+              JOIN Challenge c ON r.challengeId = c.id
+              WHERE r.memberId = :memberId
+              AND r.challengeId IS NOT NULL
+              GROUP BY c.id, c.title, c.difficulty,c.groupUUID, c.startedAt
+              ORDER BY c.endedAt
+            """)
+    List<ChallengeParticipationQueryResult> findParticipatedChallengesByMemberIdV2(
             @Param("memberId") Long memberId
     );
 

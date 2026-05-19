@@ -5,6 +5,7 @@ import com.running.app.domain.challenge.type.ChallengeDifficulty;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -32,4 +33,16 @@ public interface ChallengeRepository extends JpaRepository<Challenge, Long> {
 
     // 난이도별로 최신 1개의 챌린지를 조회
     Optional<Challenge> findTopByDifficultyOrderByIdDesc(ChallengeDifficulty difficulty);
+
+    @Query("""
+                SELECT c.id
+                FROM Challenge c
+                WHERE c.groupUUID = :uuid
+                  AND c.difficulty = :difficulty
+            """)
+    Long findByUuidWithDifficulty(@Param("uuid") String uuid,
+            @Param("difficulty") ChallengeDifficulty difficulty);
+
+    List<Challenge> findByGroupUUIDIn(Set<String> uuids);
+
 }
