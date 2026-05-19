@@ -40,9 +40,10 @@ class RunningScreen extends ConsumerWidget {
                 const _Header(),
                 const Spacer(),
                 _ChallengeButtons(
-                  onChallenge: (difficulty, challengeId, title) =>
-                      _showChallengeStartDialog(
-                          context, ref, difficulty, challengeId, title),
+                  onChallenge:
+                      (difficulty, challengeId, title, polygonImageUrl) =>
+                          _showChallengeStartDialog(context, ref, difficulty,
+                              challengeId, title, polygonImageUrl),
                 ),
               ],
             ),
@@ -58,6 +59,7 @@ class RunningScreen extends ConsumerWidget {
     String difficulty,
     int challengeId,
     String title,
+    String? polygonImageUrl,
   ) {
     final isEasy = difficulty == 'EASY';
     final accentColor =
@@ -66,11 +68,13 @@ class RunningScreen extends ConsumerWidget {
     // 시작 진입점이 세션 컨텍스트를 박아두는 단독 책임 — 자유 러닝 등 다른 경로의 잔여를
     // 끊고 challengeId 만 깨끗이 세팅. courseId / courseDraftId 는 자유 러닝 기준 null
     // (직접 그리기 경로에서는 에디터 저장 후 courseDraftId 가 별도 채워질 예정).
+    // polygonImageUrl 도 같이 박아 카운트다운/진행 화면이 도전 코스 폴리곤을 띄울 수 있게 한다.
     void seedContextForChallenge() {
       ref.read(runningViewModelProvider.notifier).setSessionContext(
             challengeId: challengeId,
             courseId: null,
             courseDraftId: null,
+            polygonImageUrl: polygonImageUrl,
           );
     }
 
@@ -390,11 +394,13 @@ class _VignettePainter extends CustomPainter {
 // 각 카드 하단의 도전 수·내 최고 순위는 GET /v1/challenge 응답으로 채워진다
 // (로딩/에러 중에는 placeholder 텍스트를 보여 시각적 길이 보전)
 class _ChallengeButtons extends ConsumerWidget {
-  // 콜백 시그니처에 challengeId 가 함께 흐른다.
+  // 콜백 시그니처에 challengeId / polygonImageUrl 이 함께 흐른다.
   // BE 종료 API 요청 본문이 challengeId 필드를 받기 시작했으므로, 카드 탭 시점부터
   // 진입점이 challengeId 를 들고 다닐 수 있도록 흘려보낸다.
-  final void Function(String difficulty, int challengeId, String title)
-      onChallenge;
+  // polygonImageUrl 은 "바로 시작" 진입 시 카운트다운/진행 화면에서 폴리곤 미리보기를
+  // 같이 띄워 사용자가 어떤 도형을 따라 뛰는지 한 눈에 인지하도록 함께 전달한다.
+  final void Function(String difficulty, int challengeId, String title,
+      String? polygonImageUrl) onChallenge;
 
   const _ChallengeButtons({required this.onChallenge});
 
@@ -491,7 +497,10 @@ class _ChallengeButtons extends ConsumerWidget {
                         onTap: list == null
                             ? () {}
                             : () => onChallenge(
-                                'EASY', list.easy.challengeId, 'Easy 챌린지'),
+                                'EASY',
+                                list.easy.challengeId,
+                                'Easy 챌린지',
+                                list.easy.polygonImageUrl),
                       ),
                     ),
                     // 우: Hard 카드 — 오른쪽 끝에서 시작 (Easy와 s px 겹침)
@@ -516,7 +525,10 @@ class _ChallengeButtons extends ConsumerWidget {
                         onTap: list == null
                             ? () {}
                             : () => onChallenge(
-                                'HARD', list.hard.challengeId, 'Hard 챌린지'),
+                                'HARD',
+                                list.hard.challengeId,
+                                'Hard 챌린지',
+                                list.hard.polygonImageUrl),
                       ),
                     ),
                   ],

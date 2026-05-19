@@ -47,6 +47,11 @@ class RunningState {
   final int? courseDraftId;
   final int? challengeId;
 
+  // 챌린지 카드를 통해 진입한 경우 그 챌린지의 폴리곤 이미지 URL.
+  // 진행 화면 / 일시정지 화면이 사용자에게 도전 코스 모양을 미리보기로 보여주는 데 사용.
+  // 자유 러닝 / 챌린지 외 진입이면 null.
+  final String? polygonImageUrl;
+
   // 시작 API 응답으로 받은 참조 경로(코스/드래프트의 GPS 노드).
   // 자유 러닝 / 응답 실패 시엔 빈 리스트.
   // 추후 진행 화면 지도에 회색 점선으로 그려 사용자가 따라갈 길잡이로 활용.
@@ -68,6 +73,7 @@ class RunningState {
     this.courseId,
     this.courseDraftId,
     this.challengeId,
+    this.polygonImageUrl,
     this.referenceNodes = const [],
   });
 
@@ -87,6 +93,7 @@ class RunningState {
     int? courseId,
     int? courseDraftId,
     int? challengeId,
+    String? polygonImageUrl,
     List<LatLng>? referenceNodes,
   }) {
     return RunningState(
@@ -105,6 +112,7 @@ class RunningState {
       courseId: courseId ?? this.courseId,
       courseDraftId: courseDraftId ?? this.courseDraftId,
       challengeId: challengeId ?? this.challengeId,
+      polygonImageUrl: polygonImageUrl ?? this.polygonImageUrl,
       referenceNodes: referenceNodes ?? this.referenceNodes,
     );
   }
@@ -265,6 +273,7 @@ class RunningNotifier extends Notifier<RunningState> {
     int? challengeId,
     int? courseId,
     int? courseDraftId,
+    String? polygonImageUrl,
   }) {
     state = RunningState(
       // 컨텍스트 ID 만 갈아끼우고, 나머지 측정값/상태는 보존
@@ -281,10 +290,11 @@ class RunningNotifier extends Notifier<RunningState> {
       startedAt: state.startedAt,
       endedAt: state.endedAt,
       referenceNodes: state.referenceNodes,
-      // ID 세 개는 호출자가 넘긴 값을 그대로 — null 도 그대로 (명시 리셋 의도 보존)
+      // ID 와 챌린지 폴리곤 URL 은 호출자가 넘긴 값을 그대로 — null 도 그대로 (명시 리셋 의도 보존)
       challengeId: challengeId,
       courseId: courseId,
       courseDraftId: courseDraftId,
+      polygonImageUrl: polygonImageUrl,
     );
   }
 
