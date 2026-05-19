@@ -80,6 +80,11 @@ public abstract class EditorResponse {
         private Double similarityScore;
         @JsonInclude(Include.NON_NULL)
         private ChallengeDifficulty challengeDifficulty;
+
+        // 챌린지에 속한 드래프트면 해당 challenge_id, 일반 드래프트면 null.
+        // FE 가 코스 카드에서 러닝 시작 시 setSessionContext 에 흘려 종료 API 까지 전달.
+        @JsonInclude(Include.NON_NULL)
+        private Long challengeId;
     }
 
     // 에디터 목록 조회 — Slice 결과 wrapper
