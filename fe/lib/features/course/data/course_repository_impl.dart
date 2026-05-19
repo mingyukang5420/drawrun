@@ -20,7 +20,7 @@ class CourseRepositoryImpl implements CourseRepository {
       _datasource.fetchMyCourses(status, page: page);
 
   @override
-  Future<List<CourseDraft>> getChallengeCourses({int page = 0}) =>
+  Future<(List<CourseDraft>, String?)> getChallengeCourses({int page = 0}) =>
       _datasource.fetchChallengeCourses(page: page);
 
   @override
