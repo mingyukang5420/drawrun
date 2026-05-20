@@ -100,7 +100,7 @@ public class RecordConverter {
             String totalTime,
             String periodLabel,
             List<RecordResponse.ChartDTO> chart,
-            List<RecordResponse.DailyActivityDTO> weeklyActivity
+            List<RecordResponse.WeeklyActivityDTO> weeklyActivity
     ) {
         return RecordResponse.StatsDTO.builder()
                 .totalDistance(totalDistance)
@@ -123,13 +123,13 @@ public class RecordConverter {
                 .build();
     }
 
-    public static RecordResponse.DailyActivityDTO toDailyActivityDTO(
-            String date,
+    public static RecordResponse.WeeklyActivityDTO toWeeklyActivityDTO(
+            String weekStart,
             Double distance,
             Integer count
     ) {
-        return RecordResponse.DailyActivityDTO.builder()
-                .date(date)
+        return RecordResponse.WeeklyActivityDTO.builder()
+                .weekStart(weekStart)
                 .distance(distance)
                 .count(count)
                 .build();
