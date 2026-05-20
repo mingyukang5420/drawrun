@@ -325,7 +325,7 @@ class _ChallengePickerSheet extends StatelessWidget {
                 g.hardChallengeId == selected.hardChallengeId;
             return ListTile(
               title: Text(
-                g.title,
+                '${g.title} 런',
                 style: TextStyle(
                   fontFamily: 'Pretendard',
                   fontSize: 15,
