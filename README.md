@@ -10,9 +10,6 @@ SSAFY 14기 자율 프로젝트 | S14P31A103
 
 AI가 생성한 그림 모양의 경로를 실제로 달리며 완성하고, 내 경로와 목표 경로의 유사도를 점수로 확인하는 **러닝 챌린지 서비스**입니다.
 
-- **배포 URL**: https://k14a103.p.ssafy.io
-- **API 문서 (Swagger)**: https://k14a103.p.ssafy.io/api/swagger-ui/index.html
-
 ---
 
 ## 👥 팀원
