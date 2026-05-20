@@ -147,49 +147,145 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 
   // ── 챌린지 저장 완료 후 달리기 시작 여부 확인 다이얼로그 ──────────────
   void _askToStartRun(BuildContext ctx) {
-    showDialog<bool>(
-      context: ctx,
-      builder: (_) => AlertDialog(
-        title: const Text('코스 저장 완료'),
-        content: const Text('지금 바로 이 코스를 달릴까요?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx)
-              ..pop() // 다이얼로그 닫기
-              ..pop(), // 에디터 닫기
-            child: const Text('나중에'),
-          ),
-          FilledButton(
-            onPressed: () {
-              // 직전 저장 성공으로 받은 courseDraftId 를 러닝 세션 컨텍스트에 박는다.
-              //
-              // 주의: setSessionContext 는 명시하지 않은 인자도 null 로 강제 리셋한다.
-              // 따라서 진입 시 박아 둔 challengeId 도 같이 명시 전달해야 종료 API 에 그대로
-              // 실린다 (명시 안 하면 챌린지 참여 집계가 끊긴다).
-              final draftId =
-                  ref.read(courseEditorProvider).savedCourseDraftId;
-              if (draftId != null) {
-                final currentChallengeId =
-                    ref.read(runningViewModelProvider).challengeId;
-                ref.read(runningViewModelProvider.notifier).setSessionContext(
-                      challengeId: currentChallengeId,
-                      courseDraftId: draftId,
-                    );
-              }
+    // 달리기 시작 버튼 콜백 — 다이얼로그 안에서 ref 를 쓰기 위해 미리 포획
+    void onStartRun() {
+      // 직전 저장 성공으로 받은 courseDraftId 를 러닝 세션 컨텍스트에 박는다.
+      // 주의: setSessionContext 는 명시하지 않은 인자도 null 로 강제 리셋하므로
+      // 진입 시 박아 둔 challengeId 도 명시 전달해야 종료 API 에 그대로 실린다.
+      final draftId = ref.read(courseEditorProvider).savedCourseDraftId;
+      if (draftId != null) {
+        final currentChallengeId =
+            ref.read(runningViewModelProvider).challengeId;
+        ref.read(runningViewModelProvider.notifier).setSessionContext(
+              challengeId: currentChallengeId,
+              courseDraftId: draftId,
+            );
+      }
+      Navigator.of(ctx)
+        ..pop() // 다이얼로그 닫기
+        ..pop(); // 에디터 닫기
+      Navigator.of(ctx).push(
+        MaterialPageRoute(
+          builder: (_) => const RunningCountdownScreen(),
+          fullscreenDialog: true,
+        ),
+      );
+    }
 
-              Navigator.of(ctx)
-                ..pop() // 다이얼로그 닫기
-                ..pop(); // 에디터 닫기
-              Navigator.of(ctx).push(
-                MaterialPageRoute(
-                  builder: (_) => const RunningCountdownScreen(),
-                  fullscreenDialog: true,
+    showDialog<void>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 저장 성공 아이콘
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F5E9),
+                  shape: BoxShape.circle,
                 ),
-              );
-            },
-            child: const Text('달리기 시작'),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Color(0xFF27AE60),
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // 제목
+              const Text(
+                '코스 저장 완료!',
+                style: TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1C1C1E),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // 안내 문구
+              const Text(
+                '지금 바로 이 코스를 달릴까요?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF6B7280),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // 버튼 행 — 나중에(보조) + 달리기 시작(주)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(ctx)
+                        ..pop()
+                        ..pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF6B7280),
+                        side: const BorderSide(color: Color(0xFFE5E7EB)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        textStyle: const TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      child: const Text('나중에'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: onStartRun,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1C1C1E),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        textStyle: const TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.directions_run_rounded, size: 16),
+                          SizedBox(width: 6),
+                          Text('달리기 시작'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
