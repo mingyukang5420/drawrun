@@ -32,6 +32,10 @@ class MapView extends StatefulWidget {
   // 예: EdgeInsets.only(bottom: 200) 이면 현재 위치 핀이 화면 상단 쪽으로 올라간다
   final EdgeInsets contentPadding;
 
+  // 현재 위치로 이동할 때 사용할 줌 레벨 (기본 15)
+  // 에디터처럼 좁은 범위 도로 데이터가 필요한 화면은 더 높은 값을 지정한다
+  final double initialZoom;
+
   const MapView({
     super.key,
     this.onMapReady,
@@ -41,6 +45,7 @@ class MapView extends StatefulWidget {
     this.onLocationError,
     this.scrollGesturesEnable = true,
     this.contentPadding = EdgeInsets.zero,
+    this.initialZoom = 15,
   });
 
   @override
@@ -72,11 +77,11 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
-    // 현재 위치로 카메라를 이동한다
+    // 현재 위치로 카메라를 이동한다 (호출자가 지정한 initialZoom 사용)
     await mapController.updateCamera(
       NCameraUpdate.scrollAndZoomTo(
         target: NLatLng(position.latitude, position.longitude),
-        zoom: 15,
+        zoom: widget.initialZoom,
       ),
     );
 

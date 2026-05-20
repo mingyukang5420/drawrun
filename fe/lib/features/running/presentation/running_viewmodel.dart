@@ -131,8 +131,13 @@ class RunningState {
     // 60'00"/km (= 시속 1km) 보다 느리면 사실상 멈춰 있는 것에 가까우므로 마스킹.
     if (paceSec > 60 * 60) return "--'--\"";
 
-    final m = paceSec ~/ 60;
-    final s = (paceSec % 60).round();
+    // 종료 후 BE 전송 정책(_toMinPerKm) 과 동일한 rounding 으로 표시값 계산.
+    //   - BE 는 paceSec 을 round() 한 뒤 60 으로 나눠 분/km 로 저장한다.
+    //   - 화면도 같은 정수 초 단위에서 분/초 분해해야 표시값과 저장값이 일치한다.
+    //   (분리 floor + 초 round 였던 기존 방식은 paceSec=359.6 → 화면 "5'60", BE "6'00" 처럼 불일치 유발)
+    final roundedSec = paceSec.round();
+    final m = roundedSec ~/ 60;
+    final s = roundedSec % 60;
     return "$m'${s.toString().padLeft(2, '0')}\"";
   }
 
@@ -147,7 +152,9 @@ class RunningState {
   );
 
   String get caloriesLabel => '$caloriesKcal';
-  String get altitudeLabel => '${altitudeM.toStringAsFixed(0)} m';
+  // toStringAsFixed(0) 는 -0.3 같은 음수 작은 값에서 "-0" 을 반환한다.
+  // .round() 는 int 를 반환해 -0 이 생기지 않으므로 0 / 양수 / 음수가 정확히 노출된다.
+  String get altitudeLabel => '${altitudeM.round()} m';
   String get bpmLabel => '$bpm';
   String get cadenceLabel => cadenceSpm < 90 ? '--' : '$cadenceSpm';
 }
@@ -285,6 +292,33 @@ class RunningNotifier extends Notifier<RunningState> {
       challengeId: challengeId,
       courseId: courseId,
       courseDraftId: courseDraftId,
+    );
+  }
+
+  // 다음 세션 시작 직전에 호출 — 옛 세션의 측정값(거리/시간/포인트/케이던스/고도 등) 을
+  // 깨끗이 비우면서 컨텍스트 ID 만 보존한다.
+  //
+  // finish() 는 의도적으로 측정값을 보존한다 (결과 화면이 그 값을 표시해야 하므로).
+  // 따라서 "측정값 0 부터 시작" 책임은 다음 세션 시작 진입점이 맡는다 —
+  // setSessionContext 와 동일한 패턴.
+  //
+  // 보존:
+  //   challengeId / courseId / courseDraftId — 시작 진입점이 setSessionContext 로 박은 값.
+  //                                            여기서 비우면 종료 API 가 그 ID 들을 잃는다.
+  // 리셋 (RunningState 의 기본값으로 돌아감):
+  //   distanceKm=0, points=[], elapsedSeconds=0,
+  //   altitudeM/bpm/cadenceSpm 기본값, isRunning/isPaused/isSaving=false,
+  //   startedAt/endedAt/saveError=null,
+  //   referenceNodes=[] (시작 API 응답이 곧 다시 채움 — 옛 챌린지 경로 잔여 방지).
+  //
+  // _stopwatch 도 함께 reset — finish() 가 stop 만 하고 reset 은 안 해서,
+  // 다음 startRunning 시 옛 elapsed 위에서 시계가 재개되는 버그가 있다.
+  void resetMeasurementsForNewSession() {
+    _stopwatch.reset();
+    state = RunningState(
+      challengeId: state.challengeId,
+      courseId: state.courseId,
+      courseDraftId: state.courseDraftId,
     );
   }
 
@@ -545,6 +579,12 @@ class RunningNotifier extends Notifier<RunningState> {
     int? courseDraftId,
     int? challengeId,
   }) async {
+    // 옛 세션을 식별하는 키. await 동안 사용자가 결과 화면을 닫고
+    // 새 세션을 시작해 setSessionContext 가 호출되면 startedAt 이 바뀐다.
+    // finally 가 늦게 실행될 때 이 키로 "내 세션이 아직 그대로인지" 를 확인해
+    // 새 세션의 컨텍스트를 옛 finally 가 null 로 덮어쓰는 race 를 막는다.
+    final mySessionKey = state.startedAt;
+
     state = state.copyWith(isSaving: true, saveError: null);
     try {
       await _repository.save(
@@ -564,7 +604,12 @@ class RunningNotifier extends Notifier<RunningState> {
       //
       // 직전 챌린지 러닝의 잔여가 다음 세션으로 흘러가지 않도록 보수적 가드.
       // 측정 데이터(거리/시간/points 등) 는 결과 화면이 계속 표시해야 하므로 이 메서드에서 건드리지 않는다.
-      _resetSessionContext();
+      //
+      // 단, await 동안 새 세션이 시작되어 startedAt 이 달라졌다면 그 새 세션의
+      // 컨텍스트(challengeId/courseId/courseDraftId) 를 옛 finally 가 덮어쓰지 않도록 스킵.
+      if (state.startedAt == mySessionKey) {
+        _resetSessionContext();
+      }
     }
   }
 
