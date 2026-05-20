@@ -84,6 +84,10 @@ class CourseEditorState {
   // 로딩 중 탭 입력 차단 안내에 사용되는 상태
   final bool isLoadingWays;
 
+  // 현재 줌 레벨이 도로 데이터 로드 임계값(15) 미만인지 여부
+  // true 이면 "더 가까이 확대해 주세요" 안내를 UI 에서 표시한다
+  final bool isZoomTooLow;
+
   // 챌린지 컨텍스트에서 진입 시 설정 — 저장 시 POST 바디에 포함
   // null 이면 일반 코스 저장 (challengeId 없이 전송)
   final int? challengeId;
@@ -92,6 +96,13 @@ class CourseEditorState {
   // "달리기 시작" 다이얼로그가 이 값을 꺼내 RunningNotifier.setSessionContext 에 전달한다.
   // 다음 저장 호출에서 덮어써진다 — 다이얼로그가 닫히기 전까지만 의미 있는 값.
   final int? savedCourseDraftId;
+
+  // 다익스트라가 만든 도로 추종 전체 경로 좌표.
+  // nodes 가 N개여도 두 점 사이를 도로 vertex 들로 이어 풍부한 좌표 시퀀스가 들어 있다.
+  // - 화면 폴리라인 / 트랙 캡처(TrackSnapshotMap) / 저장 시 BE 전송 좌표 모두 이 값을 사용해
+  //   "두 점만 찍어도 직선으로 건물 관통" 케이스가 없도록 한다.
+  // - nodes 가 1개 이하면 빈 리스트 (다익스트라가 돌 일이 없음).
+  final List<NLatLng> routeCoords;
 
   const CourseEditorState({
     this.courseName = '5월 3주차 EASY 코스',
@@ -104,8 +115,10 @@ class CourseEditorState {
     this.saveError,
     this.hasWays = false,
     this.isLoadingWays = false,
+    this.isZoomTooLow = false,
     this.challengeId,
     this.savedCourseDraftId,
+    this.routeCoords = const [],
   });
 
   CourseEditorState copyWith({
@@ -118,8 +131,10 @@ class CourseEditorState {
     bool? isSaving,
     bool? hasWays,
     bool? isLoadingWays,
+    bool? isZoomTooLow,
     int? challengeId,
     int? savedCourseDraftId,
+    List<NLatLng>? routeCoords,
     // ?? 대신 직접 할당 → null 로 명시적으로 초기화 가능
     Object? saveError = _sentinel,
   }) {
@@ -133,8 +148,10 @@ class CourseEditorState {
       isSaving: isSaving ?? this.isSaving,
       hasWays: hasWays ?? this.hasWays,
       isLoadingWays: isLoadingWays ?? this.isLoadingWays,
+      isZoomTooLow: isZoomTooLow ?? this.isZoomTooLow,
       challengeId: challengeId ?? this.challengeId,
       savedCourseDraftId: savedCourseDraftId ?? this.savedCourseDraftId,
+      routeCoords: routeCoords ?? this.routeCoords,
       saveError: saveError == _sentinel ? this.saveError : saveError as String?,
     );
   }
@@ -399,6 +416,9 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     _clearPolyline();
     if (nodes.length < 2) {
       _currentRouteCoords = [];
+      if (state.routeCoords.isNotEmpty) {
+        state = state.copyWith(routeCoords: const []);
+      }
       return;
     }
 
@@ -406,10 +426,12 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     _currentRouteCoords = coords;
 
     // 직선 노드 거리 대신 실제 도로 추종 거리로 totalDistanceKm 를 갱신한다
+    // routeCoords 도 함께 state 에 노출 — TrackSnapshotMap 이 도로 따라가는 좌표로 캡처할 수 있도록.
     final routeDist = _calcDistance(coords);
-    if ((routeDist - state.totalDistanceKm).abs() > 0.001) {
-      state = state.copyWith(totalDistanceKm: routeDist);
-    }
+    state = state.copyWith(
+      totalDistanceKm: routeDist,
+      routeCoords: coords,
+    );
 
     _routeLine = NPolylineOverlay(
       id: 'editor_route',
@@ -428,9 +450,13 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     }
   }
 
+  // 도로 데이터 로드 최소 줌 레벨
+  // 이 값 미만에서는 뷰포트가 너무 넓어 응답 지연이 심각하므로 로드하지 않는다
+  // (줌 15: 약 1km × 0.7km 뷰포트, 줌 14: 약 2km × 1.4km — 데이터량 4배 차이)
+  static const _kMinLoadZoom = 15;
+
   // 카메라가 멈출 때마다 호출된다 (CourseEditorMapView 의 onCameraIdle 에서 연결)
-  // 줌 14 이상이면 현재 뷰포트의 주행 가능 도로를 불러와 지도에 표시한다
-  // (지도 초기 진입 시 기본 줌이 14~15 이므로 별도 확대 없이 바로 표시됨)
+  // 줌 15 이상에서만 도로를 요청한다 — 그 미만은 뷰포트가 너무 넓어 로드가 느려짐
   Future<void> loadWays() async {
     if (_mapController == null) return;
     final requestSeq = ++_loadWaysRequestSeq;
@@ -438,12 +464,14 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       // 현재 카메라 위치와 줌 레벨을 조회한다
       final position = await _mapController!.getCameraPosition();
       if (requestSeq != _loadWaysRequestSeq) return;
-      if (position.zoom < 14) {
-        // 줌 13 이하에서는 새로 요청하지 않는다
-        // 기존에 로드된 도로는 유지해 사용자가 다시 확대했을 때 즉시 표시된다
+      if (position.zoom < _kMinLoadZoom) {
+        // 임계 줌 미만: 로드 중단 + 줌 부족 상태를 UI 에 알린다
+        // 이미 로드된 도로 오버레이는 유지해 재확대 시 즉시 표시된다
+        state = state.copyWith(isZoomTooLow: true, isLoadingWays: false);
         return;
       }
-      state = state.copyWith(isLoadingWays: true);
+      // 줌 충분: 줌 부족 상태 해제 후 로드 시작
+      state = state.copyWith(isZoomTooLow: false, isLoadingWays: true);
       // 현재 화면에 보이는 지도 범위를 조회한다
       // _kBoundsPaddingDeg 여백을 추가해 화면 경계 도로가 중간에 끊기지 않도록 한다
       final bounds = await _mapController!.getContentBounds();
@@ -535,6 +563,32 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         final d = _haversineKm(a, b) * 1000; // m 단위
         _graph.putIfAbsent(ka, () => []).add(_GraphEdge(kb, d));
         _graph.putIfAbsent(kb, () => []).add(_GraphEdge(ka, d));
+      }
+    }
+    // 같은 도로 분기점이지만 way 끝점 좌표가 부동소수점 / BE 직렬화 정밀도 차이로
+    // 서로 다른 NLatLng 이 되어 키가 갈리는 경우가 잦다.
+    // 7자리 라운딩(_latlngKey) 만으로는 잡지 못한 케이스를 거리 기반으로 봉합한다.
+    _bridgeNearbyNodes();
+  }
+
+  // 그래프 노드 중 매우 가까운(분기점 후보) 쌍을 직접 엣지로 연결.
+  // 라운딩으로 같은 키가 못 된 분기점들을 이 단계에서 사실상 같은 노드처럼 잇는다.
+  // 임계값 5m — 도로 분기점 자체는 같은 좌표여야 하지만 잔차로 1~3m 차이 나는 경우까지 흡수.
+  // O(N^2) 이지만 뷰포트 내 N=수백 수준이라 비용 무시 가능.
+  void _bridgeNearbyNodes() {
+    const double bridgeThresholdM = 5.0;
+    final keys = _graphNodes.keys.toList();
+    for (int i = 0; i < keys.length; i++) {
+      final ka = keys[i];
+      final a = _graphNodes[ka]!;
+      for (int j = i + 1; j < keys.length; j++) {
+        final kb = keys[j];
+        final b = _graphNodes[kb]!;
+        final d = _haversineKm(a, b) * 1000;
+        if (d <= bridgeThresholdM) {
+          _graph.putIfAbsent(ka, () => []).add(_GraphEdge(kb, d));
+          _graph.putIfAbsent(kb, () => []).add(_GraphEdge(ka, d));
+        }
       }
     }
   }
@@ -693,7 +747,14 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   }
 
   // 좌표를 그래프 키로 변환한다 (부동소수점 동등 비교를 문자열 비교로 대체)
-  String _latlngKey(NLatLng p) => '${p.latitude},${p.longitude}';
+  //
+  // 두 way 가 만나는 도로 분기점은 OSM 상 같은 좌표여야 하지만, GeoJSON 파싱이나
+  // double 산술 결과 미세한 부동소수점 잔차로 11번째 자리에서 차이가 날 수 있다.
+  // 그대로 키로 쓰면 분기점이 서로 다른 노드 두 개로 인식되어 그래프가 끊기고,
+  // Dijkstra 가 그 분기점을 통과하지 못해 도로 꼭짓점이 누락된 경로가 나온다.
+  // 소수점 7자리(~1cm) 까지 라운딩해 같은 분기점 좌표가 항상 같은 키로 매핑되도록 한다.
+  String _latlngKey(NLatLng p) =>
+      '${p.latitude.toStringAsFixed(7)},${p.longitude.toStringAsFixed(7)}';
 
   // 세그먼트 지문: 시작·끝 좌표를 문자열로 결합해 동일 세그먼트를 식별
   String _segmentKey(List<List<double>> coords) {

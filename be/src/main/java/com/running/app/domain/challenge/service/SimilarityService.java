@@ -16,32 +16,96 @@ public class SimilarityService {
     private final ObjectMapper objectMapper;
 
     private static final int RESAMPLE_COUNT = 500;
-    // bbox 긴 변 기준 3% — 정규화 후 단위 없는 거리
-    private static final double BUFFER = 0.03;
+    // bbox 긴 변 기준 5% — 130m 경로에서 ~6.5m, 실제 GPS 오차(±5m) 수용
+    private static final double BUFFER = 0.05;
+    // 소프트 크레딧 구간 배율 — BUFFER × SOFT_FACTOR 거리까지 선형 감소로 부분 점수
+    // 3.0 = 15%: 복잡한 형상(강아지 등) 오목 영역 상단부까지 커버
+    private static final double SOFT_FACTOR = 3.0;
+
+    // coarse 탐색 간격 (도)
+    private static final int COARSE_STEP_DEG = 10;
+    // fine 탐색 범위 (최적 각도 ±FINE_RANGE_DEG, 1° 간격)
+    private static final int FINE_RANGE_DEG = 12;
+
+    // 서울 위도(37.5°)에서 경도 1°와 위도 1°의 거리 비율: cos(37.5°) ≈ 0.7934
+    private static final double SEOUL_LAT_DEG = 37.5;
+    private static final double LNG_LAT_RATIO = Math.cos(Math.toRadians(SEOUL_LAT_DEG));
 
     public Double calculate(String polygonPointsJson, List<TrackRequest.NodeDTO> userNodes) {
         try {
             double[][] challengeRaw = parsePolygon(polygonPointsJson);
-            double[][] userEnu = toEnu(userNodes);
+            double[][] userRaw = toPlane(userNodes);
 
-            double[][] challengeNorm = normalize(challengeRaw);
-            double[][] userNorm = normalize(userEnu);
+            // resample 먼저 → 등간격 점 기준 centroid 계산 → normalize
+            double[][] challengeResampled = normalize(resample(challengeRaw, RESAMPLE_COUNT));
+            double[][] userResampled      = normalize(resample(userRaw,      RESAMPLE_COUNT));
 
-            double[][] challengeResampled = resample(challengeNorm, RESAMPLE_COUNT);
-            double[][] userResampled = resample(userNorm, RESAMPLE_COUNT);
-
-            // coverage: 사용자 경로 점들이 챌린지 폴리라인 buffer 안에 있는 비율
-            double coverage = computeCoverage(userResampled, challengeResampled);
-            // adherence: 챌린지 경로 점들이 사용자 폴리라인 buffer 안에 있는 비율
-            double adherence = computeCoverage(challengeResampled, userResampled);
-
-            double score = Math.min(coverage, adherence) * 100.0;
+            // 정방향 + 경로 방향 반전(mirror) 중 더 나은 점수 채택
+            double score = Math.max(
+                bestScore(challengeResampled, userResampled),
+                bestScore(challengeResampled, mirrorPoints(userResampled))
+            );
             return Math.round(score * 100.0) / 100.0;
 
         } catch (Exception e) {
             log.warn("유사도 계산 실패: {}", e.getMessage());
             return 0.0;
         }
+    }
+
+    // 2단계 회전 탐색: coarse(10°) → fine(±12°, 1°) 로 최고 점수 반환
+    private double bestScore(double[][] challenge, double[][] user) {
+        double bestAngleDeg = 0;
+        double bestRaw = -1;
+
+        // Stage 1: 0°~350°, 10° 간격
+        for (int deg = 0; deg < 360; deg += COARSE_STEP_DEG) {
+            double raw = scoreAtAngle(challenge, user, deg);
+            if (raw > bestRaw) {
+                bestRaw = raw;
+                bestAngleDeg = deg;
+            }
+        }
+
+        // Stage 2: 최적 주변 ±FINE_RANGE_DEG, 1° 간격
+        for (int d = -FINE_RANGE_DEG; d <= FINE_RANGE_DEG; d++) {
+            double deg = bestAngleDeg + d;
+            double raw = scoreAtAngle(challenge, user, deg);
+            if (raw > bestRaw) {
+                bestRaw = raw;
+            }
+        }
+
+        return bestRaw * 100.0;
+    }
+
+    private double scoreAtAngle(double[][] challenge, double[][] user, double angleDeg) {
+        double[][] rotated = rotatePoints(user, Math.toRadians(angleDeg));
+        double coverage  = computeCoverage(rotated, challenge);
+        double adherence = computeCoverage(challenge, rotated);
+        return (coverage + adherence) / 2.0;
+    }
+
+    // 점들을 원점 기준으로 angleRad 만큼 회전
+    private double[][] rotatePoints(double[][] pts, double angleRad) {
+        double cos = Math.cos(angleRad);
+        double sin = Math.sin(angleRad);
+        double[][] result = new double[pts.length][2];
+        for (int i = 0; i < pts.length; i++) {
+            result[i][0] = pts[i][0] * cos - pts[i][1] * sin;
+            result[i][1] = pts[i][0] * sin + pts[i][1] * cos;
+        }
+        return result;
+    }
+
+    // Y좌표 반전 — 경로를 반대 방향(시계↔반시계)으로 달린 경우 처리
+    private double[][] mirrorPoints(double[][] pts) {
+        double[][] result = new double[pts.length][2];
+        for (int i = 0; i < pts.length; i++) {
+            result[i][0] =  pts[i][0];
+            result[i][1] = -pts[i][1];
+        }
+        return result;
     }
 
     // JSON [[x,y],...] → double[][]
@@ -55,48 +119,41 @@ public class SimilarityService {
         return result;
     }
 
-    // GPS lat/lng → ENU 로컬 평면 좌표 (단위: 미터)
-    // 위도 1도 = 약 111.32km (지구 둘레/360°), 경도 1도 = 111.32km × cos(위도)
-    private double[][] toEnu(List<TrackRequest.NodeDTO> nodes) {
+    // GPS lat/lng 차이값을 직접 평면 좌표로 변환 (단위: 도)
+    // 111320 미터 변환 생략 — normalize()에서 약분되므로 형태에 무관
+    // 경도 차이에 LNG_LAT_RATIO 적용 → 서울 위도에서 시각적 종횡비 보정
+    private double[][] toPlane(List<TrackRequest.NodeDTO> nodes) {
         double lat0 = nodes.stream().mapToDouble(TrackRequest.NodeDTO::getLat).average().orElse(0);
-        double lon0 = nodes.stream().mapToDouble(TrackRequest.NodeDTO::getLng).average().orElse(0);
-        double cosLat = Math.cos(Math.toRadians(lat0));
+        double lng0 = nodes.stream().mapToDouble(TrackRequest.NodeDTO::getLng).average().orElse(0);
 
         double[][] result = new double[nodes.size()][2];
         for (int i = 0; i < nodes.size(); i++) {
             TrackRequest.NodeDTO node = nodes.get(i);
-            result[i][0] = (node.getLng() - lon0) * cosLat * 111320; // dE (동서)
-            result[i][1] = (node.getLat() - lat0) * 111320;           // dN (남북)
+            result[i][0] = (node.getLng() - lng0) * LNG_LAT_RATIO; // x: 경도 차이 × 비율
+            result[i][1] = (node.getLat() - lat0);                   // y: 위도 차이
         }
         return result;
     }
 
-    // centroid → (0, 0) 이동, 종횡비 유지한 채 긴 변 = 1.0으로 스케일
+    // bbox 중심 → (0,0) 이동, 종횡비 유지한 채 긴 변 = 1.0으로 스케일
+    // centroid 대신 bbox 중심 사용: 개방 경로(일부 변 누락)에서 centroid는 존재하는 점 쪽으로
+    // 치우치지만, bbox 중심은 경로가 차지하는 공간 범위의 중심이라 형상 정렬에 더 안정적
     private double[][] normalize(double[][] points) {
-        double cx = 0, cy = 0;
-        for (double[] p : points) { cx += p[0]; cy += p[1]; }
-        cx /= points.length;
-        cy /= points.length;
-
         double minX = Double.MAX_VALUE, maxX = -Double.MAX_VALUE;
         double minY = Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
-        double[][] centered = new double[points.length][2];
-        for (int i = 0; i < points.length; i++) {
-            centered[i][0] = points[i][0] - cx;
-            centered[i][1] = points[i][1] - cy;
-            minX = Math.min(minX, centered[i][0]);
-            maxX = Math.max(maxX, centered[i][0]);
-            minY = Math.min(minY, centered[i][1]);
-            maxY = Math.max(maxY, centered[i][1]);
+        for (double[] p : points) {
+            minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+            minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
         }
-
+        double cx = (minX + maxX) / 2;
+        double cy = (minY + maxY) / 2;
         double scale = Math.max(maxX - minX, maxY - minY);
-        if (scale == 0) return centered;
+        if (scale == 0) return points;
 
         double[][] result = new double[points.length][2];
         for (int i = 0; i < points.length; i++) {
-            result[i][0] = centered[i][0] / scale;
-            result[i][1] = centered[i][1] / scale;
+            result[i][0] = (points[i][0] - cx) / scale;
+            result[i][1] = (points[i][1] - cy) / scale;
         }
         return result;
     }
@@ -139,20 +196,29 @@ public class SimilarityService {
         return result;
     }
 
-    // queryPoints 중 referencePolyline에서 BUFFER 이내인 점의 비율
+    // queryPoints 각 점의 referencePolyline 근접 점수 평균
+    // 0~BUFFER: 1.0 (완전 점수), BUFFER~2×BUFFER: 선형 감소, 이상: 0
     private double computeCoverage(double[][] queryPoints, double[][] referencePolyline) {
-        int covered = 0;
+        double total = 0;
         for (double[] q : queryPoints) {
-            if (isWithinBuffer(q, referencePolyline)) covered++;
+            total += pointScore(q, referencePolyline);
         }
-        return (double) covered / queryPoints.length;
+        return total / queryPoints.length;
     }
 
-    private boolean isWithinBuffer(double[] p, double[][] polyline) {
-        for (int i = 0; i < polyline.length - 1; i++) {
-            if (distToSegment(p, polyline[i], polyline[i + 1]) <= BUFFER) return true;
+    private double pointScore(double[] p, double[][] polyline) {
+        double minDist = Double.MAX_VALUE;
+        for (int i = 0; i < polyline.length; i++) {
+            double d = distToSegment(p, polyline[i], polyline[(i + 1) % polyline.length]);
+            if (d <= BUFFER) return 1.0;   // 조기 종료
+            if (d < minDist) minDist = d;
         }
-        return false;
+        double softLimit = BUFFER * SOFT_FACTOR;
+        if (minDist >= softLimit) return 0.0;
+        // 코사인 감쇠: BUFFER~softLimit 구간에서 1.0→0.0 부드럽게 수렴
+        // 1σ(BUFFER) 직후에도 높은 점수 유지, 3σ(softLimit) 근방에서 급감 — 정규분포 꼬리 특성
+        double t = (minDist - BUFFER) / (softLimit - BUFFER); // 0~1
+        return 0.5 * (1.0 + Math.cos(Math.PI * t));
     }
 
     // 점 p에서 선분 [a, b]까지의 최단 거리

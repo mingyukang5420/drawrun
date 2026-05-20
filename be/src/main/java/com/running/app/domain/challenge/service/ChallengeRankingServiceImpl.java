@@ -88,6 +88,7 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
                 .myRank(myRank)
                 .prevRank(prevRank)
                 .rankings(rankings)
+                .polygonImageUrl(challenge.getPolygonImageUrl())
                 .build();
     }
 

@@ -5,10 +5,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import javax.imageio.ImageIO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,9 +18,13 @@ public class ChallengeOutlineExtractService {
 
     private final ObjectMapper objectMapper;
 
+    // 8방향 시계 순서: E → SE → S → SW → W → NW → N → NE
+    private static final int[] DX = { 1,  1,  0, -1, -1, -1,  0,  1};
+    private static final int[] DY = { 0,  1,  1,  1,  0, -1, -1, -1};
+
     // PNG base64 → 정규화 2D 좌표 JSON ([[x, y], ...], x/y ∈ [0, 1])
-    // 외곽 경계 픽셀(행별 좌측/우측 끝, 열별 상단/하단 끝)을 수집하고
-    // centroid 기준 극각(polar angle)으로 정렬하여 폴리곤 순서를 보존한다.
+    // Moore's Neighborhood Algorithm으로 경계 픽셀을 실제 윤곽 순서대로 수집한다.
+    // 극좌표 정렬과 달리 오목(concave) 형상에서도 올바른 세그먼트 순서를 보장한다.
     public String extract(String base64Image) {
         try {
             byte[] imageBytes = Base64.getDecoder().decode(base64Image);
@@ -34,67 +35,61 @@ public class ChallengeOutlineExtractService {
                 return null;
             }
 
-            int width = img.getWidth();
-            int height = img.getHeight();
+            int W = img.getWidth();
+            int H = img.getHeight();
 
-            Set<String> seen = new LinkedHashSet<>();
-            List<double[]> edgePoints = new ArrayList<>();
-
-            // 행 스캔: 각 행에서 비-검정 픽셀의 좌측 끝과 우측 끝
-            for (int y = 0; y < height; y++) {
-                int left = -1, right = -1;
-                for (int x = 0; x < width; x++) {
+            // 1. 첫 번째 경계 픽셀 탐색 (top→bottom, left→right)
+            int startX = -1, startY = -1;
+            outer:
+            for (int y = 0; y < H; y++) {
+                for (int x = 0; x < W; x++) {
                     if (!isBlack(img, x, y)) {
-                        if (left < 0) left = x;
-                        right = x;
-                    }
-                }
-                if (left >= 0) {
-                    addEdgePoint(seen, edgePoints, (double) left / width, (double) y / height);
-                    if (right != left) {
-                        addEdgePoint(seen, edgePoints, (double) right / width, (double) y / height);
+                        startX = x;
+                        startY = y;
+                        break outer;
                     }
                 }
             }
 
-            // 열 스캔: 각 열에서 비-검정 픽셀의 상단 끝과 하단 끝
-            for (int x = 0; x < width; x++) {
-                int top = -1, bottom = -1;
-                for (int y = 0; y < height; y++) {
-                    if (!isBlack(img, x, y)) {
-                        if (top < 0) top = y;
-                        bottom = y;
-                    }
-                }
-                if (top >= 0) {
-                    addEdgePoint(seen, edgePoints, (double) x / width, (double) top / height);
-                    if (bottom != top) {
-                        addEdgePoint(seen, edgePoints, (double) x / width, (double) bottom / height);
-                    }
-                }
-            }
-
-            if (edgePoints.isEmpty()) {
+            if (startX < 0) {
                 log.warn("윤곽선 픽셀 없음: 이미지가 완전히 검정이거나 임계값 설정 문제");
                 return null;
             }
 
-            // centroid 기준 극각 정렬 → 폴리곤 경계 순서 보존
-            double cx = edgePoints.stream().mapToDouble(p -> p[0]).average().orElse(0.5);
-            double cy = edgePoints.stream().mapToDouble(p -> p[1]).average().orElse(0.5);
-            edgePoints.sort(Comparator.comparingDouble(p -> Math.atan2(p[1] - cy, p[0] - cx)));
+            // 2. Moore's Neighborhood 순회 — 경계를 따라 시계 방향으로 추적
+            List<double[]> contour = new ArrayList<>();
+            int cx = startX, cy = startY;
+            // 첫 픽셀은 top→bottom 스캔으로 발견됐으므로 위쪽(N=6)에서 진입했다고 가정
+            int entryDir = 6;
 
-            return objectMapper.writeValueAsString(edgePoints);
+            do {
+                contour.add(new double[]{(double) cx / W, (double) cy / H});
+                // 역진입 방향부터 시계 방향으로 다음 경계 픽셀 탐색
+                int backDir = (entryDir + 4) % 8;
+                boolean found = false;
+                for (int i = 1; i <= 8; i++) {
+                    int dir = (backDir + i) % 8;
+                    int nx = cx + DX[dir];
+                    int ny = cy + DY[dir];
+                    if (nx >= 0 && nx < W && ny >= 0 && ny < H && !isBlack(img, nx, ny)) {
+                        entryDir = dir;
+                        cx = nx;
+                        cy = ny;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) break; // 고립된 단일 픽셀
+            } while (cx != startX || cy != startY);
+
+            if (contour.isEmpty()) {
+                return null;
+            }
+
+            return objectMapper.writeValueAsString(contour);
         } catch (Exception e) {
             log.warn("윤곽선 추출 실패: {}", e.getMessage());
             return null;
-        }
-    }
-
-    private void addEdgePoint(Set<String> seen, List<double[]> points, double nx, double ny) {
-        String key = String.format("%.6f:%.6f", nx, ny);
-        if (seen.add(key)) {
-            points.add(new double[]{nx, ny});
         }
     }
 

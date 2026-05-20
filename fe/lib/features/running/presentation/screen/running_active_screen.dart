@@ -126,8 +126,25 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
                     notifier.centerOnCurrentLocation();
                   },
                   onStop: () async {
+                    // 짧은 거리 가드 - GPS 노이즈 수준의 짧은 러닝이면 결과 화면을 건너뛰고
+                    // 토스트로 안내 후 메인 탭으로 복귀한다 (리드 요청).
+                    // 임계값(0.01 km) 은 RunningResultScreen._minSaveableDistanceKm 와 동일.
+                    final shortRun =
+                        ref.read(runningViewModelProvider).distanceKm < 0.01;
+
                     await notifier.finish();
                     if (!context.mounted) return;
+
+                    if (shortRun) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('측정된 러닝이 없어 저장하지 않습니다.'),
+                        ),
+                      );
+                      Navigator.of(context).popUntil((r) => r.isFirst);
+                      return;
+                    }
+
                     await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const RunningResultScreen(),

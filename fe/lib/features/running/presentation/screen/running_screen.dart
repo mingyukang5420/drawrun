@@ -149,10 +149,11 @@ class RunningScreen extends ConsumerWidget {
                 seedContextForChallenge();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    // challengeId 전달: 에디터 저장 시 서버가 챌린지 코스임을 인식할 수 있도록
+                    // challengeId · polygonImageUrl 전달: 챌린지 코스 저장 인식 및 폴리곤 참조용
                     builder: (_) => CourseEditorScreen(
                       difficulty: difficulty,
                       challengeId: challengeId,
+                      polygonImageUrl: polygonImageUrl,
                     ),
                   ),
                 );
@@ -397,8 +398,8 @@ class _ChallengeButtons extends ConsumerWidget {
   // 콜백 시그니처에 challengeId / polygonImageUrl 이 함께 흐른다.
   // BE 종료 API 요청 본문이 challengeId 필드를 받기 시작했으므로, 카드 탭 시점부터
   // 진입점이 challengeId 를 들고 다닐 수 있도록 흘려보낸다.
-  // polygonImageUrl 은 "바로 시작" 진입 시 카운트다운/진행 화면에서 폴리곤 미리보기를
-  // 같이 띄워 사용자가 어떤 도형을 따라 뛰는지 한 눈에 인지하도록 함께 전달한다.
+  // polygonImageUrl 은 "바로 시작" / "직접 그리기" 진입 시 카운트다운·진행 화면과 에디터에서
+  // 폴리곤 미리보기를 같이 띄워 사용자가 어떤 도형을 따라 뛰는지 한 눈에 인지하도록 함께 전달한다.
   final void Function(String difficulty, int challengeId, String title,
       String? polygonImageUrl) onChallenge;
 
@@ -500,7 +501,7 @@ class _ChallengeButtons extends ConsumerWidget {
                                 'EASY',
                                 list.easy.challengeId,
                                 'Easy 챌린지',
-                                list.easy.polygonImageUrl),
+                                easyImageUrl),
                       ),
                     ),
                     // 우: Hard 카드 — 오른쪽 끝에서 시작 (Easy와 s px 겹침)
@@ -528,7 +529,7 @@ class _ChallengeButtons extends ConsumerWidget {
                                 'HARD',
                                 list.hard.challengeId,
                                 'Hard 챌린지',
-                                list.hard.polygonImageUrl),
+                                hardImageUrl),
                       ),
                     ),
                   ],
