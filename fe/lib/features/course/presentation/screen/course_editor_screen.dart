@@ -187,8 +187,13 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
       }
     });
 
-    // 에디터 경로 좌표(NLatLng) → TrackSnapshotMap 용 shared.LatLng 로 변환
-    final snapshotNodes = state.nodes
+    // 에디터 경로 좌표(NLatLng) → TrackSnapshotMap 용 shared.LatLng 로 변환.
+    // 다익스트라 결과(state.routeCoords) 가 있으면 그것을 우선 사용 — 두 점만 찍어도 도로를 따라
+    // 풍부한 좌표 시퀀스로 캡처되어 "건물 관통 직선" 케이스를 피한다.
+    // routeCoords 가 비어있을 때만 (계산 전 / 노드 1개 이하) state.nodes 폴백.
+    final snapshotSource =
+        state.routeCoords.isNotEmpty ? state.routeCoords : state.nodes;
+    final snapshotNodes = snapshotSource
         .map((n) => shared.LatLng(latitude: n.latitude, longitude: n.longitude))
         .toList();
 
