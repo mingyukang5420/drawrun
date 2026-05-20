@@ -29,13 +29,22 @@ class CourseRemoteDataSource {
     }
   }
 
-  // POST /api/v1/editor — 새 코스 저장
-  // thumbnailBase64: 경로 스냅샷 base64 문자열 (있을 때만 body 에 포함)
-  Future<void> createCourse(Course course, {String? thumbnailBase64}) async {
+  // POST /api/v1/editor — 새 코스 저장.
+  // 응답으로 받은 courseDraftId 를 반환 — 러닝 시작 흐름이 이 ID 를 들고
+  // 시작 API 를 호출하면 BE 가 그 draft 의 노드를 응답에 실어 준다.
+  // thumbnailBase64: 경로 스냅샷 base64 문자열 (있을 때만 body 에 포함).
+  Future<int> createCourse(Course course, {String? thumbnailBase64}) async {
     try {
       final data = course.toJson();
       if (thumbnailBase64 != null) data['thumbnailBase64'] = thumbnailBase64;
-      await _dio.post('/api/v1/editor', data: data);
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/editor',
+        data: data,
+      );
+      // 다른 도메인 응답 패턴과 동일하게 envelope.result 안에서 데이터 추출.
+      // BE EditorResponse.SaveResponse 의 필드명이 courseDraftId 로 확정.
+      final result = response.data!['result'] as Map<String, dynamic>;
+      return result['courseDraftId'] as int;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

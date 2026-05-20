@@ -19,9 +19,11 @@ abstract class CourseRepository {
   // 반환: (코스 목록, 챌린지 제목) — challengeTitle 은 result 레벨에서 파싱
   Future<(List<CourseDraft>, String?)> getChallengeCourses({int page = 0});
 
-  // 새 코스를 서버에 저장 (응답 바디 불필요)
+  // 새 코스를 서버에 저장. 성공 시 BE 가 발급한 courseDraftId 를 반환.
+  // 호출 측이 이 ID 로 RunningNotifier.setSessionContext(courseDraftId: ...) 를 부르면
+  // 카운트다운에서 시작 API 가 그 draft 의 노드를 받아 지도에 그릴 수 있다.
   // thumbnailBase64: 경로 스냅샷 base64 인코딩 문자열 (신규 에디터에서는 필수)
-  Future<void> saveCourse(Course course, {String? thumbnailBase64});
+  Future<int> saveCourse(Course course, {String? thumbnailBase64});
 
   // GET /api/v1/editor/{courseDraftId} — 에디터 코스 상세 조회
   Future<CourseDraftDetail> getEditorDetail(int courseDraftId);

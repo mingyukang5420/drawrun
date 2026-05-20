@@ -1,4 +1,5 @@
 import 'dart:math' show sqrt;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -144,7 +145,11 @@ class RunningScreen extends ConsumerWidget {
                 seedContextForChallenge();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => CourseEditorScreen(difficulty: difficulty),
+                    // challengeId 전달: 에디터 저장 시 서버가 챌린지 코스임을 인식할 수 있도록
+                    builder: (_) => CourseEditorScreen(
+                      difficulty: difficulty,
+                      challengeId: challengeId,
+                    ),
                   ),
                 );
               },
@@ -402,10 +407,19 @@ class _ChallengeButtons extends ConsumerWidget {
   //  intl 의존성을 새로 추가하기보다 별도 헬퍼로 처리하는 게 가볍다.)
   String _formatAttemptCount(int count) => '$count명 도전';
 
-  // 내 최고 순위 포맷 — null 이면 미참여로 간주
-  // 점수(myBestSimilarityScore) 는 본 작업에선 카드에 노출하지 않는다
-  String _formatBestInfo(int? rank) {
-    if (rank == null) return '최고 기록 없음';
+  // 내 최고 기록 포맷.
+  // 트로피 아이콘 옆 한 줄에 노출 — 순위 먼저, 점수는 괄호 안에 부가 정보로.
+  // - 둘 다 null   → '최고 기록 없음'      : 미참여
+  // - 둘 다 있음   → '3위 (91.80%)'        : 일반
+  // - 점수만 있음  → '91.80%'              : 이론상 비정상, 있는 값만 노출하는 폴백
+  // - 순위만 있음  → '3위'                 : 이론상 비정상, 있는 값만 노출하는 폴백
+  String _formatBestInfo(int? rank, double? score) {
+    if (rank == null && score == null) return '최고 기록 없음';
+    if (rank != null && score != null) {
+      // BE 가 setScale(2, HALF_UP) 로 미리 잘라 주지만 FE 도 한 번 더 안전장치.
+      return '$rank위 (${score.toStringAsFixed(2)}%)';
+    }
+    if (score != null) return '${score.toStringAsFixed(2)}%';
     return '$rank위';
   }
 
@@ -423,13 +437,13 @@ class _ChallengeButtons extends ConsumerWidget {
         : _formatAttemptCount(list.easy.totalParticipantCount);
     final easyBest = list == null
         ? _placeholderBest
-        : _formatBestInfo(list.easy.myBestRank);
+        : _formatBestInfo(list.easy.myBestRank, list.easy.myBestSimilarityScore);
     final hardAttempt = list == null
         ? _placeholderAttempt
         : _formatAttemptCount(list.hard.totalParticipantCount);
     final hardBest = list == null
         ? _placeholderBest
-        : _formatBestInfo(list.hard.myBestRank);
+        : _formatBestInfo(list.hard.myBestRank, list.hard.myBestSimilarityScore);
     // 폴리곤 이미지 URL — 로딩/에러 중에는 null 이라 카드 안에서 자동으로 기존 아이콘 fallback
     final easyImageUrl = list?.easy.polygonImageUrl;
     final hardImageUrl = list?.hard.polygonImageUrl;
@@ -560,110 +574,72 @@ class _ChallengeCard extends StatelessWidget {
         color: accentColor,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: labelAlignment,
-              children: [
-                // Easy: 라벨(상단) → 도형(하단) 순서
-                // Hard: 도형(상단) → 라벨(하단) 순서 — 대각선 반전 효과
-                if (_isLeft) ...[
-                  // Easy 라벨 — 상단 좌측에 배치 (넓은 쪽)
-                  _Label(
-                    label: label,
-                    description: description,
-                    alignment: labelAlignment,
-                  ),
-                  const SizedBox(height: 12),
-                  // Easy 도형 아이콘 — 하단 좌측 정렬 (우측 하단은 사다리꼴로 잘림)
-                  Align(
-                    alignment: Alignment.bottomLeft,
-                    child: _ShapeIcon(
-                      icon: shapeIcon,
-                      color: accentColor,
-                      imageUrl: polygonImageUrl,
-                    ),
-                  ),
-                ] else ...[
-                  // Hard 도형 아이콘 — 상단 우측 정렬 (좌측 상단은 사다리꼴로 잘림)
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: _ShapeIcon(
-                      icon: shapeIcon,
-                      color: accentColor,
-                      imageUrl: polygonImageUrl,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Hard 라벨 — 하단 우측에 배치 (넓은 쪽)
-                  _Label(
-                    label: label,
-                    description: description,
-                    alignment: labelAlignment,
-                  ),
-                ],
-
-                const SizedBox(height: 14),
-                // ── 구분선 ─────────────────────────────────────────
-                Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
-                const SizedBox(height: 10),
-
-                // ── 통계 정보 (목업) ───────────────────────────────
-                // TODO: 백엔드에서 GET /v1/challenge/stats?difficulty=EASY 등 API 연동
-                Column(
-                  crossAxisAlignment: labelAlignment,
-                  children: [
-                    // 도전 횟수
-                    Row(
-                      mainAxisAlignment:
-                          labelAlignment == CrossAxisAlignment.start
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.end,
-                      children: [
-                        Icon(
-                          Icons.people_outline,
-                          size: 11,
-                          color: Colors.white.withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          attemptCount,
-                          style: TextStyle(
-                            fontFamily: 'Pretendard',
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    // 내 최고 기록
-                    Row(
-                      mainAxisAlignment:
-                          labelAlignment == CrossAxisAlignment.start
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.end,
-                      children: [
-                        Icon(
-                          Icons.emoji_events_outlined,
-                          size: 11,
-                          color: Colors.white.withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          myBestInfo,
-                          style: TextStyle(
-                            fontFamily: 'Pretendard',
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 폴리곤 이미지 — 좌(Easy)/우(Hard) 가장자리에 절반씩 걸침
+              Positioned(
+                left: _isLeft ? -40 : null,
+                right: _isLeft ? null : -40,
+                top: _isLeft ? null : -16,
+                bottom: _isLeft ? 24 : null,
+                width: 160,
+                height: 160,
+                child: _LargePolygonImage(
+                  icon: shapeIcon,
+                  imageUrl: polygonImageUrl,
+                  alignment: Alignment.center,
+                  flipX: _isLeft,
                 ),
-              ],
-            ),
+              ),
+              // 텍스트·통계 오버레이
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: labelAlignment,
+                    children: [
+                      if (_isLeft) ...[
+                        _Label(label: label, description: description, alignment: labelAlignment),
+                        const Spacer(),
+                      ] else ...[
+                        const Spacer(),
+                        _Label(label: label, description: description, alignment: labelAlignment),
+                      ],
+                      const SizedBox(height: 14),
+                      Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
+                      const SizedBox(height: 10),
+                      Column(
+                        crossAxisAlignment: labelAlignment,
+                        children: [
+                          Row(
+                            mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
+                                ? MainAxisAlignment.start
+                                : MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.people_outline, size: 11, color: Colors.white.withValues(alpha: 0.6)),
+                              const SizedBox(width: 3),
+                              Text(attemptCount, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            mainAxisAlignment: labelAlignment == CrossAxisAlignment.start
+                                ? MainAxisAlignment.start
+                                : MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.emoji_events_outlined, size: 11, color: Colors.white.withValues(alpha: 0.6)),
+                              const SizedBox(width: 3),
+                              Text(myBestInfo, style: TextStyle(fontFamily: 'Pretendard', fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -703,7 +679,7 @@ class _Label extends StatelessWidget {
           description,
           style: TextStyle(
             fontFamily: 'Pretendard',
-            fontSize: 11,
+            fontSize: 13,
             color: Colors.white.withValues(alpha: 0.75),
             height: 1.4,
           ),
@@ -713,51 +689,61 @@ class _Label extends StatelessWidget {
   }
 }
 
-// ── 도형 대표 아이콘 / 폴리곤 이미지 영역 ────────────────────────────
-// imageUrl 이 있으면 BE 의 polygonImageUrl 을 Image.network 로 표시,
-// 없거나 네트워크 실패 시에는 fallback 아이콘(icon) 으로 채워 디자인 일관성 유지.
-class _ShapeIcon extends StatelessWidget {
-  final IconData icon; // imageUrl 없거나 로드 실패 시 보여 줄 fallback 아이콘
-  final Color color; // 카드 배경색 — 향후 색 보정 시 사용 가능
-  final String? imageUrl; // 폴리곤 이미지 URL — null 이면 icon fallback
-  final double size; // 박스 변의 길이 (기본 60)
+// ── 폴리곤 이미지 (카드 내 확장 영역) ───────────────────────────────
+// Expanded 안에서 카드의 남은 공간을 모두 채워 폴리곤 이미지를 크게 표시.
+// ColorFilter.matrix 로 검은 배경을 투명으로 변환 — A채널 = 3×루미넌스
+// (검은 픽셀 → α=0 투명, 밝은/채색 픽셀 → α=1 불투명, 카드 배경색이 그대로 비침)
+// imageUrl 이 없거나 로드 실패 시 fallback 아이콘으로 대체.
+class _LargePolygonImage extends StatelessWidget {
+  final IconData icon;
+  final String? imageUrl;
+  final Alignment alignment;
+  final bool flipX;
 
-  const _ShapeIcon({
+  const _LargePolygonImage({
     required this.icon,
-    required this.color,
     this.imageUrl,
-    this.size = 60,
+    this.alignment = Alignment.center,
+    this.flipX = false,
   });
+
+  // 검은 배경 → 투명 + 폴리곤 → 흰색
+  // R=G=B = R+G+B (밝은 픽셀은 흰색으로 포화), A = 3×루미넌스 (어두운 픽셀은 투명)
+  static const _toWhite = ColorFilter.matrix([
+    1,     1,     1,     0, 0,
+    1,     1,     1,     0, 0,
+    1,     1,     1,     0, 0,
+    0.897, 1.761, 0.342, 0, 0,
+  ]);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        // 카드 배경보다 약간 밝게 해서 도형 영역임을 구분
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
+    if (imageUrl == null) {
+      return Center(
+        child: Icon(icon, size: 72, color: Colors.white.withValues(alpha: 0.3)),
+      );
+    }
+    final image = ImageFiltered(
+      imageFilter: ImageFilter.dilate(radiusX: 1, radiusY: 1),
+      child: ColorFiltered(
+        colorFilter: _toWhite,
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.fitWidth,
+          alignment: alignment,
+          errorBuilder: (_, __, ___) => Center(
+            child: Icon(icon, size: 72, color: Colors.white.withValues(alpha: 0.3)),
+          ),
+        ),
       ),
-      // URL 없으면 기존 아이콘 그대로 — 로딩/에러 상태에서 자연스럽게 fallback
-      child: imageUrl == null
-          ? Icon(icon,
-              size: 34, color: Colors.white.withValues(alpha: 0.85))
-          : Padding(
-              // 박스 가장자리에서 6px 들여 폴리곤 도형에 호흡 공간을 둠
-              // (박스 60 × 60 안쪽 약 48 × 48 영역에 이미지가 그려진다)
-              padding: const EdgeInsets.all(6),
-              child: Image.network(
-                imageUrl!,
-                fit: BoxFit.contain,
-                // 네트워크 오류 시 fallback — 빈 박스 대신 기존 아이콘으로 채움
-                errorBuilder: (_, __, ___) => Icon(
-                  icon,
-                  size: 34,
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
-              ),
-            ),
+    );
+    return Opacity(
+      opacity: 0.3,
+      child: SizedBox.expand(
+        child: flipX
+            ? Transform.scale(scaleX: -1, child: image)
+            : image,
+      ),
     );
   }
 }
