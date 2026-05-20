@@ -38,7 +38,9 @@ class CourseEditorMapView extends ConsumerWidget {
   }
 
   // 탭 차단 이유에 따라 적절한 안내 메시지를 다크 토스트로 표시한다
+  // bottomInset: 하단 패널 + SafeArea 높이를 감안해 토스트가 가려지지 않도록 여백 확보
   void _showEditorToast(BuildContext context, bool isZoomTooLow, bool isLoadingWays) {
+    final safeBottom = MediaQuery.of(context).padding.bottom;
     final IconData icon;
     final String message;
 
@@ -81,7 +83,8 @@ class CourseEditorMapView extends ConsumerWidget {
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           duration: const Duration(seconds: 2),
-          margin: const EdgeInsets.only(bottom: 110, left: 16, right: 16),
+          // 하단 패널(≈64dp) + SafeArea + 여유 26dp → 메뉴 바에 가리지 않도록
+          margin: EdgeInsets.only(bottom: 90 + safeBottom, left: 16, right: 16),
           elevation: 4,
         ),
       );

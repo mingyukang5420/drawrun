@@ -269,12 +269,11 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
               child: _RoadHintBanner(hasWays: state.hasWays),
             ),
 
-          // 5단계: 오른쪽 플로팅 버튼 열 (검색·현재위치·자동경로)
+          // 5단계: 오른쪽 플로팅 버튼 열 (검색·현재위치)
           Positioned(
             right: 12,
             bottom: 120,
             child: _RightFabColumn(
-              state: state,
               notifier: notifier,
               onSearchTap: () => _showSearchSheet(notifier),
             ),
@@ -424,14 +423,12 @@ class _TitleBar extends StatelessWidget {
 // 검색 · 현재 위치 이동 · 자동 경로 스냅 토글
 // ─────────────────────────────────────────────────────────────────────
 class _RightFabColumn extends StatelessWidget {
-  final CourseEditorState state;
   final CourseEditorNotifier notifier;
 
   // 검색 버튼 탭 시 바텀 시트를 여는 콜백 (부모에서 context 사용)
   final VoidCallback onSearchTap;
 
   const _RightFabColumn({
-    required this.state,
     required this.notifier,
     required this.onSearchTap,
   });
@@ -454,15 +451,6 @@ class _RightFabColumn extends StatelessWidget {
           icon: Icons.my_location,
           tooltip: '현재 위치',
           onTap: notifier.centerOnCurrentLocation,
-        ),
-        const SizedBox(height: 8),
-
-        // 자동 경로 스냅 토글 (활성화 시 버튼 색상 강조)
-        _FabIconButton(
-          icon: Icons.alt_route,
-          tooltip: '자동 경로',
-          isActive: state.autoSnap,
-          onTap: notifier.toggleAutoSnap,
         ),
       ],
     );
