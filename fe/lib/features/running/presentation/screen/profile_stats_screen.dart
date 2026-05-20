@@ -144,7 +144,7 @@ class _WeeklyGrassCard extends StatelessWidget {
   // "한 번이라도 뛰었으면 주황" — 거리/횟수와 무관하게 단일 색.
   // 안 뛴 주는 회색, 뛴 주는 트랙 폴리라인과 같은 톤의 주황으로 통일.
   Color _levelColor(WeeklyActivity a) {
-    if (a.count <= 0) return const Color(0xFFE5E7EB);
+    if (a.count <= 0) return const Color(0xFF3A3A3C);
     return const Color(0xFFFF6B35);
   }
 
@@ -195,15 +195,8 @@ class _WeeklyGrassCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
+        color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,7 +207,7 @@ class _WeeklyGrassCard extends StatelessWidget {
               fontFamily: 'Pretendard',
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF1C1C1E),
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 12),
@@ -264,7 +257,7 @@ class _GrassCell extends StatelessWidget {
             style: const TextStyle(
               fontFamily: 'Pretendard',
               fontSize: 10,
-              color: Color(0xFF6B7280),
+              color: Colors.white38,
               fontWeight: FontWeight.w500,
             ),
           ),
