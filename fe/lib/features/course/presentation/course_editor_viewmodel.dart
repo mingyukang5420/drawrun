@@ -97,6 +97,13 @@ class CourseEditorState {
   // 다음 저장 호출에서 덮어써진다 — 다이얼로그가 닫히기 전까지만 의미 있는 값.
   final int? savedCourseDraftId;
 
+  // 다익스트라가 만든 도로 추종 전체 경로 좌표.
+  // nodes 가 N개여도 두 점 사이를 도로 vertex 들로 이어 풍부한 좌표 시퀀스가 들어 있다.
+  // - 화면 폴리라인 / 트랙 캡처(TrackSnapshotMap) / 저장 시 BE 전송 좌표 모두 이 값을 사용해
+  //   "두 점만 찍어도 직선으로 건물 관통" 케이스가 없도록 한다.
+  // - nodes 가 1개 이하면 빈 리스트 (다익스트라가 돌 일이 없음).
+  final List<NLatLng> routeCoords;
+
   const CourseEditorState({
     this.courseName = '5월 3주차 EASY 코스',
     this.nodes = const [],
@@ -111,6 +118,7 @@ class CourseEditorState {
     this.isZoomTooLow = false,
     this.challengeId,
     this.savedCourseDraftId,
+    this.routeCoords = const [],
   });
 
   CourseEditorState copyWith({
@@ -126,6 +134,7 @@ class CourseEditorState {
     bool? isZoomTooLow,
     int? challengeId,
     int? savedCourseDraftId,
+    List<NLatLng>? routeCoords,
     // ?? 대신 직접 할당 → null 로 명시적으로 초기화 가능
     Object? saveError = _sentinel,
   }) {
@@ -142,6 +151,7 @@ class CourseEditorState {
       isZoomTooLow: isZoomTooLow ?? this.isZoomTooLow,
       challengeId: challengeId ?? this.challengeId,
       savedCourseDraftId: savedCourseDraftId ?? this.savedCourseDraftId,
+      routeCoords: routeCoords ?? this.routeCoords,
       saveError: saveError == _sentinel ? this.saveError : saveError as String?,
     );
   }
@@ -406,6 +416,9 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     _clearPolyline();
     if (nodes.length < 2) {
       _currentRouteCoords = [];
+      if (state.routeCoords.isNotEmpty) {
+        state = state.copyWith(routeCoords: const []);
+      }
       return;
     }
 
@@ -413,10 +426,12 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     _currentRouteCoords = coords;
 
     // 직선 노드 거리 대신 실제 도로 추종 거리로 totalDistanceKm 를 갱신한다
+    // routeCoords 도 함께 state 에 노출 — TrackSnapshotMap 이 도로 따라가는 좌표로 캡처할 수 있도록.
     final routeDist = _calcDistance(coords);
-    if ((routeDist - state.totalDistanceKm).abs() > 0.001) {
-      state = state.copyWith(totalDistanceKm: routeDist);
-    }
+    state = state.copyWith(
+      totalDistanceKm: routeDist,
+      routeCoords: coords,
+    );
 
     _routeLine = NPolylineOverlay(
       id: 'editor_route',
@@ -548,6 +563,32 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         final d = _haversineKm(a, b) * 1000; // m 단위
         _graph.putIfAbsent(ka, () => []).add(_GraphEdge(kb, d));
         _graph.putIfAbsent(kb, () => []).add(_GraphEdge(ka, d));
+      }
+    }
+    // 같은 도로 분기점이지만 way 끝점 좌표가 부동소수점 / BE 직렬화 정밀도 차이로
+    // 서로 다른 NLatLng 이 되어 키가 갈리는 경우가 잦다.
+    // 7자리 라운딩(_latlngKey) 만으로는 잡지 못한 케이스를 거리 기반으로 봉합한다.
+    _bridgeNearbyNodes();
+  }
+
+  // 그래프 노드 중 매우 가까운(분기점 후보) 쌍을 직접 엣지로 연결.
+  // 라운딩으로 같은 키가 못 된 분기점들을 이 단계에서 사실상 같은 노드처럼 잇는다.
+  // 임계값 5m — 도로 분기점 자체는 같은 좌표여야 하지만 잔차로 1~3m 차이 나는 경우까지 흡수.
+  // O(N^2) 이지만 뷰포트 내 N=수백 수준이라 비용 무시 가능.
+  void _bridgeNearbyNodes() {
+    const double bridgeThresholdM = 5.0;
+    final keys = _graphNodes.keys.toList();
+    for (int i = 0; i < keys.length; i++) {
+      final ka = keys[i];
+      final a = _graphNodes[ka]!;
+      for (int j = i + 1; j < keys.length; j++) {
+        final kb = keys[j];
+        final b = _graphNodes[kb]!;
+        final d = _haversineKm(a, b) * 1000;
+        if (d <= bridgeThresholdM) {
+          _graph.putIfAbsent(ka, () => []).add(_GraphEdge(kb, d));
+          _graph.putIfAbsent(kb, () => []).add(_GraphEdge(ka, d));
+        }
       }
     }
   }
@@ -706,7 +747,14 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   }
 
   // 좌표를 그래프 키로 변환한다 (부동소수점 동등 비교를 문자열 비교로 대체)
-  String _latlngKey(NLatLng p) => '${p.latitude},${p.longitude}';
+  //
+  // 두 way 가 만나는 도로 분기점은 OSM 상 같은 좌표여야 하지만, GeoJSON 파싱이나
+  // double 산술 결과 미세한 부동소수점 잔차로 11번째 자리에서 차이가 날 수 있다.
+  // 그대로 키로 쓰면 분기점이 서로 다른 노드 두 개로 인식되어 그래프가 끊기고,
+  // Dijkstra 가 그 분기점을 통과하지 못해 도로 꼭짓점이 누락된 경로가 나온다.
+  // 소수점 7자리(~1cm) 까지 라운딩해 같은 분기점 좌표가 항상 같은 키로 매핑되도록 한다.
+  String _latlngKey(NLatLng p) =>
+      '${p.latitude.toStringAsFixed(7)},${p.longitude.toStringAsFixed(7)}';
 
   // 세그먼트 지문: 시작·끝 좌표를 문자열로 결합해 동일 세그먼트를 식별
   String _segmentKey(List<List<double>> coords) {
