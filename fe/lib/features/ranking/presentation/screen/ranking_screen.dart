@@ -74,7 +74,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
 
-      body: _buildBody(state),
+      body: SafeArea(child: _buildBody(state)),
     );
   }
 
