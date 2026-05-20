@@ -260,7 +260,7 @@ public class RecordService {
         LocalDate today = LocalDate.now();
 
         // 마이페이지 잔디 위젯에 박는 최근 7일 일별 활동 — period 와 무관하게 한 번만 계산해 공유
-        List<RecordResponse.DailyActivityDTO> weeklyActivity =
+        List<RecordResponse.WeeklyActivityDTO> weeklyActivity =
                 buildWeeklyActivity(memberId, today);
 
         return switch (statsPeriod) {
@@ -274,7 +274,7 @@ public class RecordService {
     private RecordResponse.StatsDTO getWeeklyStats(
             Long memberId,
             LocalDate today,
-            List<RecordResponse.DailyActivityDTO> weeklyActivity
+            List<RecordResponse.WeeklyActivityDTO> weeklyActivity
     ) {
         LocalDate startDate = today.with(DayOfWeek.MONDAY);
         LocalDate endDate = startDate.plusDays(6);
@@ -309,7 +309,7 @@ public class RecordService {
     private RecordResponse.StatsDTO getMonthlyStats(
             Long memberId,
             LocalDate today,
-            List<RecordResponse.DailyActivityDTO> weeklyActivity
+            List<RecordResponse.WeeklyActivityDTO> weeklyActivity
     ) {
         YearMonth yearMonth = YearMonth.from(today);
         LocalDate startDate = yearMonth.atDay(1);
@@ -337,7 +337,7 @@ public class RecordService {
     private RecordResponse.StatsDTO getYearlyStats(
             Long memberId,
             LocalDate today,
-            List<RecordResponse.DailyActivityDTO> weeklyActivity
+            List<RecordResponse.WeeklyActivityDTO> weeklyActivity
     ) {
         String startKey = today.getYear() + "-01";
         String endKey = today.getYear() + "-12";
@@ -364,7 +364,7 @@ public class RecordService {
     private RecordResponse.StatsDTO getAllStats(
             Long memberId,
             LocalDate today,
-            List<RecordResponse.DailyActivityDTO> weeklyActivity
+            List<RecordResponse.WeeklyActivityDTO> weeklyActivity
     ) {
         MemberRecordStats allStats = memberRecordStatsRepository
                 .findByMemberIdAndPeriodTypeAndPeriodKey(
@@ -414,7 +414,7 @@ public class RecordService {
             List<MemberRecordStats> statsList,
             String periodLabel,
             Map<String, Double> chartMap,
-            List<RecordResponse.DailyActivityDTO> weeklyActivity
+            List<RecordResponse.WeeklyActivityDTO> weeklyActivity
     ) {
         Double totalDistance = calculateTotalDistance(statsList);
         Integer totalCount = calculateTotalCount(statsList);
@@ -616,40 +616,48 @@ public class RecordService {
         return date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
     }
 
-    // 마이페이지 주간 잔디 위젯에 박는 최근 7일 일별 활동 기록.
-    // 활동이 전혀 없던 날도 0 으로 빠짐없이 채워 정확히 7칸을 보장한다.
-    private List<RecordResponse.DailyActivityDTO> buildWeeklyActivity(
+    // 마이페이지 잔디 위젯에 박는 최근 12주(약 3개월) 주별 활동 기록.
+    // 이번 주(오늘 기준 월요일) 포함 12주 — 각 주의 월요일을 시작일로 갖는 WeeklyActivityDTO 를
+    // 정확히 12개 반환한다 (활동 없는 주도 0 으로 채움).
+    private List<RecordResponse.WeeklyActivityDTO> buildWeeklyActivity(
             Long memberId,
             LocalDate today
     ) {
-        LocalDate startDate = today.minusDays(6);
+        LocalDate thisWeekMonday = today.with(DayOfWeek.MONDAY);
+        LocalDate startMonday = thisWeekMonday.minusWeeks(11); // 이번 주 포함 12주 시작
+        LocalDate endSunday = thisWeekMonday.plusDays(6); // 이번 주 일요일
 
         List<MemberRecordStats> statsList = memberRecordStatsRepository
                 .findAllByMemberIdAndPeriodTypeAndPeriodKeyBetweenOrderByPeriodKeyAsc(
                         memberId,
                         RecordStatsPeriodType.DAY,
-                        formatDayKey(startDate),
-                        formatDayKey(today)
+                        formatDayKey(startMonday),
+                        formatDayKey(endSunday)
                 );
 
-        // periodKey(yyyy-MM-dd) -> 통계 매핑 — O(1) lookup 으로 7일 루프에서 조합
-        Map<String, MemberRecordStats> statsByDate = new LinkedHashMap<>();
+        // 각 주(월요일 기준) 의 누적 distance / count 를 들고 가는 가변 누적기.
+        // [0] = distance(double), [1] = count(double, 누적 후 int 캐스팅)
+        Map<LocalDate, double[]> byWeekStart = new LinkedHashMap<>();
+        for (int i = 0; i < 12; i++) {
+            byWeekStart.put(startMonday.plusWeeks(i), new double[]{0.0, 0.0});
+        }
         for (MemberRecordStats stats : statsList) {
-            statsByDate.put(stats.getPeriodKey(), stats);
+            LocalDate date = LocalDate.parse(stats.getPeriodKey());
+            LocalDate weekStart = date.with(DayOfWeek.MONDAY);
+            double[] agg = byWeekStart.get(weekStart);
+            if (agg == null) continue; // 범위 밖이면 무시 (안전망)
+            agg[0] += stats.getTotalDistance();
+            agg[1] += stats.getTotalCount();
         }
 
-        List<RecordResponse.DailyActivityDTO> result = new ArrayList<>(7);
-        for (int i = 0; i < 7; i++) {
-            LocalDate date = startDate.plusDays(i);
-            String key = formatDayKey(date);
-            MemberRecordStats stats = statsByDate.get(key);
-
-            double distance = stats != null ? stats.getTotalDistance() : 0.0;
-            int count = stats != null ? stats.getTotalCount() : 0;
-
-            result.add(RecordConverter.toDailyActivityDTO(key, distance, count));
+        List<RecordResponse.WeeklyActivityDTO> result = new ArrayList<>(12);
+        for (Map.Entry<LocalDate, double[]> entry : byWeekStart.entrySet()) {
+            result.add(RecordConverter.toWeeklyActivityDTO(
+                    formatDayKey(entry.getKey()),
+                    entry.getValue()[0],
+                    (int) entry.getValue()[1]
+            ));
         }
-
         return result;
     }
 
