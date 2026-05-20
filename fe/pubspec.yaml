@@ -115,5 +115,9 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/icon/drawrun.png"
+  image_path: "assets/icon/drawrun_app.png"
+
+  adaptive_icon_background: "#1C1B1F"
+  adaptive_icon_foreground: "assets/icon/drawrun_app.png"
+
   min_sdk_android: 21
