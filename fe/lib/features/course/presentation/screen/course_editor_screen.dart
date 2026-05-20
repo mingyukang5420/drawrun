@@ -62,6 +62,8 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   double? _polygonTop;
   // 폴리곤 미리보기 패널 현재 크기(px) — 48 = 축소 버튼, 큰 값 = 확대 패널
   double _polygonSize = 48;
+  // onScaleStart 시점의 크기 스냅샷 — onScaleUpdate 배율 계산 기준
+  double _polygonScaleStart = 48;
   // 진입 직후 2초간 힌트 메시지를 패널 하단에 표시
   bool _polygonHintVisible = false;
 
@@ -332,13 +334,22 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                 top: _polygonTop!,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  // 드래그: 손가락 이동 방향 그대로 패널 이동 (화면 경계 내 제한)
-                  // right 값은 손가락과 반대 방향으로 변한다 (오른쪽 이동 → right 감소)
-                  onPanUpdate: (details) {
+                  // 제스처 시작 시 현재 크기를 기록해 배율 계산의 기준으로 삼는다
+                  onScaleStart: (_) => _polygonScaleStart = _polygonSize,
+                  // onScaleUpdate 하나로 드래그(1손가락)와 핀치(2손가락)를 모두 처리한다
+                  // - focalPointDelta: 초점(손가락 중심) 이동량 → 패널 위치 갱신
+                  // - scale: 시작 시점 대비 배율 → 두 손가락일 때만 크기 반영
+                  onScaleUpdate: (details) {
                     setState(() {
-                      _polygonRight = (_polygonRight! - details.delta.dx)
+                      // 두 손가락 핀치: 배율로 크기 조정 (경계 clamp 에 새 크기 사용하므로 먼저 처리)
+                      if (details.pointerCount >= 2) {
+                        _polygonSize = (_polygonScaleStart * details.scale)
+                            .clamp(48.0, kMax);
+                      }
+                      // 드래그: right 는 이동 방향과 반대로 변한다 (오른쪽 이동 → right 감소)
+                      _polygonRight = (_polygonRight! - details.focalPointDelta.dx)
                           .clamp(0.0, q.size.width - _polygonSize);
-                      _polygonTop = (_polygonTop! + details.delta.dy)
+                      _polygonTop = (_polygonTop! + details.focalPointDelta.dy)
                           .clamp(q.padding.top, q.size.height - _polygonSize - 80);
                     });
                   },
