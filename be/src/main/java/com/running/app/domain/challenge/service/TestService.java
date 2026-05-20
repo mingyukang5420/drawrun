@@ -2,6 +2,9 @@ package com.running.app.domain.challenge.service;
 
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
+import com.running.app.domain.record.entity.RunningRecord;
+import com.running.app.domain.record.repository.RunningRecordRepository;
+import com.running.app.domain.track.converter.TrackConverter;
 import com.running.app.domain.track.dto.TrackRequest;
 import com.running.app.global.response.exception.GeneralException;
 import com.running.app.global.response.status.ErrorStatus;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TestService {
 
     private final ChallengeRepository challengeRepository;
+    private final RunningRecordRepository runningRecordRepository;
     private final ChallengeImageGenerateService challengeImageGenerateService;
     private final ChallengeImageStorageService challengeImageStorageService;
     private final ChallengeOutlineExtractService challengeOutlineExtractService;
@@ -43,5 +47,29 @@ public class TestService {
             throw new GeneralException(ErrorStatus.CHALLENGE_POLYGON_NOT_READY);
         }
         return similarityService.calculate(challenge.getPolygonPoints(), nodes);
+    }
+
+    @Transactional
+    public Double backfillSimilarityScore(Long recordId) {
+        RunningRecord record = runningRecordRepository.findById(recordId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.RECORD_NOT_FOUND));
+
+        if (record.getChallengeId() == null) {
+            throw new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND);
+        }
+
+        Challenge challenge = challengeRepository.findById(record.getChallengeId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+
+        if (challenge.getPolygonPoints() == null) {
+            throw new GeneralException(ErrorStatus.CHALLENGE_POLYGON_NOT_READY);
+        }
+
+        List<TrackRequest.NodeDTO> nodes = TrackConverter.toNodeDTOList(record.getTrack());
+        Double score = similarityService.calculate(challenge.getPolygonPoints(), nodes);
+        record.updateSimilarityScore(score);
+
+        log.info("유사도 백필 완료. recordId={}, challengeId={}, score={}", recordId, record.getChallengeId(), score);
+        return score;
     }
 }
