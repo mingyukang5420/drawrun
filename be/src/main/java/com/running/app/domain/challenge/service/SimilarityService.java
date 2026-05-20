@@ -15,18 +15,22 @@ public class SimilarityService {
     private final double BUFFER;
     private final double SOFT_FACTOR;
 
-    private static final int RESAMPLE_COUNT = 500;
+    private static final int RESAMPLE_COUNT = 200;
 
-    // Spring 관리 빈용 기본 생성자
+    // 고정 물리 버퍼 목표값 (미터) — GPS 경로 bbox 대비 비율로 자동 정규화됨
+    // 10m: 강아지 경로(~390m bbox) → 0.026, 사각형(~200m bbox) → 0.049
+    private static final double TARGET_BUFFER_METER = 10.0;
+    // 버퍼 상한 (bbox 대비 최대 5%) — 소형 경로가 과도하게 관대해지는 것을 방지
+    private static final double MAX_BUFFER = 0.05;
+
+    // Spring 관리 빈용 기본 생성자 — 물리 버퍼 동적 계산 사용 (BUFFER=0 표시)
     public SimilarityService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        // bbox 긴 변 기준 5% — 130m 경로에서 ~6.5m, 실제 GPS 오차(±5m) 수용
-        this.BUFFER = 0.05;
-        // 4.0 = 20%: soft zone 확장으로 GPS 5점 수준의 성긴 경로도 판별 가능
-        this.SOFT_FACTOR = 4.0;
+        this.BUFFER = 0;   // 0 = calculate()에서 TARGET_BUFFER_METER 기반 동적 계산
+        this.SOFT_FACTOR = 2.0;
     }
 
-    // 파라미터 튜닝용 생성자 (테스트 전용)
+    // 파라미터 튜닝용 생성자 (테스트 전용) — BUFFER > 0 이면 고정값 사용
     SimilarityService(ObjectMapper objectMapper, double buffer, double softFactor) {
         this.objectMapper = objectMapper;
         this.BUFFER = buffer;
@@ -47,14 +51,20 @@ public class SimilarityService {
             double[][] challengeRaw = parsePolygon(polygonPointsJson);
             double[][] userRaw = toPlane(userNodes);
 
+            // GPS 경로의 물리 bbox(미터)로 버퍼 정규화
+            // BUFFER=0이면 동적 계산, 테스트 등에서 BUFFER>0이면 고정값 유지
+            double effectiveBuffer = (BUFFER > 0)
+                ? BUFFER
+                : computeDynamicBuffer(userRaw);
+
             // resample 먼저 → 등간격 점 기준 centroid 계산 → normalize
             double[][] challengeResampled = normalize(resample(challengeRaw, RESAMPLE_COUNT));
             double[][] userResampled      = normalize(resample(userRaw,      RESAMPLE_COUNT));
 
             // 정방향 + 경로 방향 반전(mirror) 중 더 나은 점수 채택
             double score = Math.max(
-                bestScore(challengeResampled, userResampled),
-                bestScore(challengeResampled, mirrorPoints(userResampled))
+                bestScore(challengeResampled, userResampled, effectiveBuffer),
+                bestScore(challengeResampled, mirrorPoints(userResampled), effectiveBuffer)
             );
             return Math.round(score * 100.0) / 100.0;
 
@@ -64,14 +74,28 @@ public class SimilarityService {
         }
     }
 
+    // GPS 경로의 toPlane() 출력(도 단위) 기준 물리 bbox 계산 → TARGET_BUFFER_METER 정규화
+    // min(TARGET/bbox, MAX_BUFFER): 소형 경로의 버퍼 과대 방지, 대형 경로만 압축
+    private double computeDynamicBuffer(double[][] userRaw) {
+        double minX = Double.MAX_VALUE, maxX = -Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
+        for (double[] p : userRaw) {
+            if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0];
+            if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1];
+        }
+        double bboxDeg = Math.max(maxX - minX, maxY - minY);
+        double bboxM   = bboxDeg * 111320.0;
+        return bboxM > 0 ? Math.min(TARGET_BUFFER_METER / bboxM, MAX_BUFFER) : MAX_BUFFER;
+    }
+
     // 2단계 회전 탐색: coarse(10°) → fine(±12°, 1°) 로 최고 점수 반환
-    private double bestScore(double[][] challenge, double[][] user) {
+    private double bestScore(double[][] challenge, double[][] user, double buffer) {
         double bestAngleDeg = 0;
         double bestRaw = -1;
 
         // Stage 1: 0°~350°, 10° 간격
         for (int deg = 0; deg < 360; deg += COARSE_STEP_DEG) {
-            double raw = scoreAtAngle(challenge, user, deg);
+            double raw = scoreAtAngle(challenge, user, deg, buffer);
             if (raw > bestRaw) {
                 bestRaw = raw;
                 bestAngleDeg = deg;
@@ -81,7 +105,7 @@ public class SimilarityService {
         // Stage 2: 최적 주변 ±FINE_RANGE_DEG, 1° 간격
         for (int d = -FINE_RANGE_DEG; d <= FINE_RANGE_DEG; d++) {
             double deg = bestAngleDeg + d;
-            double raw = scoreAtAngle(challenge, user, deg);
+            double raw = scoreAtAngle(challenge, user, deg, buffer);
             if (raw > bestRaw) {
                 bestRaw = raw;
             }
@@ -90,10 +114,10 @@ public class SimilarityService {
         return bestRaw * 100.0;
     }
 
-    private double scoreAtAngle(double[][] challenge, double[][] user, double angleDeg) {
+    private double scoreAtAngle(double[][] challenge, double[][] user, double angleDeg, double buffer) {
         double[][] rotated = rotatePoints(user, Math.toRadians(angleDeg));
-        double coverage  = computeCoverage(rotated, challenge);
-        double adherence = computeCoverage(challenge, rotated);
+        double coverage  = computeCoverage(rotated, challenge, buffer);
+        double adherence = computeCoverage(challenge, rotated, buffer);
         return (coverage + adherence) / 2.0;
     }
 
@@ -208,27 +232,26 @@ public class SimilarityService {
     }
 
     // queryPoints 각 점의 referencePolyline 근접 점수 평균
-    // 0~BUFFER: 1.0 (완전 점수), BUFFER~2×BUFFER: 선형 감소, 이상: 0
-    private double computeCoverage(double[][] queryPoints, double[][] referencePolyline) {
+    // 0~buffer: 1.0 (완전 점수), buffer~buffer×SOFT_FACTOR: 코사인 감쇠, 이상: 0
+    private double computeCoverage(double[][] queryPoints, double[][] referencePolyline, double buffer) {
         double total = 0;
         for (double[] q : queryPoints) {
-            total += pointScore(q, referencePolyline);
+            total += pointScore(q, referencePolyline, buffer);
         }
         return total / queryPoints.length;
     }
 
-    private double pointScore(double[] p, double[][] polyline) {
+    private double pointScore(double[] p, double[][] polyline, double buffer) {
         double minDist = Double.MAX_VALUE;
         for (int i = 0; i < polyline.length; i++) {
             double d = distToSegment(p, polyline[i], polyline[(i + 1) % polyline.length]);
-            if (d <= BUFFER) return 1.0;   // 조기 종료
+            if (d <= buffer) return 1.0;   // 조기 종료
             if (d < minDist) minDist = d;
         }
-        double softLimit = BUFFER * SOFT_FACTOR;
+        double softLimit = buffer * SOFT_FACTOR;
         if (minDist >= softLimit) return 0.0;
-        // 코사인 감쇠: BUFFER~softLimit 구간에서 1.0→0.0 부드럽게 수렴
-        // 1σ(BUFFER) 직후에도 높은 점수 유지, 3σ(softLimit) 근방에서 급감 — 정규분포 꼬리 특성
-        double t = (minDist - BUFFER) / (softLimit - BUFFER); // 0~1
+        // 코사인 감쇠: buffer~softLimit 구간에서 1.0→0.0 부드럽게 수렴
+        double t = (minDist - buffer) / (softLimit - buffer); // 0~1
         return 0.5 * (1.0 + Math.cos(Math.PI * t));
     }
 
