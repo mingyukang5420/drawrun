@@ -242,27 +242,17 @@ class _HighlightCell extends StatelessWidget {
 
 // ── 주간 잔디 위젯 ──────────────────────────────────────────────────
 // 최근 12주(약 3개월) 를 가로 12 칸으로 펼친 GitHub 스타일의 활동 미니 카드.
-// 각 칸은 한 주를 의미 — 그 주 안에 한 번이라도 뛰었으면(count > 0) 잔디 색상이 들어간다.
-// 거리 합산(km) 로 4단계 색 강도를 결정해 활동량의 차이도 함께 보여준다.
+// 각 칸은 한 주를 의미 — 그 주 안에 한 번이라도 뛰었으면(count > 0) 주황으로 칠한다.
+// 거리·횟수와 무관한 단일 색이라 "그 주에 뛰었는가?" 만 한눈에 보여준다.
 class _WeeklyGrassCard extends StatelessWidget {
   final List<WeeklyActivity> activities;
   const _WeeklyGrassCard({required this.activities});
 
-  // 잔디 셀 한 칸의 4단계 색상 임계값(km, 주 누적).
-  //   count == 0 : 회색 (활동 없음)
-  //   0 < d <= _t1 : 옅은 초록
-  //   _t1 < d <= _t2 : 중간 초록
-  //   d > _t2 : 진한 초록
-  // 임계값은 일반 러너 주간 거리(3~15km) 를 분위 잡아 둠.
-  static const double _t1 = 5.0;
-  static const double _t2 = 15.0;
-
+  // "한 번이라도 뛰었으면 주황" — 거리/횟수와 무관하게 단일 색.
+  // 안 뛴 주는 회색, 뛴 주는 트랙 폴리라인과 같은 톤의 주황으로 통일.
   Color _levelColor(WeeklyActivity a) {
-    // "한 번이라도 뛰었으면 잔디" — count 가 0 이면 거리와 무관하게 회색.
     if (a.count <= 0) return const Color(0xFFE5E7EB);
-    if (a.distance <= _t1) return const Color(0xFFBBF7D0); // light
-    if (a.distance <= _t2) return const Color(0xFF4ADE80); // mid
-    return const Color(0xFF15803D); // strong
+    return const Color(0xFFFF6B35);
   }
 
   // 항상 12주 칸을 보장하도록 부족분을 0 활동으로 채워서 돌려준다.
