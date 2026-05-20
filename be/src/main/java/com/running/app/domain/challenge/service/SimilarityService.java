@@ -23,18 +23,10 @@ public class SimilarityService {
     // 버퍼 상한 (bbox 대비 최대 5%) — 소형 경로가 과도하게 관대해지는 것을 방지
     private static final double MAX_BUFFER = 0.05;
 
-    // Spring 관리 빈용 기본 생성자 — 물리 버퍼 동적 계산 사용 (BUFFER=0 표시)
     public SimilarityService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.BUFFER = 0;   // 0 = calculate()에서 TARGET_BUFFER_METER 기반 동적 계산
+        this.BUFFER = 0;
         this.SOFT_FACTOR = 2.0;
-    }
-
-    // 파라미터 튜닝용 생성자 (테스트 전용) — BUFFER > 0 이면 고정값 사용
-    SimilarityService(ObjectMapper objectMapper, double buffer, double softFactor) {
-        this.objectMapper = objectMapper;
-        this.BUFFER = buffer;
-        this.SOFT_FACTOR = softFactor;
     }
 
     // coarse 탐색 간격 (도)
