@@ -156,9 +156,10 @@ public class ChallengeImageGenerateService {
             if (!result) {
                 // 통과 못한 문자열 생성 금지
                 preTitles = preTitles + ", " + object;
+                log.info("텍스트 평가 FAIL");
             }
         }
-
+        log.info("텍스트 평가 PASS");
         return object;
     }
 
@@ -171,28 +172,46 @@ public class ChallengeImageGenerateService {
 
         // 요청 body 조립(easy, hard)
         GmsImageRequest easyGmsImageRequest = ChallengeConverter.toGmsImageRequest(
-                IMAGE_PROMPT_EASY + object, IMAGE_MODEL, ChallengeDifficulty.EASY);
+                IMAGE_PROMPT_EASY + object, IMAGE_MODEL, ChallengeDifficulty.EASY, object);
         GmsImageRequest hardGmsImageRequest = ChallengeConverter.toGmsImageRequest(
-                IMAGE_PROMPT_HARD + object, IMAGE_MODEL, ChallengeDifficulty.HARD);
+                IMAGE_PROMPT_HARD + object, IMAGE_MODEL, ChallengeDifficulty.HARD, object);
 
         return ChallengeConverter.toImageRequestBody(easyGmsImageRequest, hardGmsImageRequest);
     }
 
     public ImageModelResult callImageModel(GmsImageRequest requestBody) {
 
-        // 이미지 생성 요청
-        GmsImageResponse gmsImageResponse = gmsRestClient.post()
-                .uri(IMAGE_URI)
-                .body(requestBody)
-                .retrieve()
-                .body(GmsImageResponse.class);
+        final int MAX_RETRY = 5;
+        int attempt = 0;
 
-        String b64Json = gmsImageResponse.getData().get(0).getB64Json();
-        log.info("받아온 base64 문자열: {}", b64Json.substring(0, 10));
+        String object = requestBody.getObject();
 
-        // 이미지 디스크 저장 후 경로와 base64 원본을 함께 반환 (윤곽선 추출에 base64 필요)
-        String storedPath = challengeImageStorageService.storeChallengeImage(b64Json);
-        return new ImageModelResult(storedPath, b64Json);
+        while (attempt < MAX_RETRY) {
+            attempt++;
+
+            // 이미지 생성
+            GmsImageResponse gmsImageResponse = gmsRestClient.post()
+                    .uri(IMAGE_URI)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(GmsImageResponse.class);
+
+            String b64Json = gmsImageResponse.getData().get(0).getB64Json();
+            log.info("[{}/{}] 이미지 생성 완료: {}", attempt, MAX_RETRY, b64Json.substring(0, 10));
+
+            // 이미지 평가
+            boolean passed = challengeEstimateService.estimateImage(object, b64Json);
+            log.info("[{}/{}] 이미지 평가 결과: {}", attempt, MAX_RETRY, passed ? "PASS" : "FAIL");
+
+            if (passed) {
+                String storedPath = challengeImageStorageService.storeChallengeImage(b64Json);
+                return new ImageModelResult(storedPath, b64Json);
+            }
+
+            // FAIL이면 동일 프롬프트로 재시도 (이미지 모델은 확률적이라 같은 요청도 다른 결과)
+        }
+
+        throw new RuntimeException("이미지 생성 실패: " + MAX_RETRY + "회 시도 후 PASS 없음");
     }
 
 }

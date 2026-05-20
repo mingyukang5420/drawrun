@@ -38,7 +38,7 @@ public abstract class ChallengeConverter {
     }
 
     public static GmsImageDTO.GmsImageRequest toGmsImageRequest(String prompt, String model,
-            ChallengeDifficulty difficulty) {
+            ChallengeDifficulty difficulty, String object) {
 
         return GmsImageDTO.GmsImageRequest.builder()
                 .model(model)
@@ -47,6 +47,7 @@ public abstract class ChallengeConverter {
                 .size("1024x1024")
                 .outputFormat("png")
                 .difficulty(difficulty)
+                .object(object)
                 .build();
 
     }

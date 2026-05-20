@@ -1,9 +1,23 @@
 package com.running.app.domain.challenge.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.running.app.domain.challenge.converter.ChallengeConverter;
+import com.running.app.domain.challenge.dto.GmsImageDTO.GmsVisionRequest;
+import com.running.app.domain.challenge.dto.GmsImageDTO.ImageUrl;
+import com.running.app.domain.challenge.dto.GmsImageDTO.VisionContent;
+import com.running.app.domain.challenge.dto.GmsImageDTO.VisionRequestMessage;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextResponse;
 import com.running.app.domain.challenge.dto.GmsTextDTO.RequestMessage;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Base64;
+import java.util.List;
+import javax.imageio.ImageIO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -56,6 +70,37 @@ public class ChallengeEstimateService {
             Object to evaluate: \\
             """;
 
+    private static final String IMAGE_MODEL = "gpt-4o";
+    private static final String IMAGE_ESTIMATE_PROMPT = """
+            You are evaluating a GPS running art image for quality and runnability.
+            The image should show a neon green polygon outline on a black background.
+            
+            Evaluate against these criteria:
+            
+            [A. Closed Loop]
+            FAIL if: the outline has any gaps, open ends, or disconnected segments
+            FAIL if: the outline branches or crosses itself
+            Otherwise: PASS
+            
+            [B. No Forbidden Shapes]
+            FAIL if: any circle or smooth curve appears anywhere in the image
+            FAIL if: any line appears inside the shape boundary
+            Otherwise: PASS
+            
+            [C. Recognizability]
+            FAIL if: the shape is unrecognizable as the given object
+            FAIL if: the shape is too complex to be physically run as a route
+            Otherwise: PASS
+            
+            Final output rule:
+            - If all three are PASS → output PASS
+            - If any one is FAIL → output FAIL
+            
+            Output only PASS or FAIL. No explanation. No other text.
+            The object this image is supposed to represent: \
+            """;
+
+
     public boolean estimateText(String object) {
 
         RequestMessage requestMessage = ChallengeConverter.toRequestMessage(
@@ -78,5 +123,76 @@ public class ChallengeEstimateService {
         }
         return true;
 
+    }
+
+    public boolean estimateImage(String object, String base64Image) {
+
+        // 평가용으로 이미지 축소
+        String resized = resizeImageForEvaluation(base64Image, 256);
+
+        // content 배열 조립 (텍스트 + 이미지)
+        List<VisionContent> contents = List.of(
+                VisionContent.builder()
+                        .type("text")
+                        .text(IMAGE_ESTIMATE_PROMPT + object)
+                        .build(),
+                VisionContent.builder()
+                        .type("image_url")
+                        .imageUrl(ImageUrl.builder()
+                                .url("data:image/png;base64," + resized)
+                                .build())
+                        .build()
+        );
+
+        VisionRequestMessage message = VisionRequestMessage.builder()
+                .role("user")
+                .content(contents)
+                .build();
+
+        GmsVisionRequest request = GmsVisionRequest.builder()
+                .model(IMAGE_MODEL)
+                .messages(List.of(message))
+                .temperature(0.0)
+                .build();
+
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            log.info("이미지 평가 요청 body: {}", mapper.writeValueAsString(request));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
+        for (int i = 0; i < 5; i++) {
+            GmsTextResponse response = gmsRestClient.post()
+                    .uri(TEXT_URI)
+                    .body(request)
+                    .retrieve()
+                    .body(GmsTextResponse.class);
+
+            if (response.getChoices().get(0).getMessage().getContent().trim().equals("FAIL")) {
+                log.info("이미지 평가 실패 - 재생성 필요");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String resizeImageForEvaluation(String base64Image, int size) {
+        try {
+            byte[] imageBytes = Base64.getDecoder().decode(base64Image);
+            BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageBytes));
+
+            BufferedImage resized = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
+            resized.getGraphics().drawImage(
+                    original.getScaledInstance(size, size, Image.SCALE_SMOOTH), 0, 0, null
+            );
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(resized, "jpeg", baos);  // JPEG로 추가 압축
+            return Base64.getEncoder().encodeToString(baos.toByteArray());
+
+        } catch (IOException e) {
+            throw new RuntimeException("이미지 리사이즈 실패", e);
+        }
     }
 }
