@@ -59,8 +59,9 @@ public class ChallengeOutlineExtractService {
             // 2. Moore's Neighborhood 순회 — 경계를 따라 시계 방향으로 추적
             List<double[]> contour = new ArrayList<>();
             int cx = startX, cy = startY;
-            // 첫 픽셀은 top→bottom 스캔으로 발견됐으므로 위쪽(N=6)에서 진입했다고 가정
-            int entryDir = 6;
+            // 첫 픽셀은 left→right 스캔으로 발견됐으므로 서쪽(W=4)에서 진입, E(0) 방향으로 이동
+            int entryDir = 0;
+            boolean leftStart = false;
 
             do {
                 contour.add(new double[]{(double) cx / W, (double) cy / H});
@@ -80,7 +81,8 @@ public class ChallengeOutlineExtractService {
                     }
                 }
                 if (!found) break; // 고립된 단일 픽셀
-            } while (cx != startX || cy != startY);
+                if (!leftStart && (cx != startX || cy != startY)) leftStart = true;
+            } while (!leftStart || cx != startX || cy != startY);
 
             if (contour.isEmpty()) {
                 return null;
