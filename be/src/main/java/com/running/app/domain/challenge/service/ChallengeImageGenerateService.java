@@ -81,12 +81,16 @@ public class ChallengeImageGenerateService {
             The inside of the shape must be completely empty black.
             No lines, no circles, no holes, no details of any kind inside the boundary. Nothing.
             
-            Line style: all line segments must be strictly horizontal or vertical — no diagonal lines.
-            Shape goal: capture the single most iconic outline feature that makes this object immediately recognizable.
+            Line style: all line segments must be strictly horizontal or vertical — no diagonal lines
             Simplify everything else into the plainest possible boundary.
             Sharp angular corners only — no curves, no rounded edges, no smooth arcs.
             No internal details — no eyes, no windows, no wheels, no textures.
             Simple vector icon style.
+            
+            Shape rule: draw the object's body as a convex or near-convex mass.
+            Include ONLY the single most iconic protrusion of this object — nothing else.
+            That protrusion must have a wide base and shallow height.
+            The runner should be able to complete this route with almost no backtracking.
             
             Object in Korean (translate to English and draw): """;
 
@@ -113,6 +117,11 @@ public class ChallengeImageGenerateService {
             Still simple enough for a person to physically run this route outdoors.
             No internal details — no eyes, no windows, no wheels, no textures.
             Simple vector icon style.
+            
+            Shape rule: represent the object's actual silhouette more faithfully.
+            Include 3 to 4 characteristic protrusions that make this object uniquely recognizable.
+            Protrusions may be narrower and deeper than in EASY.
+            The runner should need to navigate in and out of multiple concave areas.
             
             Object in Korean (translate to English and draw): """;
 
@@ -163,7 +172,7 @@ public class ChallengeImageGenerateService {
         return object;
     }
 
-    public record ImageModelResult(String storedPath, String b64Json) {
+    public record ImageModelResult(String storedPath, String b64Json, boolean isPassed) {
 
     }
 
@@ -205,13 +214,13 @@ public class ChallengeImageGenerateService {
 
             if (passed) {
                 String storedPath = challengeImageStorageService.storeChallengeImage(b64Json);
-                return new ImageModelResult(storedPath, b64Json);
+                return new ImageModelResult(storedPath, b64Json, true);
             }
 
             // FAIL이면 동일 프롬프트로 재시도 (이미지 모델은 확률적이라 같은 요청도 다른 결과)
         }
 
-        throw new RuntimeException("이미지 생성 실패: " + MAX_RETRY + "회 시도 후 PASS 없음");
+        return new ImageModelResult(null, null, false);
     }
 
 }
