@@ -84,6 +84,10 @@ class CourseEditorState {
   // 로딩 중 탭 입력 차단 안내에 사용되는 상태
   final bool isLoadingWays;
 
+  // 현재 줌 레벨이 도로 데이터 로드 임계값(15) 미만인지 여부
+  // true 이면 "더 가까이 확대해 주세요" 안내를 UI 에서 표시한다
+  final bool isZoomTooLow;
+
   // 챌린지 컨텍스트에서 진입 시 설정 — 저장 시 POST 바디에 포함
   // null 이면 일반 코스 저장 (challengeId 없이 전송)
   final int? challengeId;
@@ -104,6 +108,7 @@ class CourseEditorState {
     this.saveError,
     this.hasWays = false,
     this.isLoadingWays = false,
+    this.isZoomTooLow = false,
     this.challengeId,
     this.savedCourseDraftId,
   });
@@ -118,6 +123,7 @@ class CourseEditorState {
     bool? isSaving,
     bool? hasWays,
     bool? isLoadingWays,
+    bool? isZoomTooLow,
     int? challengeId,
     int? savedCourseDraftId,
     // ?? 대신 직접 할당 → null 로 명시적으로 초기화 가능
@@ -133,6 +139,7 @@ class CourseEditorState {
       isSaving: isSaving ?? this.isSaving,
       hasWays: hasWays ?? this.hasWays,
       isLoadingWays: isLoadingWays ?? this.isLoadingWays,
+      isZoomTooLow: isZoomTooLow ?? this.isZoomTooLow,
       challengeId: challengeId ?? this.challengeId,
       savedCourseDraftId: savedCourseDraftId ?? this.savedCourseDraftId,
       saveError: saveError == _sentinel ? this.saveError : saveError as String?,
@@ -428,9 +435,13 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     }
   }
 
+  // 도로 데이터 로드 최소 줌 레벨
+  // 이 값 미만에서는 뷰포트가 너무 넓어 응답 지연이 심각하므로 로드하지 않는다
+  // (줌 15: 약 1km × 0.7km 뷰포트, 줌 14: 약 2km × 1.4km — 데이터량 4배 차이)
+  static const _kMinLoadZoom = 15;
+
   // 카메라가 멈출 때마다 호출된다 (CourseEditorMapView 의 onCameraIdle 에서 연결)
-  // 줌 14 이상이면 현재 뷰포트의 주행 가능 도로를 불러와 지도에 표시한다
-  // (지도 초기 진입 시 기본 줌이 14~15 이므로 별도 확대 없이 바로 표시됨)
+  // 줌 15 이상에서만 도로를 요청한다 — 그 미만은 뷰포트가 너무 넓어 로드가 느려짐
   Future<void> loadWays() async {
     if (_mapController == null) return;
     final requestSeq = ++_loadWaysRequestSeq;
@@ -438,12 +449,14 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       // 현재 카메라 위치와 줌 레벨을 조회한다
       final position = await _mapController!.getCameraPosition();
       if (requestSeq != _loadWaysRequestSeq) return;
-      if (position.zoom < 14) {
-        // 줌 13 이하에서는 새로 요청하지 않는다
-        // 기존에 로드된 도로는 유지해 사용자가 다시 확대했을 때 즉시 표시된다
+      if (position.zoom < _kMinLoadZoom) {
+        // 임계 줌 미만: 로드 중단 + 줌 부족 상태를 UI 에 알린다
+        // 이미 로드된 도로 오버레이는 유지해 재확대 시 즉시 표시된다
+        state = state.copyWith(isZoomTooLow: true, isLoadingWays: false);
         return;
       }
-      state = state.copyWith(isLoadingWays: true);
+      // 줌 충분: 줌 부족 상태 해제 후 로드 시작
+      state = state.copyWith(isZoomTooLow: false, isLoadingWays: true);
       // 현재 화면에 보이는 지도 범위를 조회한다
       // _kBoundsPaddingDeg 여백을 추가해 화면 경계 도로가 중간에 끊기지 않도록 한다
       final bounds = await _mapController!.getContentBounds();
