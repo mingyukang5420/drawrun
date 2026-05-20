@@ -55,8 +55,13 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   // 저장 버튼을 누른 뒤 TrackSnapshotMap 이 Stack 에 올라간 상태
   bool _isCapturing = false;
 
-  // 폴리곤 미리보기 패널 확대 여부 (true = 160×160 인라인 패널, false = 48×48 버튼)
-  bool _polygonExpanded = false;
+  // 폴리곤 미리보기 패널 위치 — null 이면 build() 첫 호출 시 초기화
+  // right: 화면 우측 끝에서 패널 우측 끝까지의 거리(px)
+  // → Positioned.right 로 고정하면 너비 증가 시 자연스럽게 왼쪽으로 확장됨
+  double? _polygonRight;
+  double? _polygonTop;
+  // 폴리곤 미리보기 패널 현재 크기(px) — 48 = 축소 버튼, 큰 값 = 확대 패널
+  double _polygonSize = 48;
 
   @override
   void initState() {
@@ -228,10 +233,11 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             ),
 
           // 3단계: 상단 타이틀 바 (뒤로가기 + 코스명 + 저장 상태)
+          // 폴리곤 패널이 플로팅이므로 right: 0 으로 전체 너비 사용
           Positioned(
             top: 0,
             left: 0,
-            right: 56,
+            right: 0,
             child: SafeArea(
               child: _TitleBar(
                 state: state,
@@ -241,23 +247,47 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
           ),
 
           // 3-2단계: 폴리곤 미리보기 패널 (URL 있을 때만 표시)
-          // 탭 시 모달 없이 인라인 확대 — 지도 편집을 방해하지 않는다
+          // - GestureDetector.onPanUpdate 로 드래그 이동
+          // - GestureDetector.onTap 으로 최소(48) ↔ 최대 크기 전환
+          // - Positioned.right 고정 → AnimatedContainer 너비 증가 시 왼쪽으로 자연 확장
           if (widget.polygonImageUrl != null)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8, right: 8),
+            Builder(builder: (context) {
+              final q = MediaQuery.of(context);
+              // 최대 크기: 타이틀 입력 너비와 동일 (좌우 여백 각 8px 제외)
+              final double kMax = q.size.width - 16;
+              // 최초 1회 초기화 — 타이틀 바 아래 우측 끝 (right: 8, top: 타이틀 바 하단)
+              _polygonRight ??= 8.0;
+              _polygonTop   ??= q.padding.top + 68.0;
+
+              return Positioned(
+                right: _polygonRight!,
+                top: _polygonTop!,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  // 드래그: 손가락 이동 방향 그대로 패널 이동 (화면 경계 내 제한)
+                  // right 값은 손가락과 반대 방향으로 변한다 (오른쪽 이동 → right 감소)
+                  onPanUpdate: (details) {
+                    setState(() {
+                      _polygonRight = (_polygonRight! - details.delta.dx)
+                          .clamp(0.0, q.size.width - _polygonSize);
+                      _polygonTop = (_polygonTop! + details.delta.dy)
+                          .clamp(q.padding.top, q.size.height - _polygonSize - 80);
+                    });
+                  },
+                  // 탭: 크기만 바꾼다. Positioned.right 가 고정되어 있으므로
+                  // AnimatedContainer 너비가 커질수록 패널이 자동으로 왼쪽으로 확장됨
+                  onTap: () {
+                    setState(() {
+                      _polygonSize = _polygonSize > 80 ? 48.0 : kMax;
+                    });
+                  },
                   child: _PolygonPreviewButton(
                     imageUrl: widget.polygonImageUrl!,
-                    expanded: _polygonExpanded,
-                    onToggle: () =>
-                        setState(() => _polygonExpanded = !_polygonExpanded),
+                    size: _polygonSize,
                   ),
                 ),
-              ),
-            ),
+              );
+            }),
 
           // 3-3단계: 총 거리 뱃지 (경로가 있을 때 타이틀 바 하단에 표시)
           if (state.nodes.isNotEmpty)
@@ -749,26 +779,25 @@ class _RoadHintBanner extends StatelessWidget {
 // 노드가 없으면 회색 아이콘을 표시하고, 있으면 실제 경로를 축소해서 그린다.
 // 탭하면 Dialog 에서 확대된 경로 모양을 보여준다.
 // ─────────────────────────────────────────────────────────────────────
-// 폴리곤 미리보기 버튼 / 인라인 확대 패널
+// 폴리곤 미리보기 패널 — 순수 표시 위젯
 //
-// expanded = false : 48×48 축소 버튼 — 탭하면 패널이 펼쳐진다
-// expanded = true  : 160×160 확대 패널 — 지도 조작을 막지 않으며 × 버튼으로 닫는다
-// 모달 대신 인라인 AnimatedContainer 를 사용해 확대 상태에서도 지도 편집이 가능하다
+// 크기(size)만 받아 AnimatedContainer 로 부드럽게 전환한다.
+// 탭·드래그 이벤트는 부모 GestureDetector 가 전담하므로 이 위젯에 콜백 없음.
+// size > 80 이면 확대 상태로 간주해 × 아이콘을 우상단에 표시한다.
 class _PolygonPreviewButton extends StatelessWidget {
   final String imageUrl;
-  final bool expanded;
-  final VoidCallback onToggle;
+  // 현재 패널 크기(px). 48 = 축소 버튼 상태
+  final double size;
 
   const _PolygonPreviewButton({
     required this.imageUrl,
-    required this.expanded,
-    required this.onToggle,
+    required this.size,
   });
 
   @override
   Widget build(BuildContext context) {
-    final double size = expanded ? 160 : 48;
-    final double radius = expanded ? 12 : 8;
+    final bool isExpanded = size > 80;
+    final double radius = isExpanded ? 12 : 8;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -788,45 +817,36 @@ class _PolygonPreviewButton extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // 폴리곤 이미지 (확대 시 지도 참조 중이므로 약간 투명하게)
             Image.network(
               imageUrl,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => Icon(
                 Icons.broken_image_outlined,
                 color: Colors.grey.shade500,
-                size: expanded ? 40 : 20,
+                size: isExpanded ? 40 : 20,
               ),
             ),
-            // 탭 영역 — 전체를 터치 가능하게
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onToggle,
-                child: expanded
-                    // 확대 상태: 우상단에 × 닫기 버튼 표시
-                    ? Align(
-                        alignment: Alignment.topRight,
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Container(
-                            width: 22,
-                            height: 22,
-                            decoration: const BoxDecoration(
-                              color: Colors.black54,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 14,
-                            ),
-                          ),
-                        ),
-                      )
-                    : null,
+            // 확대 상태: 탭으로 닫을 수 있음을 × 아이콘으로 안내
+            if (isExpanded)
+              Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  ),
+                ),
               ),
-            ),
           ],
         ),
       ),
