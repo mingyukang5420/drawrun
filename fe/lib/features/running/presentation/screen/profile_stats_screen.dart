@@ -39,26 +39,26 @@ class ProfileStatsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // 프로필 헤더 — 아바타·이름·아이디 중앙 정렬
-          const _ProfileHeader(),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // 프로필 헤더 — 아바타·이름·아이디 중앙 정렬
+            const _ProfileHeader(),
 
-          // 주간 잔디 위젯 — 최근 12주 활동을 한눈에. period 토글과 무관하게 항상 12주 데이터.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
-            child: _WeeklyGrassCard(
-              activities: state.data.weeklyActivity,
+            // 주간 잔디 위젯 — 최근 12주 활동을 한눈에. period 토글과 무관하게 항상 12주 데이터.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+              child: _WeeklyGrassCard(
+                activities: state.data.weeklyActivity,
+              ),
             ),
-          ),
 
-          const Divider(height: 1, color: Color(0xFFF3F4F6)),
+            const Divider(height: 1, color: Color(0xFFF3F4F6)),
 
-          // 기간별 통계 — 달린 거리·러닝 횟수 포함 4종 카드
-          const Expanded(
-            child: RecordStatsScreen(showDistanceAndCount: true),
-          ),
-        ],
+            // 기간별 통계 — 달린 거리·러닝 횟수 포함 4종 카드 (내부 스크롤 비활성)
+            RecordStatsScreen(showDistanceAndCount: true, shrinkWrap: true),
+          ],
+        ),
       ),
     );
   }

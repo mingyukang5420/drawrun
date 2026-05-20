@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/record/domain/record_stats.dart';
 import 'package:running/features/record/presentation/record_provider.dart';
-import 'package:running/features/record/presentation/record_stats_viewmodel.dart';
 
 // 기록 > 통계 화면.
 //
@@ -11,53 +10,64 @@ import 'package:running/features/record/presentation/record_stats_viewmodel.dart
 // 차트 + 4종 합계 카드를 갱신한다.
 class RecordStatsScreen extends ConsumerWidget {
   // false 로 설정하면 합계 카드 중 달린 거리·러닝 횟수(상단 행)를 숨긴다
-  // 프로필 통계 페이지처럼 상단에 별도 카드로 이미 표시된 경우에 사용
   final bool showDistanceAndCount;
 
-  const RecordStatsScreen({super.key, this.showDistanceAndCount = true});
+  // true 이면 내부 SingleChildScrollView 를 제거하고 Column 만 반환한다.
+  // 부모가 직접 스크롤을 관리할 때 사용 (ProfileStatsScreen 등).
+  final bool shrinkWrap;
+
+  const RecordStatsScreen({
+    super.key,
+    this.showDistanceAndCount = true,
+    this.shrinkWrap = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(statsViewModelProvider);
     final notifier = ref.read(statsViewModelProvider.notifier);
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── 1. 기간 토글 ──────────────────────────────────────────
-            _PeriodTabs(
-              current: state.period,
-              onChanged: (p) => notifier.load(p),
-            ),
-            const SizedBox(height: 16),
+    final content = Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── 1. 기간 토글 ──────────────────────────────────────────
+          _PeriodTabs(
+            current: state.period,
+            onChanged: (p) => notifier.load(p),
+          ),
+          const SizedBox(height: 16),
 
-            // ── 2. 차트 영역 ──────────────────────────────────────────
-            if (state.isLoading)
-              const SizedBox(
-                height: 220,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (state.errorMessage != null)
-              _ErrorBox(
-                message: state.errorMessage!,
-                onRetry: () => notifier.load(state.period),
-              )
-            else
-              _ChartCard(stats: state.data),
+          // ── 2. 차트 영역 ──────────────────────────────────────────
+          if (state.isLoading)
+            const SizedBox(
+              height: 220,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (state.errorMessage != null)
+            _ErrorBox(
+              message: state.errorMessage!,
+              onRetry: () => notifier.load(state.period),
+            )
+          else
+            _ChartCard(stats: state.data),
 
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-            // ── 3. 합계 카드 ─────────────────────────────────────────
-            _SummaryCards(
-              stats: state.data,
-              showDistanceAndCount: showDistanceAndCount,
-            ),
-          ],
-        ),
+          // ── 3. 합계 카드 ─────────────────────────────────────────
+          _SummaryCards(
+            stats: state.data,
+            showDistanceAndCount: showDistanceAndCount,
+          ),
+        ],
       ),
+    );
+
+    if (shrinkWrap) return content;
+
+    return SafeArea(
+      child: SingleChildScrollView(child: content),
     );
   }
 }
