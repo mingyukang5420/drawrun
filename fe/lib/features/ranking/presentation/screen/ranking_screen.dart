@@ -290,6 +290,9 @@ class _ChallengePickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // viewPadding.bottom: Android 내비게이션 바 높이(제스처 34 px / 버튼 48 px).
+    // 시트 하단 SizedBox 에 더해 내비게이션 바 위에 콘텐츠가 잘리지 않도록 보장.
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -339,7 +342,7 @@ class _ChallengePickerSheet extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: bottomInset + 16),
       ],
     );
   }
