@@ -180,12 +180,74 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
   }
 }
 
-// 진행 / 일시정지 화면 우상단에 떠 있는 챌린지 폴리곤 썸네일.
-// 카드 형태로 흰 배경 + 옅은 그림자 — 지도/메트릭 위에서도 또렷이 보이도록.
-// 64x64 정사각형으로 콤팩트하게 — 메트릭 바 / 일시정지 버튼과 충돌하지 않는 영역에만 머문다.
+// 진행 / 일시정지 화면 우상단에 떠 있는 챌린지 폴리곤 가이드 버튼.
+// 평소엔 64x64 작은 썸네일로만 떠 있고, 탭하면 도전 코스를 크게 펼친 다이얼로그가 열린다.
+// (가이드를 항상 큼지막히 띄우면 지도를 가려 러닝 흐름을 방해하므로 토글 형태로 분리)
 class _ChallengePolygonThumbnail extends StatelessWidget {
   final String imageUrl;
   const _ChallengePolygonThumbnail({required this.imageUrl});
+
+  // 큰 미리보기 다이얼로그 — 도전 코스 모양을 한 화면에서 또렷이 확인할 수 있게.
+  // 닫기 버튼 / 바깥 영역 탭 둘 다로 닫힌다.
+  void _showLargePreview(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '도전 코스 가이드',
+                      style: TextStyle(
+                        fontFamily: 'Pretendard',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1C1C1E),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.black54),
+                    onPressed: () => Navigator.of(context).pop(),
+                    splashRadius: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              AspectRatio(
+                aspectRatio: 1,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    );
+                  },
+                  errorBuilder: (_, _, _) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.black26,
+                    size: 60,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -194,30 +256,54 @@ class _ChallengePolygonThumbnail extends StatelessWidget {
       elevation: 3,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        width: 64,
-        height: 64,
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.contain,
-            // 로딩 중에는 옅은 placeholder, 실패 시 broken_image 아이콘으로 폴백.
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return const Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+      child: InkWell(
+        onTap: () => _showLargePreview(context),
+        child: SizedBox(
+          width: 64,
+          height: 64,
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  // 로딩 중에는 옅은 placeholder, 실패 시 broken_image 아이콘으로 폴백.
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, _, _) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.black26,
+                    size: 24,
+                  ),
                 ),
-              );
-            },
-            errorBuilder: (_, _, _) => const Icon(
-              Icons.broken_image_outlined,
-              color: Colors.black26,
-              size: 24,
-            ),
+              ),
+              // 우하단 작은 펼침 힌트 — 이 위젯이 누를 수 있는 토글임을 시각적으로 알린다.
+              Positioned(
+                right: 2,
+                bottom: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(
+                    Icons.zoom_out_map,
+                    size: 10,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
