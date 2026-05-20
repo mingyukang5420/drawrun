@@ -54,15 +54,15 @@ class ProfileStatsScreen extends ConsumerWidget {
             ),
           ),
 
-          // 주간 잔디 위젯 — 최근 7일 활동을 한눈에. period 토글과 무관하게 항상 7일 데이터.
-          // weeklyActivity 가 비어 있으면(empty 초기 상태 / 미머지 BE) 카드 자체를 안 그린다.
-          if (state.data.weeklyActivity.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-              child: _WeeklyGrassCard(
-                activities: state.data.weeklyActivity,
-              ),
+          // 주간 잔디 위젯 — 최근 12주 활동을 한눈에. period 토글과 무관하게 항상 12주 데이터.
+          // 카드 자체는 첫 사용자/로딩 중/BE 미머지 어느 케이스든 항상 노출 —
+          // 부족한 주는 위젯 안에서 회색 placeholder 로 채워준다.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+            child: _WeeklyGrassCard(
+              activities: state.data.weeklyActivity,
             ),
+          ),
 
           const Divider(height: 1, color: Color(0xFFF3F4F6)),
 
@@ -265,6 +265,35 @@ class _WeeklyGrassCard extends StatelessWidget {
     return const Color(0xFF15803D); // strong
   }
 
+  // 항상 12주 칸을 보장하도록 부족분을 0 활동으로 채워서 돌려준다.
+  // - BE 가 12개 정확히 준 경우: 그대로 사용
+  // - 첫 사용자/로딩 중/BE 미머지로 빈 리스트로 도착: 오늘 기준 12주를 역산해 전부 회색
+  // - 일부만 도착: weekStart 가 일치하는 칸만 실제 데이터, 나머지는 회색
+  List<WeeklyActivity> _ensureTwelveWeeks(List<WeeklyActivity> source) {
+    if (source.length == 12) return source;
+
+    String fmt(DateTime d) {
+      String two(int n) => n.toString().padLeft(2, '0');
+      return '${d.year}-${two(d.month)}-${two(d.day)}';
+    }
+
+    // 오늘이 속한 주의 월요일 = 이번 주의 첫 날.
+    // DateTime.weekday: 월=1 ... 일=7 → (weekday - 1) 일 만큼 빼면 그 주 월요일.
+    final today = DateTime.now();
+    final thisMonday = DateTime(today.year, today.month, today.day)
+        .subtract(Duration(days: today.weekday - 1));
+    final firstMonday = thisMonday.subtract(const Duration(days: 7 * 11));
+
+    final byKey = {for (final a in source) a.weekStart: a};
+
+    return List.generate(12, (i) {
+      final monday = firstMonday.add(Duration(days: 7 * i));
+      final key = fmt(monday);
+      return byKey[key] ??
+          WeeklyActivity(weekStart: key, distance: 0, count: 0);
+    });
+  }
+
   // 12주 중 첫 번째 / 가운데 / 마지막 주의 월 라벨을 박아 시각적 가이드를 준다.
   // 매주 라벨을 다 박으면 너무 빽빽해져서, 의미 있는 지점만 노출.
   String _monthLabel(int index, WeeklyActivity a) {
@@ -279,6 +308,7 @@ class _WeeklyGrassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cells = _ensureTwelveWeeks(activities);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -303,10 +333,10 @@ class _WeeklyGrassCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (int i = 0; i < activities.length; i++)
+              for (int i = 0; i < cells.length; i++)
                 _GrassCell(
-                  monthLabel: _monthLabel(i, activities[i]),
-                  color: _levelColor(activities[i]),
+                  monthLabel: _monthLabel(i, cells[i]),
+                  color: _levelColor(cells[i]),
                 ),
             ],
           ),
