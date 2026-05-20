@@ -56,13 +56,18 @@ public class RecordController {
             description = """
                     사용자의 러닝 활동 통계 조회
                     period 값에 따라 조회 범위와 차트 단위 변경
-                    
+
                     period 옵션:
                     - week : 이번 주 통계, 요일별 차트
                     - month : 이번 달 통계, 일자별 차트
                     - year : 올해 통계, 월별 차트
                     - all : 전체 통계, 연도별 차트
-                    - 기본값 : all  
+                    - 기본값 : all
+
+                    응답에는 마이페이지 잔디 위젯용 weeklyActivity 가 함께 포함된다.
+                    - 오늘을 포함한 최근 7일의 일별 활동 (date / distance / count)
+                    - 활동이 없던 날도 0 으로 채워 항상 7칸 보장
+                    - period 값과 무관하게 동일한 7일 데이터
                     """
     )
     @GetMapping("/record/stats")
