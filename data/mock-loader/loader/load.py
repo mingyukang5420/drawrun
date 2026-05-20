@@ -33,8 +33,8 @@ def main() -> None:
 
         conn = get_connection()
         try:
-            # 필요 시 wipe_mock_tables(conn) 한 줄 추가로 mock 도메인 전체 초기화 가능.
-            # 현재는 기존 데이터 위에 신규 데이터를 add 하는 모드.
+            logger.info("=== Phase 0/5: wipe mock tables (districts/osm_* 보존) ===")
+            wipe_mock_tables(conn)
 
             logger.info("=== Phase 1/5: signup ===")
             members = signup_demo_members()
