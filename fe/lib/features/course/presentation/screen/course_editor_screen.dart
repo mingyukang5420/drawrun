@@ -246,49 +246,6 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             ),
           ),
 
-          // 3-2단계: 폴리곤 미리보기 패널 (URL 있을 때만 표시)
-          // - GestureDetector.onPanUpdate 로 드래그 이동
-          // - GestureDetector.onTap 으로 최소(48) ↔ 최대 크기 전환
-          // - Positioned.right 고정 → AnimatedContainer 너비 증가 시 왼쪽으로 자연 확장
-          if (widget.polygonImageUrl != null)
-            Builder(builder: (context) {
-              final q = MediaQuery.of(context);
-              // 최대 크기: 타이틀 입력 너비와 동일 (좌우 여백 각 8px 제외)
-              final double kMax = q.size.width - 16;
-              // 최초 1회 초기화 — 타이틀 바 아래 우측 끝 (right: 8, top: 타이틀 바 하단)
-              _polygonRight ??= 8.0;
-              _polygonTop   ??= q.padding.top + 68.0;
-
-              return Positioned(
-                right: _polygonRight!,
-                top: _polygonTop!,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  // 드래그: 손가락 이동 방향 그대로 패널 이동 (화면 경계 내 제한)
-                  // right 값은 손가락과 반대 방향으로 변한다 (오른쪽 이동 → right 감소)
-                  onPanUpdate: (details) {
-                    setState(() {
-                      _polygonRight = (_polygonRight! - details.delta.dx)
-                          .clamp(0.0, q.size.width - _polygonSize);
-                      _polygonTop = (_polygonTop! + details.delta.dy)
-                          .clamp(q.padding.top, q.size.height - _polygonSize - 80);
-                    });
-                  },
-                  // 탭: 크기만 바꾼다. Positioned.right 가 고정되어 있으므로
-                  // AnimatedContainer 너비가 커질수록 패널이 자동으로 왼쪽으로 확장됨
-                  onTap: () {
-                    setState(() {
-                      _polygonSize = _polygonSize > 80 ? 48.0 : kMax;
-                    });
-                  },
-                  child: _PolygonPreviewButton(
-                    imageUrl: widget.polygonImageUrl!,
-                    size: _polygonSize,
-                  ),
-                ),
-              );
-            }),
-
           // 3-3단계: 총 거리 뱃지 (경로가 있을 때 타이틀 바 하단에 표시)
           if (state.nodes.isNotEmpty)
             Positioned(
@@ -333,6 +290,49 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
               onSave: _onSavePressed,
             ),
           ),
+
+          // 7단계: 폴리곤 미리보기 패널 — Stack 마지막 자식으로 최상위 레이어 보장
+          // - GestureDetector.onPanUpdate 로 드래그 이동
+          // - GestureDetector.onTap 으로 최소(48) ↔ 최대 크기 전환
+          // - Positioned.right 고정 → AnimatedContainer 너비 증가 시 왼쪽으로 자연 확장
+          if (widget.polygonImageUrl != null)
+            Builder(builder: (context) {
+              final q = MediaQuery.of(context);
+              // 최대 크기: 타이틀 입력 너비와 동일 (좌우 여백 각 8px 제외)
+              final double kMax = q.size.width - 16;
+              // 최초 1회 초기화 — 타이틀 바 아래 우측 끝 (right: 8, top: 타이틀 바 하단)
+              _polygonRight ??= 8.0;
+              _polygonTop   ??= q.padding.top + 68.0;
+
+              return Positioned(
+                right: _polygonRight!,
+                top: _polygonTop!,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  // 드래그: 손가락 이동 방향 그대로 패널 이동 (화면 경계 내 제한)
+                  // right 값은 손가락과 반대 방향으로 변한다 (오른쪽 이동 → right 감소)
+                  onPanUpdate: (details) {
+                    setState(() {
+                      _polygonRight = (_polygonRight! - details.delta.dx)
+                          .clamp(0.0, q.size.width - _polygonSize);
+                      _polygonTop = (_polygonTop! + details.delta.dy)
+                          .clamp(q.padding.top, q.size.height - _polygonSize - 80);
+                    });
+                  },
+                  // 탭: 크기만 바꾼다. Positioned.right 가 고정되어 있으므로
+                  // AnimatedContainer 너비가 커질수록 패널이 자동으로 왼쪽으로 확장됨
+                  onTap: () {
+                    setState(() {
+                      _polygonSize = _polygonSize > 80 ? 48.0 : kMax;
+                    });
+                  },
+                  child: _PolygonPreviewButton(
+                    imageUrl: widget.polygonImageUrl!,
+                    size: _polygonSize,
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );
