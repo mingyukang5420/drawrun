@@ -51,6 +51,8 @@ class _CourseManagementScreenState
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
+          // 타이틀 제거 후 빈 toolbar 공간 없애기
+          toolbarHeight: 0,
           // 랭킹 화면과 동일한 탭 바 스타일
           bottom: const TabBar(
             labelColor: Color(0xFF1C1C1E),
