@@ -95,12 +95,13 @@ public class ChallengeOutlineExtractService {
         }
     }
 
-    // 픽셀 밝기(R+G+B 평균) ≤ 50 이면 검정으로 판단
+    // 최대 채널 값 ≤ 30 이면 검정으로 판단
+    // avg 50 기준은 GPT가 생성하는 중간 밝기 녹색(예: (0,120,0), avg=40)을 검정으로 분류하는 버그가 있어 max 채널로 교체
     private boolean isBlack(BufferedImage img, int x, int y) {
         int rgb = img.getRGB(x, y);
         int r = (rgb >> 16) & 0xFF;
         int g = (rgb >> 8) & 0xFF;
         int b = rgb & 0xFF;
-        return (r + g + b) / 3 <= 50;
+        return Math.max(r, Math.max(g, b)) <= 30;
     }
 }

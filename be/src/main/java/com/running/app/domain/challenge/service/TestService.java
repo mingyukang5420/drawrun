@@ -33,6 +33,7 @@ public class TestService {
         String base64 = challengeImageStorageService.readAsBase64(challenge.getPolygonImageUrl());
         String polygonPoints = challengeOutlineExtractService.extract(base64);
         challenge.updatePolygonPoints(polygonPoints);
+        challengeRepository.save(challenge);
         if (polygonPoints != null) {
             log.info("polygon_points 백필 완료. challengeId={}", challengeId);
         } else {
