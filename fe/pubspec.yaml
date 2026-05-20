@@ -56,6 +56,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  # 앱 런처 아이콘 자동 생성 도구
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -106,3 +108,11 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# 앱 런처 아이콘 생성 설정
+# assets/icon/drawrun.png 이미지를 각 해상도별 mipmap 디렉터리에 자동 배치
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/drawrun.png"
+  min_sdk_android: 21
