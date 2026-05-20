@@ -274,9 +274,9 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.directions_run_rounded, size: 16),
-                          SizedBox(width: 6),
                           Text('달리기 시작'),
+                          SizedBox(width: 6),
+                          Icon(Icons.play_arrow_rounded, size: 18),
                         ],
                       ),
                     ),
