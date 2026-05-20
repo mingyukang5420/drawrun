@@ -76,15 +76,6 @@ class _RankingScreenState extends ConsumerState<RankingScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          '랭킹',
-          style: TextStyle(
-            fontFamily: 'Pretendard',
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1C1C1E),
-          ),
-        ),
       ),
       body: _buildBody(state),
     );

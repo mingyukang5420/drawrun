@@ -51,16 +51,6 @@ class _CourseManagementScreenState
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
-          title: const Text(
-            '내 챌린지 코스 관리',
-            style: TextStyle(
-              fontFamily: 'Pretendard',
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1C1C1E),
-              letterSpacing: -0.5,
-            ),
-          ),
           // 랭킹 화면과 동일한 탭 바 스타일
           bottom: const TabBar(
             labelColor: Color(0xFF1C1C1E),
