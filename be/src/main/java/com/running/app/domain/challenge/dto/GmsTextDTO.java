@@ -16,6 +16,7 @@ public abstract class GmsTextDTO {
 
         private String model;
         private List<RequestMessage> messages;
+        private Double temperature;
     }
 
     @Getter

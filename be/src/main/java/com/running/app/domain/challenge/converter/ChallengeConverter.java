@@ -24,11 +24,12 @@ import java.util.Map;
 public abstract class ChallengeConverter {
 
     public static GmsTextRequest toGmsTextRequest(String model,
-            GmsTextDTO.RequestMessage requestMessage) {
+            GmsTextDTO.RequestMessage requestMessage, Double temperature) {
 
         return GmsTextRequest.builder()
                 .model(model)
                 .messages(List.of(requestMessage))
+                .temperature(temperature)
                 .build();
     }
 
@@ -40,7 +41,7 @@ public abstract class ChallengeConverter {
     }
 
     public static GmsImageDTO.GmsImageRequest toGmsImageRequest(String prompt, String model,
-            ChallengeDifficulty difficulty) {
+            ChallengeDifficulty difficulty, String object) {
 
         return GmsImageDTO.GmsImageRequest.builder()
                 .model(model)
@@ -49,6 +50,7 @@ public abstract class ChallengeConverter {
                 .size("1024x1024")
                 .outputFormat("png")
                 .difficulty(difficulty)
+                .object(object)
                 .build();
 
     }

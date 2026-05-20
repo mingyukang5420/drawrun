@@ -81,12 +81,16 @@ public class ChallengeImageGenerateService {
             The inside of the shape must be completely empty black.
             No lines, no circles, no holes, no details of any kind inside the boundary. Nothing.
             
-            Line style: all line segments must be strictly horizontal or vertical — no diagonal lines.
-            Shape goal: capture the single most iconic outline feature that makes this object immediately recognizable.
+            Line style: all line segments must be strictly horizontal or vertical — no diagonal lines
             Simplify everything else into the plainest possible boundary.
             Sharp angular corners only — no curves, no rounded edges, no smooth arcs.
             No internal details — no eyes, no windows, no wheels, no textures.
             Simple vector icon style.
+            
+            Shape rule: draw the object's body as a convex or near-convex mass.
+            Include ONLY the single most iconic protrusion of this object — nothing else.
+            That protrusion must have a wide base and shallow height.
+            The runner should be able to complete this route with almost no backtracking.
             
             Object in Korean (translate to English and draw): """;
 
@@ -114,7 +118,14 @@ public class ChallengeImageGenerateService {
             No internal details — no eyes, no windows, no wheels, no textures.
             Simple vector icon style.
             
+            Shape rule: represent the object's actual silhouette more faithfully.
+            Include 3 to 4 characteristic protrusions that make this object uniquely recognizable.
+            Protrusions may be narrower and deeper than in EASY.
+            The runner should need to navigate in and out of multiple concave areas.
+            
             Object in Korean (translate to English and draw): """;
+
+    private final ChallengeEstimateService challengeEstimateService;
 
     public String callTextModel() {
 
@@ -124,24 +135,44 @@ public class ChallengeImageGenerateService {
                 ChallengeDifficulty.EASY);
         String preTitles = String.join(", ", challengeAllTitle);
 
-        // 요청 body 조립
-        RequestMessage requestMessage = ChallengeConverter.toRequestMessage(
-                TEXT_SYSTEM_PROMPT + preTitles);
-        GmsTextRequest gmsTextRequest = ChallengeConverter.toGmsTextRequest(TEXT_MODEL,
-                requestMessage);
+        GmsTextResponse gmsTextResponse = null;
 
-        GmsTextResponse gmsTextResponse = gmsRestClient.post()
-                .uri(TEXT_URI)
-                .body(gmsTextRequest)
-                .retrieve()
-                .body(GmsTextResponse.class);
+        // 평가 모델에게 PASS를 받을 때 까지 실행
+        String object = null;
 
-        log.info("출력된 객체: {}", gmsTextResponse.getChoices().get(0).getMessage().getContent());
+        boolean result = false;
 
-        return gmsTextResponse.getChoices().get(0).getMessage().getContent();
+        while (!result) {
+            // 요청 body 조립
+            RequestMessage requestMessage = ChallengeConverter.toRequestMessage(
+                    TEXT_SYSTEM_PROMPT + preTitles);
+            GmsTextRequest gmsTextRequest = ChallengeConverter.toGmsTextRequest(TEXT_MODEL,
+                    requestMessage, 1.0);
+
+            gmsTextResponse = gmsRestClient.post()
+                    .uri(TEXT_URI)
+                    .body(gmsTextRequest)
+                    .retrieve()
+                    .body(GmsTextResponse.class);
+
+            object = gmsTextResponse.getChoices().get(0).getMessage().getContent();
+
+            log.info("출력된 객체: {}", object);
+
+            log.info("텍스트 평가 모델 호출");
+            result = challengeEstimateService.estimateText(object);
+
+            if (!result) {
+                // 통과 못한 문자열 생성 금지
+                preTitles = preTitles + ", " + object;
+                log.info("텍스트 평가 FAIL");
+            }
+        }
+        log.info("텍스트 평가 PASS");
+        return object;
     }
 
-    public record ImageModelResult(String storedPath, String b64Json) {
+    public record ImageModelResult(String storedPath, String b64Json, boolean isPassed) {
 
     }
 
@@ -150,28 +181,46 @@ public class ChallengeImageGenerateService {
 
         // 요청 body 조립(easy, hard)
         GmsImageRequest easyGmsImageRequest = ChallengeConverter.toGmsImageRequest(
-                IMAGE_PROMPT_EASY + object, IMAGE_MODEL, ChallengeDifficulty.EASY);
+                IMAGE_PROMPT_EASY + object, IMAGE_MODEL, ChallengeDifficulty.EASY, object);
         GmsImageRequest hardGmsImageRequest = ChallengeConverter.toGmsImageRequest(
-                IMAGE_PROMPT_HARD + object, IMAGE_MODEL, ChallengeDifficulty.HARD);
+                IMAGE_PROMPT_HARD + object, IMAGE_MODEL, ChallengeDifficulty.HARD, object);
 
         return ChallengeConverter.toImageRequestBody(easyGmsImageRequest, hardGmsImageRequest);
     }
 
     public ImageModelResult callImageModel(GmsImageRequest requestBody) {
 
-        // 이미지 생성 요청
-        GmsImageResponse gmsImageResponse = gmsRestClient.post()
-                .uri(IMAGE_URI)
-                .body(requestBody)
-                .retrieve()
-                .body(GmsImageResponse.class);
+        final int MAX_RETRY = 5;
+        int attempt = 0;
 
-        String b64Json = gmsImageResponse.getData().get(0).getB64Json();
-        log.info("받아온 base64 문자열: {}", b64Json.substring(0, 10));
+        String object = requestBody.getObject();
 
-        // 이미지 디스크 저장 후 경로와 base64 원본을 함께 반환 (윤곽선 추출에 base64 필요)
-        String storedPath = challengeImageStorageService.storeChallengeImage(b64Json);
-        return new ImageModelResult(storedPath, b64Json);
+        while (attempt < MAX_RETRY) {
+            attempt++;
+
+            // 이미지 생성
+            GmsImageResponse gmsImageResponse = gmsRestClient.post()
+                    .uri(IMAGE_URI)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(GmsImageResponse.class);
+
+            String b64Json = gmsImageResponse.getData().get(0).getB64Json();
+            log.info("[{}/{}] 이미지 생성 완료: {}", attempt, MAX_RETRY, b64Json.substring(0, 10));
+
+            // 이미지 평가
+            boolean passed = challengeEstimateService.estimateImage(object, b64Json);
+            log.info("[{}/{}] 이미지 평가 결과: {}", attempt, MAX_RETRY, passed ? "PASS" : "FAIL");
+
+            if (passed) {
+                String storedPath = challengeImageStorageService.storeChallengeImage(b64Json);
+                return new ImageModelResult(storedPath, b64Json, true);
+            }
+
+            // FAIL이면 동일 프롬프트로 재시도 (이미지 모델은 확률적이라 같은 요청도 다른 결과)
+        }
+
+        return new ImageModelResult(null, null, false);
     }
 
 }
