@@ -428,11 +428,21 @@ class _ChallengeRankingTab extends ConsumerWidget {
       return _buildEmptyState();
     }
 
-    // 정상 — 응답 본체를 _RankingList 로 흘려보낸다.
-    return _RankingList(
-      ranking: ranking,
-      accentColor: accentColor,
-      challengeId: id,
+    // 정상 — 폴리곤 미리보기 + 랭킹 리스트를 세로로 묶어 그린다.
+    // (534) 폴리곤 미리보기 추가 + (532) _RankingList 에 challengeId 전달 두 변경을 함께 유지.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (ranking.polygonImageUrl != null)
+          _PolygonPreview(imageUrl: ranking.polygonImageUrl!),
+        Expanded(
+          child: _RankingList(
+            ranking: ranking,
+            accentColor: accentColor,
+            challengeId: id,
+          ),
+        ),
+      ],
     );
   }
 
@@ -451,6 +461,56 @@ class _ChallengeRankingTab extends ConsumerWidget {
             height: 1.5,
             color: Color(0xFF6B7280),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 챌린지 폴리곤 미리보기 ─────────────────────────────────────────────
+// 랭킹 본문 상단에 챌린지 폴리곤 이미지를 표시한다.
+// 사용자가 어떤 챌린지 코스를 따라뛰는지 한눈에 확인할 수 있게 한다.
+class _PolygonPreview extends StatelessWidget {
+  final String imageUrl;
+
+  const _PolygonPreview({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          imageUrl,
+          height: 120,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => Container(
+            height: 120,
+            color: const Color(0xFFF3F4F6),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.broken_image_outlined,
+              color: Color(0xFF9CA3AF),
+              size: 28,
+            ),
+          ),
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return SizedBox(
+              height: 120,
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded /
+                          progress.expectedTotalBytes!
+                      : null,
+                  strokeWidth: 2,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
