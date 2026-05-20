@@ -40,9 +40,9 @@ class RunningScreen extends ConsumerWidget {
                 const _Header(),
                 const Spacer(),
                 _ChallengeButtons(
-                  onChallenge: (difficulty, challengeId, title) =>
+                  onChallenge: (difficulty, challengeId, title, polygonImageUrl) =>
                       _showChallengeStartDialog(
-                          context, ref, difficulty, challengeId, title),
+                          context, ref, difficulty, challengeId, title, polygonImageUrl),
                 ),
               ],
             ),
@@ -58,6 +58,7 @@ class RunningScreen extends ConsumerWidget {
     String difficulty,
     int challengeId,
     String title,
+    String? polygonImageUrl,
   ) {
     final isEasy = difficulty == 'EASY';
     final accentColor =
@@ -145,10 +146,11 @@ class RunningScreen extends ConsumerWidget {
                 seedContextForChallenge();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    // challengeId 전달: 에디터 저장 시 서버가 챌린지 코스임을 인식할 수 있도록
+                    // challengeId · polygonImageUrl 전달: 챌린지 코스 저장 인식 및 폴리곤 참조용
                     builder: (_) => CourseEditorScreen(
                       difficulty: difficulty,
                       challengeId: challengeId,
+                      polygonImageUrl: polygonImageUrl,
                     ),
                   ),
                 );
@@ -393,7 +395,8 @@ class _ChallengeButtons extends ConsumerWidget {
   // 콜백 시그니처에 challengeId 가 함께 흐른다.
   // BE 종료 API 요청 본문이 challengeId 필드를 받기 시작했으므로, 카드 탭 시점부터
   // 진입점이 challengeId 를 들고 다닐 수 있도록 흘려보낸다.
-  final void Function(String difficulty, int challengeId, String title)
+  // polygonImageUrl: 에디터 진입 시 참조할 챌린지 폴리곤 이미지 URL
+  final void Function(String difficulty, int challengeId, String title, String? polygonImageUrl)
       onChallenge;
 
   const _ChallengeButtons({required this.onChallenge});
@@ -491,7 +494,7 @@ class _ChallengeButtons extends ConsumerWidget {
                         onTap: list == null
                             ? () {}
                             : () => onChallenge(
-                                'EASY', list.easy.challengeId, 'Easy 챌린지'),
+                                'EASY', list.easy.challengeId, 'Easy 챌린지', easyImageUrl),
                       ),
                     ),
                     // 우: Hard 카드 — 오른쪽 끝에서 시작 (Easy와 s px 겹침)
@@ -516,7 +519,7 @@ class _ChallengeButtons extends ConsumerWidget {
                         onTap: list == null
                             ? () {}
                             : () => onChallenge(
-                                'HARD', list.hard.challengeId, 'Hard 챌린지'),
+                                'HARD', list.hard.challengeId, 'Hard 챌린지', hardImageUrl),
                       ),
                     ),
                   ],
