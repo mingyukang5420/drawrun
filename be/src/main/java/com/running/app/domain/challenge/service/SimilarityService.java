@@ -208,8 +208,8 @@ public class SimilarityService {
 
     private double pointScore(double[] p, double[][] polyline) {
         double minDist = Double.MAX_VALUE;
-        for (int i = 0; i < polyline.length - 1; i++) {
-            double d = distToSegment(p, polyline[i], polyline[i + 1]);
+        for (int i = 0; i < polyline.length; i++) {
+            double d = distToSegment(p, polyline[i], polyline[(i + 1) % polyline.length]);
             if (d <= BUFFER) return 1.0;   // 조기 종료
             if (d < minDist) minDist = d;
         }
