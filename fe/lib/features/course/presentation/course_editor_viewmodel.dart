@@ -537,6 +537,32 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
         _graph.putIfAbsent(kb, () => []).add(_GraphEdge(ka, d));
       }
     }
+    // 같은 도로 분기점이지만 way 끝점 좌표가 부동소수점 / BE 직렬화 정밀도 차이로
+    // 서로 다른 NLatLng 이 되어 키가 갈리는 경우가 잦다.
+    // 7자리 라운딩(_latlngKey) 만으로는 잡지 못한 케이스를 거리 기반으로 봉합한다.
+    _bridgeNearbyNodes();
+  }
+
+  // 그래프 노드 중 매우 가까운(분기점 후보) 쌍을 직접 엣지로 연결.
+  // 라운딩으로 같은 키가 못 된 분기점들을 이 단계에서 사실상 같은 노드처럼 잇는다.
+  // 임계값 5m — 도로 분기점 자체는 같은 좌표여야 하지만 잔차로 1~3m 차이 나는 경우까지 흡수.
+  // O(N^2) 이지만 뷰포트 내 N=수백 수준이라 비용 무시 가능.
+  void _bridgeNearbyNodes() {
+    const double bridgeThresholdM = 5.0;
+    final keys = _graphNodes.keys.toList();
+    for (int i = 0; i < keys.length; i++) {
+      final ka = keys[i];
+      final a = _graphNodes[ka]!;
+      for (int j = i + 1; j < keys.length; j++) {
+        final kb = keys[j];
+        final b = _graphNodes[kb]!;
+        final d = _haversineKm(a, b) * 1000;
+        if (d <= bridgeThresholdM) {
+          _graph.putIfAbsent(ka, () => []).add(_GraphEdge(kb, d));
+          _graph.putIfAbsent(kb, () => []).add(_GraphEdge(ka, d));
+        }
+      }
+    }
   }
 
   // 연속 노드 쌍마다 Dijkstra 로 도로 위 최단 경로를 구해 이어붙인다
