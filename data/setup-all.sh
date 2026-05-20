@@ -1,88 +1,38 @@
 #!/bin/bash
-# 시연용 DB 원터치 셋업.
+# dev 시연용 mockup 데이터 원터치 적재.
 #
-# 전제: PostgreSQL + Redis 컨테이너가 이미 떠 있어야 한다 (be/docker-compose up -d).
+# dev backend(https://k14a103.p.ssafy.io/api) 와 dev DB(직접 접속) 를 사용한다.
+# OSM/districts 는 dev 에 이미 적재되어 있다는 전제 (mock-loader 가 osm_ways 좌표만 읽음).
 #
-# 동작:
-#   1) data/osm-loader/run_loader.sh       → 스키마 + osm_ways(+split) + osm_crossings + districts
-#   2) data/mock-loader (python container) → members, tracks, challenges, course_drafts,
-#                                            records, courses, course_bookmark, member_record_stats
+# 흐름:
+#   1) signup (20명)              ← dev /v1/auth/signup
+#   2) challenges 6쌍 생성        ← dev /v1/call/test/pipeline (AI 호출, 수십 초 × 6)
+#   3) challenges 시간 조작       ← dev DB UPDATE
+#   4) CourseDraft 96개           ← 네이버 정적 지도 PNG + dev /v1/editor
+#   5) RunningRecord ~192개       ← dev /v1/run/end (similarity_score 자동 계산)
 #
-# 환경변수는 data/osm-loader/.env 를 그대로 재사용.
+# 필요한 .env: data/mock-loader/.env  (.env.example 참고)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MOCK_DIR="$SCRIPT_DIR/mock-loader"
+ENV_FILE="$MOCK_DIR/.env"
 
-# ---------------------------------------------------------------------------
-# [1/2] OSM + districts 적재 (기존 스크립트에 위임)
-# ---------------------------------------------------------------------------
-echo "==================================================================="
-echo " [1/2] OSM + districts 적재"
-echo "==================================================================="
-bash "$SCRIPT_DIR/osm-loader/run_loader.sh"
-
-# ---------------------------------------------------------------------------
-# [2/2] Mockup 적재
-# ---------------------------------------------------------------------------
-echo ""
-echo "==================================================================="
-echo " [2/2] Mockup 데이터 적재"
-echo "==================================================================="
-
-ENV_FILE="$SCRIPT_DIR/osm-loader/.env"
-if [ -f "$ENV_FILE" ]; then
-  set -a
-  source "$ENV_FILE"
-  set +a
+if [ ! -f "$ENV_FILE" ]; then
+  echo "ERROR: $ENV_FILE 가 없습니다. .env.example 을 복사해 채워주세요." >&2
+  exit 1
 fi
 
-: "${POSTGRES_HOST:?Set POSTGRES_HOST in $ENV_FILE}"
-: "${POSTGRES_PORT:?Set POSTGRES_PORT in $ENV_FILE}"
-: "${POSTGRES_DB:?Set POSTGRES_DB}"
-: "${POSTGRES_USER:?Set POSTGRES_USER}"
-: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
+echo "==================================================================="
+echo " dev mockup 적재 시작"
+echo "==================================================================="
 
-# run_loader.sh 와 동일한 Docker 네트워크 감지 로직.
-# 별도 헬퍼로 빼지 않고 의도적으로 중복 유지 — 두 스크립트가 독립 실행 가능해야 한다.
-PG_CONTAINER=""
-EFFECTIVE_HOST="$POSTGRES_HOST"
-
-if docker inspect "$POSTGRES_HOST" > /dev/null 2>&1; then
-  PG_CONTAINER="$POSTGRES_HOST"
-  NETWORK=$(docker inspect "$POSTGRES_HOST" \
-    --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
-else
-  FOUND=$(docker ps \
-    --filter "publish=$POSTGRES_PORT" \
-    --format "{{.Names}}" 2>/dev/null | head -1 || true)
-  if [ -n "$FOUND" ]; then
-    PG_CONTAINER="$FOUND"
-    EFFECTIVE_HOST="$FOUND"
-    NETWORK=$(docker inspect "$FOUND" \
-      --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
-    echo "Resolved '$POSTGRES_HOST' -> container '$PG_CONTAINER' (network: $NETWORK)"
-  else
-    NETWORK=""
-  fi
-fi
-
-if [ -n "$NETWORK" ]; then
-  NETWORK_ARGS=(--network "$NETWORK")
-else
-  echo "No Docker container found for '$POSTGRES_HOST'; using host network."
-  NETWORK_ARGS=(--network host)
-fi
-
+# 한글 경로를 docker --env-file 이 못 읽는 문제 회피.
+# .env 는 마운트된 /app/.env 를 config.py 의 load_dotenv 가 직접 로드한다.
 MSYS_NO_PATHCONV=1 docker run --rm \
-  "${NETWORK_ARGS[@]}" \
-  -v "$SCRIPT_DIR/mock-loader:/app" \
+  -v "$MOCK_DIR:/app" \
   -w /app \
-  -e POSTGRES_HOST="$EFFECTIVE_HOST" \
-  -e POSTGRES_PORT \
-  -e POSTGRES_DB \
-  -e POSTGRES_USER \
-  -e POSTGRES_PASSWORD \
   python:3.11-slim \
   bash -c "pip install -r requirements.txt -q && python -m loader.load"
 

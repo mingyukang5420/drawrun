@@ -1,7 +1,9 @@
-"""DB 접속 정보 + 시연 데이터 규모 상수.
+"""mock-loader 환경 설정.
 
-osm-loader 와 같은 .env 형식(POSTGRES_*)을 공유한다 — setup-all.sh 가
-data/osm-loader/.env 를 그대로 export 해서 넘긴다.
+기존(local DB direct INSERT) → 신규(dev backend API 호출) 로 전환됨.
+시연 데이터를 dev 서버 정상 비즈니스 로직을 통해 만든다 (이미지 자동 저장 + walkable 검증 통과 자동).
+
+DB 직접 접속은 챌린지 시간 조작 (DB UPDATE) 한 곳에만 사용된다.
 """
 
 import os
@@ -10,37 +12,42 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-def load_db_config() -> dict:
-    """psycopg2.connect() 에 그대로 넘길 수 있는 dict 반환.
+def _load_env() -> None:
+    here = Path(__file__).resolve().parent.parent  # mock-loader/
+    candidates = [here / ".env", here.parent / "osm-loader" / ".env"]
+    for c in candidates:
+        if c.exists():
+            load_dotenv(c, encoding="utf-8", override=False)
 
-    setup-all.sh 가 환경변수로 주입하지만, 직접 실행할 때를 위해
-    mock-loader/.env 또는 osm-loader/.env 도 탐색한다.
-    """
-    here = Path(__file__).resolve().parent.parent
 
-    for candidate in (here / ".env", here.parent / "osm-loader" / ".env"):
-        if candidate.exists():
-            load_dotenv(candidate, encoding="utf-8", override=False)
-            break
+_load_env()
 
+
+# ----- dev backend API -----
+DEV_API_BASE_URL = os.environ.get("DEV_API_BASE_URL", "https://k14a103.p.ssafy.io/api")
+TEST_KEY = os.environ["TEST_KEY"]
+
+
+# ----- dev DB (챌린지 시간 UPDATE 전용) -----
+def db_config() -> dict:
     return {
-        "host": os.environ["POSTGRES_HOST"],
-        "port": int(os.environ["POSTGRES_PORT"]),
-        "dbname": os.environ["POSTGRES_DB"],
-        "user": os.environ["POSTGRES_USER"],
-        "password": os.environ["POSTGRES_PASSWORD"],
+        "host": os.environ["DEV_DB_HOST"],
+        "port": int(os.environ.get("DEV_DB_PORT", "5432")),
+        "dbname": os.environ["DEV_DB_NAME"],
+        "user": os.environ["DEV_DB_USERNAME"],
+        "password": os.environ["DEV_DB_PASSWORD"],
     }
 
 
-# ----- 시연 데이터 규모 (소형) -----
-# 챌린지가 메인이라 챌린지 관련 비중을 강조한다.
+# ----- 시연 데이터 규모 -----
 NUM_MEMBERS = 20
-NUM_CHALLENGE_PAIRS = 4          # EASY+HARD 쌍 → 총 challenges = 8
-NUM_TRACKS = 50
-NUM_COURSE_DRAFTS = 100
-NUM_RECORDS = 300
-NUM_COURSES = 15
-NUM_BOOKMARKS = 50
+NUM_CHALLENGE_PAIRS = 6      # = 12개 챌린지. 진행중 1쌍 + 과거 5쌍
+NUM_DRAFTS_PER_CHALLENGE = 8 # 챌린지당 CourseDraft 수 (12 × 8 = 96)
+NUM_RECORDS_PER_DRAFT = 2    # CourseDraft 당 평균 RunningRecord 수
 
-# 시연용 통일 비밀번호 (BCrypt 로 해시되어 저장됨)
-DEMO_PASSWORD = "password1!"
+DEMO_PASSWORD = "password1!"  # 시연 통일 비밀번호 (signup API 통과 길이 8~20)
+
+
+# ----- 챌린지 시간 분포 -----
+# 가장 늦은 1쌍 = 이번 주 진행 중, 나머지 = 1주씩 거슬러 올라간 과거.
+CHALLENGE_DURATION_DAYS = 7

@@ -1,133 +1,73 @@
-"""challenges 적재.
+"""챌린지 생성 phase — dev backend /v1/call/test/pipeline 을 N회 호출.
 
-- EASY/HARD 한 쌍이 같은 groupUUID 를 공유 (실제 스케줄러 동작과 동일)
-- 시간 분포: 진행 중 1쌍 + 완료된 과거 (NUM_CHALLENGE_PAIRS - 1) 쌍
-- 폴리곤은 알고리즘 생성 (원/사각/별/삼각형 4종 순환)
-- polygon_points 는 JSON [[x, y], ...] 형식 — SimilarityService.parsePolygon 호환
+한 호출당 EASY+HARD 한 쌍이 만들어진다 (groupUUID 공유).
+응답은 ApiResponse<Void> 라 ID 가 안 오므로, 호출 직후 DB 에서 가장 최근 쌍을 식별한다.
+
+AI 이미지 생성이라 호출당 수십 초 걸릴 수 있어 timeout 을 넉넉히 잡는다.
 """
 
-import json
 import logging
-import math
-import random
-import uuid
-from datetime import datetime, timedelta
+import time
 
 from loader.config import NUM_CHALLENGE_PAIRS
-from loader.image_urls import random_challenge_image_url
+from loader.http_client import create_challenge_pair
 
 logger = logging.getLogger(__name__)
 
-
-def _circle_polygon(num_points: int = 36) -> list[list[float]]:
-    return [
-        [math.cos(2 * math.pi * i / num_points), math.sin(2 * math.pi * i / num_points)]
-        for i in range(num_points)
-    ]
+INTER_CALL_DELAY_SEC = 3  # AI 부하 완화
 
 
-def _square_polygon() -> list[list[float]]:
-    # 변마다 5개 점 → 총 20개. centroid (0,0).
-    pts: list[list[float]] = []
-    for t in range(5):
-        pts.append([-1.0 + t * 0.5, -1.0])
-    for t in range(5):
-        pts.append([1.0, -1.0 + t * 0.5])
-    for t in range(5):
-        pts.append([1.0 - t * 0.5, 1.0])
-    for t in range(5):
-        pts.append([-1.0, 1.0 - t * 0.5])
-    return pts
+def generate_challenge_pairs(conn) -> list[dict]:
+    """pipeline 을 NUM_CHALLENGE_PAIRS 번 호출하고, 새로 생긴 challenges 를 반환.
 
-
-def _star_polygon(arms: int = 5) -> list[list[float]]:
-    # 별 꼭짓점 / 안쪽 점 번갈아.
-    pts: list[list[float]] = []
-    for i in range(arms * 2):
-        r = 1.0 if i % 2 == 0 else 0.4
-        theta = math.pi / 2 + math.pi * i / arms
-        pts.append([r * math.cos(theta), r * math.sin(theta)])
-    return pts
-
-
-def _triangle_polygon() -> list[list[float]]:
-    # 정삼각형 + 각 변에 추가 점.
-    vertices = [
-        [0.0, 1.0],
-        [math.cos(math.radians(210)), math.sin(math.radians(210))],
-        [math.cos(math.radians(330)), math.sin(math.radians(330))],
-    ]
-    pts: list[list[float]] = []
-    for i in range(3):
-        a = vertices[i]
-        b = vertices[(i + 1) % 3]
-        for t in range(7):
-            f = t / 7.0
-            pts.append([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f])
-    return pts
-
-
-_POLYGON_GENERATORS = [_circle_polygon, _square_polygon, _star_polygon, _triangle_polygon]
-_TITLE_PREFIX = ["원형", "사각", "별", "삼각"]
-
-
-_INSERT_CHALLENGE = """
-INSERT INTO challenges (
-    title, polygon_image_url, started_at, ended_at,
-    polygon_points, group_uuid, difficulty,
-    created_at, updated_at
-) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
-RETURNING challenge_id
-"""
-
-
-def insert_challenges(conn) -> list[dict]:
-    """반환값: [{id, started_at, ended_at, group_uuid, difficulty}] — 후속 모듈에서 사용."""
-    now = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    # 이번 주 월요일 0시 ~ 일요일 23:59:59 가 진행중 챌린지.
-    this_monday = now - timedelta(days=now.weekday())
-
-    rows: list[dict] = []
+    반환: [{id, group_uuid, difficulty, started_at, ended_at}]
+    호출 후 DB 에서 created_at DESC 로 한 쌍씩 잡아 group_uuid 별로 묶는다.
+    """
+    # 호출 전 기준 시각을 잡아 그 이후에 생긴 챌린지만 식별.
     with conn.cursor() as cur:
-        for pair_idx in range(NUM_CHALLENGE_PAIRS):
-            # pair_idx 0 = 진행 중, 그 이후로 한 주씩 과거.
-            week_offset = -pair_idx
-            started = this_monday + timedelta(weeks=week_offset)
-            ended = started + timedelta(days=6, hours=23, minutes=59, seconds=59)
+        cur.execute("SELECT COALESCE(MAX(created_at), TIMESTAMP 'epoch') FROM challenges")
+        baseline = cur.fetchone()[0]
+    logger.info("기준 created_at: %s 이후 생긴 챌린지만 추적", baseline)
 
-            poly_gen = _POLYGON_GENERATORS[pair_idx % len(_POLYGON_GENERATORS)]
-            polygon_json = json.dumps(poly_gen())
-            title_prefix = _TITLE_PREFIX[pair_idx % len(_TITLE_PREFIX)]
-            group_uuid = str(uuid.uuid4())
+    for i in range(NUM_CHALLENGE_PAIRS):
+        logger.info("챌린지 쌍 생성 %d/%d (AI 호출, 수십 초 소요 가능)",
+                    i + 1, NUM_CHALLENGE_PAIRS)
+        create_challenge_pair()
+        if i < NUM_CHALLENGE_PAIRS - 1:
+            time.sleep(INTER_CALL_DELAY_SEC)
 
-            for difficulty in ("EASY", "HARD"):
-                title = f"{title_prefix} {difficulty.lower()}"  # 20자 제한
-                cur.execute(
-                    _INSERT_CHALLENGE,
-                    (
-                        title,
-                        random_challenge_image_url(),
-                        started,
-                        ended,
-                        polygon_json,
-                        group_uuid,
-                        difficulty,
-                    ),
-                )
-                cid = cur.fetchone()[0]
-                rows.append(
-                    {
-                        "id": cid,
-                        "started_at": started,
-                        "ended_at": ended,
-                        "group_uuid": group_uuid,
-                        "difficulty": difficulty,
-                    }
-                )
-    conn.commit()
-    ongoing = sum(1 for r in rows if r["ended_at"] >= now)
-    logger.info(
-        "challenges 적재 완료: 총 %d 개 (진행중 %d / 종료 %d, 쌍 %d)",
-        len(rows), ongoing, len(rows) - ongoing, NUM_CHALLENGE_PAIRS,
-    )
-    return rows
+    # 새로 생긴 챌린지를 created_at 순으로 조회.
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT challenge_id, group_uuid, difficulty, started_at, ended_at,
+                   created_at, title
+            FROM challenges
+            WHERE created_at > %s
+            ORDER BY created_at ASC
+            """,
+            (baseline,),
+        )
+        rows = cur.fetchall()
+
+    expected = NUM_CHALLENGE_PAIRS * 2
+    if len(rows) < expected:
+        logger.warning(
+            "예상 %d 개보다 적은 %d 개 챌린지만 새로 생성됨 — AI 호출 실패 가능성",
+            expected, len(rows),
+        )
+
+    challenges = [
+        {
+            "id": r[0],
+            "group_uuid": r[1],
+            "difficulty": r[2],
+            "started_at": r[3],
+            "ended_at": r[4],
+            "created_at": r[5],
+            "title": r[6],
+        }
+        for r in rows
+    ]
+    logger.info("새로 생성된 챌린지: %d 개", len(challenges))
+    return challenges
