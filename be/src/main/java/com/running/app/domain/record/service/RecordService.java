@@ -96,11 +96,16 @@ public class RecordService {
             Challenge challenge = challengeRepository.findById(request.getChallengeId())
                     .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
             if (challenge.getPolygonPoints() != null) {
-                similarityScore = similarityService.calculate(challenge.getPolygonPoints(), request.getNodes());
-                log.info("챌린지 유사도 계산 완료. challengeId={}, score={}", request.getChallengeId(), similarityScore);
+                similarityScore = similarityService.calculate(challenge.getPolygonPoints(),
+                        request.getNodes());
+                log.info("챌린지 유사도 계산 완료. challengeId={}, score={}", request.getChallengeId(),
+                        similarityScore);
             } else {
-                log.warn("챌린지 polygon_points 없음. 유사도 계산 생략. challengeId={}", request.getChallengeId());
+                log.warn("챌린지 polygon_points 없음. 유사도 계산 생략. challengeId={}",
+                        request.getChallengeId());
             }
+        } else {
+            log.info("챌린지 Id 없음");
         }
 
         RunningRecord runningRecord = RecordConverter.toRunningRecord(
@@ -147,7 +152,8 @@ public class RecordService {
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            log.info("챌린지 런 커밋 완료. Redis 챌린지 랭킹 캐시 무효화. challengeId={}", challengeId);
+                            log.info("챌린지 런 커밋 완료. Redis 챌린지 랭킹 캐시 무효화. challengeId={}",
+                                    challengeId);
                             rankingRedisService.deleteRankValue("ranking:challenge:" + challengeId);
                         }
                     }
@@ -645,7 +651,9 @@ public class RecordService {
             LocalDate date = LocalDate.parse(stats.getPeriodKey());
             LocalDate weekStart = date.with(DayOfWeek.MONDAY);
             double[] agg = byWeekStart.get(weekStart);
-            if (agg == null) continue; // 범위 밖이면 무시 (안전망)
+            if (agg == null) {
+                continue; // 범위 밖이면 무시 (안전망)
+            }
             agg[0] += stats.getTotalDistance();
             agg[1] += stats.getTotalCount();
         }
