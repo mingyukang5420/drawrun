@@ -534,7 +534,8 @@ class _CourseDraftCard extends ConsumerWidget {
                                   MaterialPageRoute(
                                     // challengeId 전달: 챌린지 코스 저장 시 서버 인증에 필요
                                     builder: (_) => CourseEditorScreen(
-                                      challengeId: challengeId,
+                                      // draft 자체에 포함된 challengeId 사용 (BE DraftListResponse 필드)
+                                      challengeId: draft.challengeId,
                                     ),
                                   ),
                                 ),
@@ -564,10 +565,12 @@ class _CourseDraftCard extends ConsumerWidget {
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 // courseId 있으면 완성된 코스 러닝, 없으면 에디터 검증 러닝
+                                // draft.challengeId: BE DraftListResponse 에서 파싱한 값.
+                                // 이전에는 widget 파라미터를 통해 전달받았으나 항상 null 이었음.
                                 ref
                                     .read(runningViewModelProvider.notifier)
                                     .setSessionContext(
-                                      challengeId: challengeId,
+                                      challengeId: draft.challengeId,
                                       courseId: draft.courseId,
                                       courseDraftId: draft.courseId == null
                                           ? draft.courseDraftId

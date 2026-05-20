@@ -19,6 +19,9 @@ class CourseDraft {
   // 일반 내 코스 목록 API(/api/v1/editor)에서는 null
   final double? similarityScore;      // 챌린지 코스와의 유사도 점수
   final String? challengeDifficulty;  // 챌린지 자체 난이도 — 'EASY' | 'HARD'
+  // BE DraftListResponse 의 challengeId 필드. 챌린지 소속 드래프트에만 채워진다.
+  // 러닝 시작 시 setSessionContext 에 흘려 종료 API 까지 전달하는 데 사용.
+  final int? challengeId;
 
   const CourseDraft({
     required this.courseDraftId,
@@ -31,6 +34,7 @@ class CourseDraft {
     this.createdAt,
     this.similarityScore,
     this.challengeDifficulty,
+    this.challengeId,
   });
 
   factory CourseDraft.fromJson(Map<String, dynamic> json) => CourseDraft(
@@ -47,5 +51,7 @@ class CourseDraft {
         // 챌린지 API에서만 내려오므로 없으면 null 처리
         similarityScore: (json['similarityScore'] as num?)?.toDouble(),
         challengeDifficulty: json['challengeDifficulty'] as String?,
+        // BE DraftListResponse.challengeId — 챌린지 소속 드래프트에만 non-null
+        challengeId: json['challengeId'] as int?,
       );
 }
