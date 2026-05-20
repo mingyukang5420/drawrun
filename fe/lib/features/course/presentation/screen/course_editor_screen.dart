@@ -55,6 +55,9 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   // 저장 버튼을 누른 뒤 TrackSnapshotMap 이 Stack 에 올라간 상태
   bool _isCapturing = false;
 
+  // 폴리곤 미리보기 패널 확대 여부 (true = 160×160 인라인 패널, false = 48×48 버튼)
+  bool _polygonExpanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -237,20 +240,24 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             ),
           ),
 
-          // 3-2단계: 폴리곤 미리보기 버튼 (타이틀 바와 분리된 독립 영역)
-          Positioned(
-            top: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8, right: 8),
-                child: _PolygonPreviewButton(
-                  imageUrl: widget.polygonImageUrl,
-                  title: widget.polygonTitle,
+          // 3-2단계: 폴리곤 미리보기 패널 (URL 있을 때만 표시)
+          // 탭 시 모달 없이 인라인 확대 — 지도 편집을 방해하지 않는다
+          if (widget.polygonImageUrl != null)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8, right: 8),
+                  child: _PolygonPreviewButton(
+                    imageUrl: widget.polygonImageUrl!,
+                    expanded: _polygonExpanded,
+                    onToggle: () =>
+                        setState(() => _polygonExpanded = !_polygonExpanded),
+                  ),
                 ),
               ),
             ),
-          ),
 
           // 3-3단계: 총 거리 뱃지 (경로가 있을 때 타이틀 바 하단에 표시)
           if (state.nodes.isNotEmpty)
@@ -742,103 +749,85 @@ class _RoadHintBanner extends StatelessWidget {
 // 노드가 없으면 회색 아이콘을 표시하고, 있으면 실제 경로를 축소해서 그린다.
 // 탭하면 Dialog 에서 확대된 경로 모양을 보여준다.
 // ─────────────────────────────────────────────────────────────────────
+// 폴리곤 미리보기 버튼 / 인라인 확대 패널
+//
+// expanded = false : 48×48 축소 버튼 — 탭하면 패널이 펼쳐진다
+// expanded = true  : 160×160 확대 패널 — 지도 조작을 막지 않으며 × 버튼으로 닫는다
+// 모달 대신 인라인 AnimatedContainer 를 사용해 확대 상태에서도 지도 편집이 가능하다
 class _PolygonPreviewButton extends StatelessWidget {
-  final String? imageUrl;
-  final String? title;
+  final String imageUrl;
+  final bool expanded;
+  final VoidCallback onToggle;
 
-  const _PolygonPreviewButton({this.imageUrl, this.title});
+  const _PolygonPreviewButton({
+    required this.imageUrl,
+    required this.expanded,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = imageUrl != null;
-    return GestureDetector(
-      onTap: () => _showPreview(context),
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: hasImage ? kCourseRouteColor : Colors.grey.shade400,
-            width: 1.5,
-          ),
-          boxShadow: const [
-            BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1)),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(6.5),
-          child: hasImage
-              ? Image.network(
-                  imageUrl!,
-                  fit: BoxFit.contain,
-                  errorBuilder: (ctx, err, st) => _placeholder(),
-                )
-              : _placeholder(),
-        ),
+    final double size = expanded ? 160 : 48;
+    final double radius = expanded ? 12 : 8;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: kCourseRouteColor, width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+        ],
       ),
-    );
-  }
-
-  Widget _placeholder() {
-    return Icon(Icons.pentagon_outlined, size: 20, color: Colors.grey.shade500);
-  }
-
-  void _showPreview(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.black,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    title ?? '코스 폴리곤',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius - 1.5),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 폴리곤 이미지 (확대 시 지도 참조 중이므로 약간 투명하게)
+            Image.network(
+              imageUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.broken_image_outlined,
+                color: Colors.grey.shade500,
+                size: expanded ? 40 : 20,
               ),
-              const SizedBox(height: 12),
-              AspectRatio(
-                aspectRatio: 1,
-                child: imageUrl != null
-                    ? Image.network(
-                        imageUrl!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (ctx, err, st) => Center(
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            size: 48,
-                            color: Colors.grey.shade600,
+            ),
+            // 탭 영역 — 전체를 터치 가능하게
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onToggle,
+                child: expanded
+                    // 확대 상태: 우상단에 × 닫기 버튼 표시
+                    ? Align(
+                        alignment: Alignment.topRight,
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 14,
+                            ),
                           ),
                         ),
                       )
-                    : Center(
-                        child: Icon(
-                          Icons.pentagon_outlined,
-                          size: 80,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
+                    : null,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
