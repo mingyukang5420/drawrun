@@ -109,17 +109,17 @@ class _RecordRouteScreenState extends State<RecordRouteScreen> {
     // ── 시작/끝 마커 ─────────────────────────────────────────
     // NCircleOverlay 가 단순 점 표시에 적합 — 별도 아이콘 자원 필요 없음.
     // radius 단위는 미터(m) — zoom 에 따라 크기가 같이 변한다.
-    // 너무 큰 값을 주면 줌아웃 시 지도 한쪽을 가려버리므로 12m 정도가 적당.
+    // 폴리라인(width: 6px) 을 가리지 않도록 작게 둔다. 도심 구간에선 2m 가 적당.
     await controller.addOverlay(NCircleOverlay(
       id: 'route_start',
       center: coords.first,
-      radius: 12,
+      radius: 2,
       color: const Color(0xFF27AE60), // 시작 = 녹색
     ));
     await controller.addOverlay(NCircleOverlay(
       id: 'route_end',
       center: coords.last,
-      radius: 12,
+      radius: 2,
       color: const Color(0xFFFF6B35), // 끝 = 주황
     ));
 
