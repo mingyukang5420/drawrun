@@ -241,34 +241,37 @@ class _HighlightCell extends StatelessWidget {
 }
 
 // ── 주간 잔디 위젯 ──────────────────────────────────────────────────
-// 최근 7일을 가로 한 줄로 펼친 GitHub 스타일의 활동 미니 카드.
-// 활동 거리(km) 를 4단계 (0 / 적음 / 보통 / 많음) 로 매핑해 잔디 색상을 결정한다.
+// 최근 12주(약 3개월) 를 가로 12 칸으로 펼친 GitHub 스타일의 활동 미니 카드.
+// 각 칸은 한 주를 의미 — 그 주 안에 한 번이라도 뛰었으면(count > 0) 잔디 색상이 들어간다.
+// 거리 합산(km) 로 4단계 색 강도를 결정해 활동량의 차이도 함께 보여준다.
 class _WeeklyGrassCard extends StatelessWidget {
-  final List<DailyActivity> activities;
+  final List<WeeklyActivity> activities;
   const _WeeklyGrassCard({required this.activities});
 
-  // 잔디 셀 한 칸이 4단계 색상으로 표현하는 거리 임계값(km).
-  // 0 km : 회색 (활동 없음)
-  // 0 < d <= _t1 : 옅은 초록
-  // _t1 < d <= _t2 : 중간 초록
-  // d > _t2 : 진한 초록
-  // 임계값은 보통 러너 한 회 러닝 거리(1~5km) 를 4 분위로 나눈 감으로 잡았다.
-  static const double _t1 = 1.5;
-  static const double _t2 = 4.0;
+  // 잔디 셀 한 칸의 4단계 색상 임계값(km, 주 누적).
+  //   count == 0 : 회색 (활동 없음)
+  //   0 < d <= _t1 : 옅은 초록
+  //   _t1 < d <= _t2 : 중간 초록
+  //   d > _t2 : 진한 초록
+  // 임계값은 일반 러너 주간 거리(3~15km) 를 분위 잡아 둠.
+  static const double _t1 = 5.0;
+  static const double _t2 = 15.0;
 
-  Color _levelColor(double distance) {
-    if (distance <= 0) return const Color(0xFFE5E7EB);
-    if (distance <= _t1) return const Color(0xFFBBF7D0); // light
-    if (distance <= _t2) return const Color(0xFF4ADE80); // mid
+  Color _levelColor(WeeklyActivity a) {
+    // "한 번이라도 뛰었으면 잔디" — count 가 0 이면 거리와 무관하게 회색.
+    if (a.count <= 0) return const Color(0xFFE5E7EB);
+    if (a.distance <= _t1) return const Color(0xFFBBF7D0); // light
+    if (a.distance <= _t2) return const Color(0xFF4ADE80); // mid
     return const Color(0xFF15803D); // strong
   }
 
-  // BE 응답이 yyyy-MM-dd 라서 한 글자 요일 (월/화/수/목/금/토/일) 로 변환.
-  String _weekdayLabel(String yyyyMmDd) {
+  // 12주 중 첫 번째 / 가운데 / 마지막 주의 월 라벨을 박아 시각적 가이드를 준다.
+  // 매주 라벨을 다 박으면 너무 빽빽해져서, 의미 있는 지점만 노출.
+  String _monthLabel(int index, WeeklyActivity a) {
+    if (index != 0 && index != 6 && index != 11) return '';
     try {
-      final date = DateTime.parse(yyyyMmDd);
-      const labels = ['월', '화', '수', '목', '금', '토', '일'];
-      return labels[date.weekday - 1];
+      final date = DateTime.parse(a.weekStart);
+      return '${date.month}월';
     } catch (_) {
       return '';
     }
@@ -287,7 +290,7 @@ class _WeeklyGrassCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '최근 7일 활동',
+            '최근 12주 활동',
             style: TextStyle(
               fontFamily: 'Pretendard',
               fontSize: 13,
@@ -298,14 +301,14 @@ class _WeeklyGrassCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: activities
-                .map(
-                  (a) => _GrassCell(
-                    weekdayLabel: _weekdayLabel(a.date),
-                    color: _levelColor(a.distance),
-                  ),
-                )
-                .toList(),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (int i = 0; i < activities.length; i++)
+                _GrassCell(
+                  monthLabel: _monthLabel(i, activities[i]),
+                  color: _levelColor(activities[i]),
+                ),
+            ],
           ),
         ],
       ),
@@ -314,11 +317,11 @@ class _WeeklyGrassCard extends StatelessWidget {
 }
 
 class _GrassCell extends StatelessWidget {
-  final String weekdayLabel;
+  final String monthLabel;
   final Color color;
 
   const _GrassCell({
-    required this.weekdayLabel,
+    required this.monthLabel,
     required this.color,
   });
 
@@ -327,21 +330,24 @@ class _GrassCell extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 32,
-          height: 32,
+          width: 18,
+          height: 18,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          weekdayLabel,
-          style: const TextStyle(
-            fontFamily: 'Pretendard',
-            fontSize: 11,
-            color: Color(0xFF6B7280),
-            fontWeight: FontWeight.w500,
+        SizedBox(
+          height: 14,
+          child: Text(
+            monthLabel,
+            style: const TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 10,
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
