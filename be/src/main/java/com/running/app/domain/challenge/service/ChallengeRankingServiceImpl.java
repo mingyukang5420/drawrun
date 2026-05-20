@@ -2,6 +2,7 @@ package com.running.app.domain.challenge.service;
 
 import com.running.app.domain.challenge.converter.ChallengeConverter;
 import com.running.app.domain.challenge.dto.ChallengeResponse.ChallengeRankingResponse;
+import com.running.app.domain.challenge.dto.ChallengeResponse.MyChallengeDetailDTO;
 import com.running.app.domain.challenge.dto.ChallengeResponse.RankEntryDTO;
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.repository.ChallengeRepository;
@@ -164,5 +165,33 @@ public class ChallengeRankingServiceImpl implements ChallengeRankingService {
         Long rawRank = rankingRedisService.getMyChallengeRank(
                 member.getMemberId().longValue(), key);
         return getMyRank(member, rawRank, key);
+    }
+
+    // 랭킹 페이지에서 본인 항목 클릭 시 노출되는 본인의 챌린지 상세 조회.
+    // findTopByMemberIdAndChallengeIdOrderBySimilarityScoreDesc 는 본인 + 챌린지 조건이
+    // 동시에 걸려 있어 타인 기록이 섞일 가능성이 없다 (본인 권한 검사 자체 내장).
+    // 미참가 (record 없음) 시 RECORD_NOT_FOUND 를 던져 FE 가 빈 상태로 분기 가능.
+    @Override
+    public MyChallengeDetailDTO getMyChallengeDetail(String loginId, long challengeId) {
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.CHALLENGE_NOT_FOUND));
+
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        RunningRecord record = runningRecordRepository
+                .findTopByMemberIdAndChallengeIdOrderBySimilarityScoreDesc(
+                        member.getMemberId().longValue(), challengeId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.RECORD_NOT_FOUND));
+
+        // 본인 순위는 랭킹 Redis 에서 조회 — 1-based 변환.
+        // best 기록이 존재하면 Redis 에도 본인 score 가 있으므로 rawRank 도 항상 not-null.
+        String key = "ranking:challenge:" + challengeId;
+        ensureRedisLoaded(key, challengeId, challenge);
+        Long rawRank = rankingRedisService.getMyChallengeRank(
+                member.getMemberId().longValue(), key);
+        Integer rank = (rawRank != null) ? rawRank.intValue() + 1 : null;
+
+        return ChallengeConverter.toMyChallengeDetailDTO(record, rank);
     }
 }
