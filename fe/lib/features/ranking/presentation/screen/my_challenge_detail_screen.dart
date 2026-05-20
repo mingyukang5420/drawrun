@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/ranking/domain/my_challenge_detail.dart';
 import 'package:running/features/ranking/presentation/ranking_provider.dart';
+import 'package:running/features/record/presentation/screen/record_route_screen.dart';
 import 'package:running/shared/network/api_exception.dart';
 
 // 랭킹 페이지에서 본인 항목을 클릭했을 때 보이는 챌린지 상세 화면.
@@ -38,7 +39,7 @@ class MyChallengeDetailScreen extends ConsumerWidget {
       body: asyncDetail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => _buildError(context, ref, err),
-        data: (detail) => _buildBody(detail),
+        data: (detail) => _buildBody(context, detail),
       ),
     );
   }
@@ -77,7 +78,7 @@ class MyChallengeDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBody(MyChallengeDetail detail) {
+  Widget _buildBody(BuildContext context, MyChallengeDetail detail) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       child: Column(
@@ -189,6 +190,45 @@ class MyChallengeDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
+
+          // 코스 자세히 보기 — 본인이 뛴 트랙을 풀스크린 네이버 지도 위에 그린다.
+          // nodes 가 비어 있으면(BE 응답 이상 케이스) 버튼 자체를 숨겨 사용자가 빈 지도를 보지 않도록.
+          if (detail.nodes.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => RecordRouteScreen(
+                        nodes: detail.nodes,
+                        title: detail.title,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.map_outlined, size: 18),
+                label: const Text(
+                  '코스 자세히 보기',
+                  style: TextStyle(
+                    fontFamily: 'Pretendard',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1C1C1E),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
