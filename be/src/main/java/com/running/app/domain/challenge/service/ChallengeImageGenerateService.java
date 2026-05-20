@@ -116,6 +116,8 @@ public class ChallengeImageGenerateService {
             
             Object in Korean (translate to English and draw): """;
 
+    private final ChallengeEstimateService challengeEstimateService;
+
     public String callTextModel() {
 
         // 지금까지 진행했던 챌린지 목록 조회 및 문자열 변환
@@ -137,6 +139,10 @@ public class ChallengeImageGenerateService {
                 .body(GmsTextResponse.class);
 
         log.info("출력된 객체: {}", gmsTextResponse.getChoices().get(0).getMessage().getContent());
+
+        log.info("텍스트 평가 모델 호출");
+        challengeEstimateService.estimateText(
+                gmsTextResponse.getChoices().get(0).getMessage().getContent());
 
         return gmsTextResponse.getChoices().get(0).getMessage().getContent();
     }
