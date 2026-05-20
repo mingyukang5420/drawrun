@@ -10,16 +10,14 @@ import com.running.app.domain.challenge.dto.GmsImageDTO.VisionRequestMessage;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextResponse;
 import com.running.app.domain.challenge.dto.GmsTextDTO.RequestMessage;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
-import javax.imageio.ImageIO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -180,15 +178,14 @@ public class ChallengeEstimateService {
     private String resizeImageForEvaluation(String base64Image, int size) {
         try {
             byte[] imageBytes = Base64.getDecoder().decode(base64Image);
-            BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageBytes));
-
-            BufferedImage resized = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
-            resized.getGraphics().drawImage(
-                    original.getScaledInstance(size, size, Image.SCALE_SMOOTH), 0, 0, null
-            );
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ImageIO.write(resized, "jpeg", baos);  // JPEG로 추가 압축
+            Thumbnails.of(new ByteArrayInputStream(imageBytes))
+                    .size(size, size)
+                    .outputFormat("jpeg")
+                    .outputQuality(0.85)
+                    .toOutputStream(baos);
+
             return Base64.getEncoder().encodeToString(baos.toByteArray());
 
         } catch (IOException e) {
