@@ -4,23 +4,34 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.running.app.domain.track.dto.TrackRequest;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class SimilarityService {
 
     private final ObjectMapper objectMapper;
+    private final double BUFFER;
+    private final double SOFT_FACTOR;
 
     private static final int RESAMPLE_COUNT = 500;
-    // bbox 긴 변 기준 5% — 130m 경로에서 ~6.5m, 실제 GPS 오차(±5m) 수용
-    private static final double BUFFER = 0.05;
-    // 소프트 크레딧 구간 배율 — BUFFER × SOFT_FACTOR 거리까지 선형 감소로 부분 점수
-    // 3.0 = 15%: 복잡한 형상(강아지 등) 오목 영역 상단부까지 커버
-    private static final double SOFT_FACTOR = 3.0;
+
+    // Spring 관리 빈용 기본 생성자
+    public SimilarityService(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+        // bbox 긴 변 기준 5% — 130m 경로에서 ~6.5m, 실제 GPS 오차(±5m) 수용
+        this.BUFFER = 0.05;
+        // 4.0 = 20%: soft zone 확장으로 GPS 5점 수준의 성긴 경로도 판별 가능
+        this.SOFT_FACTOR = 4.0;
+    }
+
+    // 파라미터 튜닝용 생성자 (테스트 전용)
+    SimilarityService(ObjectMapper objectMapper, double buffer, double softFactor) {
+        this.objectMapper = objectMapper;
+        this.BUFFER = buffer;
+        this.SOFT_FACTOR = softFactor;
+    }
 
     // coarse 탐색 간격 (도)
     private static final int COARSE_STEP_DEG = 10;
