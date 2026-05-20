@@ -22,26 +22,26 @@ enum RecordStatsPeriod {
   const RecordStatsPeriod(this.apiValue, this.label);
 }
 
-// 마이페이지 잔디 위젯에 들어가는 하루치 활동 데이터.
-// BE 응답의 weeklyActivity 한 원소에 1:1 대응.
-class DailyActivity {
-  // 활동일 (yyyy-MM-dd)
-  final String date;
+// 마이페이지 잔디 위젯에 들어가는 한 주치 활동 데이터.
+// BE 응답의 weeklyActivity 한 원소에 1:1 대응. 12개(약 3개월) 가 한 리스트로 들어온다.
+class WeeklyActivity {
+  // 주의 시작일 (월요일, yyyy-MM-dd)
+  final String weekStart;
 
-  // 그 날 누적 이동 거리(km). 활동 없는 날은 0.0
+  // 그 주의 누적 이동 거리(km). 활동 없는 주는 0.0
   final double distance;
 
-  // 그 날 러닝 횟수. 활동 없는 날은 0
+  // 그 주의 러닝 횟수. "한 번이라도 뛰었는가?" 판단에 사용 (count > 0 ⇒ 잔디 노출)
   final int count;
 
-  const DailyActivity({
-    required this.date,
+  const WeeklyActivity({
+    required this.weekStart,
     required this.distance,
     required this.count,
   });
 
-  factory DailyActivity.fromJson(Map<String, dynamic> json) => DailyActivity(
-        date: json['date'] as String,
+  factory WeeklyActivity.fromJson(Map<String, dynamic> json) => WeeklyActivity(
+        weekStart: json['weekStart'] as String,
         distance: (json['distance'] as num).toDouble(),
         count: json['count'] as int,
       );
@@ -93,10 +93,10 @@ class RecordStats {
   // 차트에 표시할 막대들. 원소 개수와 라벨은 period 마다 다르다.
   final List<RecordStatsChartPoint> chart;
 
-  // 마이페이지 잔디 위젯에 박는 최근 7일 일별 활동.
-  // BE 가 항상 7개를 보장 (활동 없는 날도 0 으로 채워서 내려옴).
+  // 마이페이지 잔디 위젯에 박는 최근 12주(약 3개월) 주별 활동.
+  // BE 가 항상 12개를 보장 (활동 없는 주도 0 으로 채워서 내려옴).
   // period 와 무관하게 동일 데이터 → 차트(chart) 와 별개 트랙으로 사용.
-  final List<DailyActivity> weeklyActivity;
+  final List<WeeklyActivity> weeklyActivity;
 
   const RecordStats({
     required this.totalDistance,
@@ -117,7 +117,7 @@ class RecordStats {
     final weeklyActivityRaw =
         json['weeklyActivity'] as List<dynamic>? ?? const [];
     final weeklyActivity = weeklyActivityRaw
-        .map((e) => DailyActivity.fromJson(e as Map<String, dynamic>))
+        .map((e) => WeeklyActivity.fromJson(e as Map<String, dynamic>))
         .toList();
 
     return RecordStats(
