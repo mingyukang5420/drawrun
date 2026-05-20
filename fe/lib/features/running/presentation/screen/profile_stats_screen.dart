@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:running/features/auth/presentation/auth_provider.dart';
+import 'package:running/features/record/domain/record_stats.dart';
 import 'package:running/features/record/presentation/record_provider.dart';
 import 'package:running/features/record/presentation/screen/record_stats_screen.dart';
 
@@ -50,6 +51,16 @@ class ProfileStatsScreen extends ConsumerWidget {
               distance: state.data.totalDistance,
               // TODO: 백엔드에서 챌린지 도전 횟수 전용 API 연동 후 분리 예정
               challengeCount: state.data.totalCount,
+            ),
+          ),
+
+          // 주간 잔디 위젯 — 최근 12주 활동을 한눈에. period 토글과 무관하게 항상 12주 데이터.
+          // 카드 자체는 첫 사용자/로딩 중/BE 미머지 어느 케이스든 항상 노출 —
+          // 부족한 주는 위젯 안에서 회색 placeholder 로 채워준다.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+            child: _WeeklyGrassCard(
+              activities: state.data.weeklyActivity,
             ),
           ),
 
@@ -222,6 +233,141 @@ class _HighlightCell extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 주간 잔디 위젯 ──────────────────────────────────────────────────
+// 최근 12주(약 3개월) 를 가로 12 칸으로 펼친 GitHub 스타일의 활동 미니 카드.
+// 각 칸은 한 주를 의미 — 그 주 안에 한 번이라도 뛰었으면(count > 0) 주황으로 칠한다.
+// 거리·횟수와 무관한 단일 색이라 "그 주에 뛰었는가?" 만 한눈에 보여준다.
+class _WeeklyGrassCard extends StatelessWidget {
+  final List<WeeklyActivity> activities;
+  const _WeeklyGrassCard({required this.activities});
+
+  // "한 번이라도 뛰었으면 주황" — 거리/횟수와 무관하게 단일 색.
+  // 안 뛴 주는 회색, 뛴 주는 트랙 폴리라인과 같은 톤의 주황으로 통일.
+  Color _levelColor(WeeklyActivity a) {
+    if (a.count <= 0) return const Color(0xFFE5E7EB);
+    return const Color(0xFFFF6B35);
+  }
+
+  // 항상 12주 칸을 보장하도록 부족분을 0 활동으로 채워서 돌려준다.
+  // - BE 가 12개 정확히 준 경우: 그대로 사용
+  // - 첫 사용자/로딩 중/BE 미머지로 빈 리스트로 도착: 오늘 기준 12주를 역산해 전부 회색
+  // - 일부만 도착: weekStart 가 일치하는 칸만 실제 데이터, 나머지는 회색
+  List<WeeklyActivity> _ensureTwelveWeeks(List<WeeklyActivity> source) {
+    if (source.length == 12) return source;
+
+    String fmt(DateTime d) {
+      String two(int n) => n.toString().padLeft(2, '0');
+      return '${d.year}-${two(d.month)}-${two(d.day)}';
+    }
+
+    // 오늘이 속한 주의 월요일 = 이번 주의 첫 날.
+    // DateTime.weekday: 월=1 ... 일=7 → (weekday - 1) 일 만큼 빼면 그 주 월요일.
+    final today = DateTime.now();
+    final thisMonday = DateTime(today.year, today.month, today.day)
+        .subtract(Duration(days: today.weekday - 1));
+    final firstMonday = thisMonday.subtract(const Duration(days: 7 * 11));
+
+    final byKey = {for (final a in source) a.weekStart: a};
+
+    return List.generate(12, (i) {
+      final monday = firstMonday.add(Duration(days: 7 * i));
+      final key = fmt(monday);
+      return byKey[key] ??
+          WeeklyActivity(weekStart: key, distance: 0, count: 0);
+    });
+  }
+
+  // 12주 중 첫 번째 / 가운데 / 마지막 주의 월 라벨을 박아 시각적 가이드를 준다.
+  // 매주 라벨을 다 박으면 너무 빽빽해져서, 의미 있는 지점만 노출.
+  String _monthLabel(int index, WeeklyActivity a) {
+    if (index != 0 && index != 6 && index != 11) return '';
+    try {
+      final date = DateTime.parse(a.weekStart);
+      return '${date.month}월';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cells = _ensureTwelveWeeks(activities);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '최근 12주 활동',
+            style: TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1C1C1E),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (int i = 0; i < cells.length; i++)
+                _GrassCell(
+                  monthLabel: _monthLabel(i, cells[i]),
+                  color: _levelColor(cells[i]),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GrassCell extends StatelessWidget {
+  final String monthLabel;
+  final Color color;
+
+  const _GrassCell({
+    required this.monthLabel,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 14,
+          child: Text(
+            monthLabel,
+            style: const TextStyle(
+              fontFamily: 'Pretendard',
+              fontSize: 10,
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
