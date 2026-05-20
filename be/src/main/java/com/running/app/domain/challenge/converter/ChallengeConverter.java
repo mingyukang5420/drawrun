@@ -21,11 +21,12 @@ import java.util.Map;
 public abstract class ChallengeConverter {
 
     public static GmsTextRequest toGmsTextRequest(String model,
-            GmsTextDTO.RequestMessage requestMessage) {
+            GmsTextDTO.RequestMessage requestMessage, Double temperature) {
 
         return GmsTextRequest.builder()
                 .model(model)
                 .messages(List.of(requestMessage))
+                .temperature(temperature)
                 .build();
     }
 

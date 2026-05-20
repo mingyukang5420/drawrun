@@ -126,25 +126,40 @@ public class ChallengeImageGenerateService {
                 ChallengeDifficulty.EASY);
         String preTitles = String.join(", ", challengeAllTitle);
 
-        // 요청 body 조립
-        RequestMessage requestMessage = ChallengeConverter.toRequestMessage(
-                TEXT_SYSTEM_PROMPT + preTitles);
-        GmsTextRequest gmsTextRequest = ChallengeConverter.toGmsTextRequest(TEXT_MODEL,
-                requestMessage);
+        GmsTextResponse gmsTextResponse = null;
 
-        GmsTextResponse gmsTextResponse = gmsRestClient.post()
-                .uri(TEXT_URI)
-                .body(gmsTextRequest)
-                .retrieve()
-                .body(GmsTextResponse.class);
+        // 평가 모델에게 PASS를 받을 때 까지 실행
+        String object = null;
 
-        log.info("출력된 객체: {}", gmsTextResponse.getChoices().get(0).getMessage().getContent());
+        boolean result = false;
 
-        log.info("텍스트 평가 모델 호출");
-        challengeEstimateService.estimateText(
-                gmsTextResponse.getChoices().get(0).getMessage().getContent());
+        while (!result) {
+            // 요청 body 조립
+            RequestMessage requestMessage = ChallengeConverter.toRequestMessage(
+                    TEXT_SYSTEM_PROMPT + preTitles);
+            GmsTextRequest gmsTextRequest = ChallengeConverter.toGmsTextRequest(TEXT_MODEL,
+                    requestMessage, 1.0);
 
-        return gmsTextResponse.getChoices().get(0).getMessage().getContent();
+            gmsTextResponse = gmsRestClient.post()
+                    .uri(TEXT_URI)
+                    .body(gmsTextRequest)
+                    .retrieve()
+                    .body(GmsTextResponse.class);
+
+            object = gmsTextResponse.getChoices().get(0).getMessage().getContent();
+
+            log.info("출력된 객체: {}", object);
+
+            log.info("텍스트 평가 모델 호출");
+            result = challengeEstimateService.estimateText(object);
+
+            if (!result) {
+                // 통과 못한 문자열 생성 금지
+                preTitles = preTitles + ", " + object;
+            }
+        }
+
+        return object;
     }
 
     public record ImageModelResult(String storedPath, String b64Json) {
