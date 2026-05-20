@@ -62,10 +62,33 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   double? _polygonTop;
   // 폴리곤 미리보기 패널 현재 크기(px) — 48 = 축소 버튼, 큰 값 = 확대 패널
   double _polygonSize = 48;
+  // 진입 직후 2초간 힌트 메시지를 패널 하단에 표시
+  bool _polygonHintVisible = false;
 
   @override
   void initState() {
     super.initState();
+    // 폴리곤 URL 이 있을 때 진입 직후 패널을 최대 크기로 펼쳐 도형을 보여준다.
+    // MediaQuery 는 첫 프레임 이후에만 사용 가능하므로 addPostFrameCallback 으로 지연.
+    // 2초 뒤 자동 축소 + 힌트 메시지 숨김.
+    if (widget.polygonImageUrl != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final kMax = MediaQuery.of(context).size.width - 16;
+        setState(() {
+          _polygonSize = kMax;
+          _polygonHintVisible = true;
+        });
+        Future.delayed(const Duration(seconds: 2), () {
+          if (!mounted) return;
+          setState(() {
+            _polygonSize = 48.0;
+            _polygonHintVisible = false;
+          });
+        });
+      });
+    }
+
     // 챌린지 컨텍스트 진입 시 challengeId 를 notifier 에 주입
     // 이유: saveCourse() 가 POST /api/v1/editor 바디에 challengeId 를 포함해야
     //       서버가 챌린지 코스임을 인식할 수 있음. 누락 시 서버가 요청을 거부함.
@@ -320,15 +343,25 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                     });
                   },
                   // 탭: 크기만 바꾼다. Positioned.right 가 고정되어 있으므로
-                  // AnimatedContainer 너비가 커질수록 패널이 자동으로 왼쪽으로 확장됨
+                  // AnimatedContainer 너비가 커질수록 패널이 자동으로 왼쪽으로 확장됨.
+                  // 힌트 표시 중 탭하면 힌트를 즉시 닫고 패널을 축소한다.
                   onTap: () {
                     setState(() {
-                      _polygonSize = _polygonSize > 80 ? 48.0 : kMax;
+                      if (_polygonHintVisible) {
+                        _polygonHintVisible = false;
+                        _polygonSize = 48.0;
+                      } else {
+                        _polygonSize = _polygonSize > 80 ? 48.0 : kMax;
+                      }
                     });
                   },
                   child: _PolygonPreviewButton(
                     imageUrl: widget.polygonImageUrl!,
                     size: _polygonSize,
+                    // 진입 2초간 패널 하단에 안내 문구 표시
+                    hintText: _polygonHintVisible
+                        ? '제공된 폴리곤을 따라\n경로를 그려주세요'
+                        : null,
                   ),
                 ),
               );
@@ -788,10 +821,13 @@ class _PolygonPreviewButton extends StatelessWidget {
   final String imageUrl;
   // 현재 패널 크기(px). 48 = 축소 버튼 상태
   final double size;
+  // null 이 아니면 패널 하단에 반투명 안내 문구를 오버레이로 표시
+  final String? hintText;
 
   const _PolygonPreviewButton({
     required this.imageUrl,
     required this.size,
+    this.hintText,
   });
 
   @override
@@ -844,6 +880,31 @@ class _PolygonPreviewButton extends StatelessWidget {
                       color: Colors.white,
                       size: 14,
                     ),
+                  ),
+                ),
+              ),
+            // 힌트 문구 — 진입 2초간 패널 하단에 반투명 배경으로 표시
+            if (isExpanded && hintText != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(10.5)),
+                  ),
+                  child: Text(
+                    hintText!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'Pretendard',
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
