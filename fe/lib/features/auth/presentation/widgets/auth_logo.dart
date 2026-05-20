@@ -7,25 +7,16 @@ class AuthLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1F1F23),
-            borderRadius: BorderRadius.circular(34),
+        // 앱 로고 이미지 (drawrun_logo.png)
+        ClipRRect(
+          child: Image.asset(
+            'assets/icon/drawrun_logo.png',
+            width: 165,
+            height: 140,
+            fit: BoxFit.cover,
           ),
         ),
         const SizedBox(height: 28),
-        const Text(
-          'DrawRun',
-          style: TextStyle(
-            fontSize: 40,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1F1F23),
-            letterSpacing: -1.2,
-          ),
-        ),
-        const SizedBox(height: 22),
         const Text(
           '나만의 러닝 코스를 기록하고\n공유하세요',
           textAlign: TextAlign.center,
