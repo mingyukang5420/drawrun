@@ -6,6 +6,7 @@ import 'package:running/features/ranking/domain/participated_challenge_group.dar
 import 'package:running/features/ranking/domain/rank_entry.dart';
 import 'package:running/features/ranking/presentation/participated_viewmodel.dart';
 import 'package:running/features/ranking/presentation/ranking_provider.dart';
+import 'package:running/features/ranking/presentation/screen/my_challenge_detail_screen.dart';
 
 // 랭킹 탭 메인 화면.
 // 참여 챌린지 목록을 받아 시트에 띄우고, 사용자가 고른 챌린지의 Easy/Hard 랭킹을 본문에 그린다.
@@ -428,7 +429,11 @@ class _ChallengeRankingTab extends ConsumerWidget {
     }
 
     // 정상 — 응답 본체를 _RankingList 로 흘려보낸다.
-    return _RankingList(ranking: ranking, accentColor: accentColor);
+    return _RankingList(
+      ranking: ranking,
+      accentColor: accentColor,
+      challengeId: id,
+    );
   }
 
   // "아직 아무도 뛰지 않은 챌린지" 빈 상태 카드.
@@ -464,8 +469,14 @@ class _ChallengeRankingTab extends ConsumerWidget {
 class _RankingList extends StatelessWidget {
   final ChallengeRanking ranking;
   final Color accentColor;
+  // myRank 카드 클릭 시 본인 상세 화면으로 이동할 때 사용.
+  final int challengeId;
 
-  const _RankingList({required this.ranking, required this.accentColor});
+  const _RankingList({
+    required this.ranking,
+    required this.accentColor,
+    required this.challengeId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -533,10 +544,26 @@ class _RankingList extends StatelessWidget {
         if (showMyCard)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: _RankingCard(
-              entry: myRank,
-              accentColor: accentColor,
-              isMe: true,
+            // myRank 카드 자리만 GestureDetector 로 감싸 본인 상세 화면으로 push.
+            // 다른 카드(top5, prevRank) 는 본인 정보가 아니므로 동일 화면 진입 자체가 불가능.
+            child: Builder(
+              builder: (context) => GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MyChallengeDetailScreen(
+                        challengeId: challengeId,
+                      ),
+                    ),
+                  );
+                },
+                child: _RankingCard(
+                  entry: myRank,
+                  accentColor: accentColor,
+                  isMe: true,
+                ),
+              ),
             ),
           ),
       ],

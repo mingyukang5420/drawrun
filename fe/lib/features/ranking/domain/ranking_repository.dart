@@ -1,4 +1,5 @@
 import 'package:running/features/ranking/domain/challenge_ranking.dart';
+import 'package:running/features/ranking/domain/my_challenge_detail.dart';
 import 'package:running/features/ranking/domain/participated_challenge_group.dart';
 
 // 랭킹 도메인의 Repository 계약.
@@ -18,4 +19,9 @@ abstract class RankingRepository {
   // Easy 탭이 보이면 group.easyChallengeId, Hard 탭이 보이면 group.hardChallengeId 로 호출한다.
   // 인증 토큰은 dio 인터셉터에서 자동으로 붙는다.
   Future<ChallengeRanking> getChallengeRanking(int challengeId);
+
+  // 랭킹 페이지 본인 항목 클릭 시 노출되는 본인의 챌린지 상세 조회.
+  // 본인 베스트 기록(가장 높은 similarityScore) 의 트랙/거리/페이스/시간/순위 등을 반환.
+  // 미참가 챌린지에 호출하면 404 RECORD_NOT_FOUND 가 ApiException 으로 떨어진다.
+  Future<MyChallengeDetail> getMyChallengeDetail(int challengeId);
 }

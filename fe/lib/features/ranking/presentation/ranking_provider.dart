@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:running/features/ranking/data/ranking_remote_datasource.dart';
 import 'package:running/features/ranking/data/ranking_repository_impl.dart';
+import 'package:running/features/ranking/domain/my_challenge_detail.dart';
 import 'package:running/features/ranking/domain/ranking_repository.dart';
 import 'package:running/features/ranking/presentation/challenge_ranking_viewmodel.dart';
 import 'package:running/features/ranking/presentation/participated_viewmodel.dart';
@@ -46,4 +47,17 @@ final participatedViewModelProvider = NotifierProvider.autoDispose<
 final challengeRankingViewModelProvider = NotifierProvider.autoDispose<
     ChallengeRankingNotifier, ChallengeRankingState>(
   () => ChallengeRankingNotifier(_rankingRepositoryFor()),
+);
+
+// 본인의 챌린지 상세 조회 Provider.
+//
+// FutureProvider.family.autoDispose 패턴으로 challengeId 마다 별개 호출.
+// 화면(MyChallengeDetailScreen) 이 한 번만 watch 해서 결과를 표시한다.
+// autoDispose: 상세 화면 닫으면 자동 해제 - 다시 들어오면 새로 fetch.
+final myChallengeDetailProvider =
+    FutureProvider.autoDispose.family<MyChallengeDetail, int>(
+  (ref, challengeId) async {
+    final repository = _rankingRepositoryFor();
+    return repository.getMyChallengeDetail(challengeId);
+  },
 );
