@@ -329,6 +329,10 @@ class RunningNotifier extends Notifier<RunningState> {
       challengeId: state.challengeId,
       courseId: state.courseId,
       courseDraftId: state.courseDraftId,
+      // 챌린지 진입 직후 setSessionContext 가 박아 둔 폴리곤 URL 을 함께 보존.
+      // 이걸 빠뜨리면 카운트다운 진입 직후 RunningState 가 다시 만들어지며 polygonImageUrl 이
+      // null 로 reset 되어, 카운트다운 / 진행 화면의 폴리곤 가이드가 안 보이는 통합 버그가 생긴다.
+      polygonImageUrl: state.polygonImageUrl,
     );
   }
 
