@@ -187,17 +187,22 @@ class _RunningResultScreenState extends ConsumerState<RunningResultScreen> {
     }
 
     try {
-      // 시작 진입점이 박아둔 챌린지 컨텍스트를 그대로 사용.
-      // widget 으로 들어온 courseId / courseDraftId 와 함께 종료 API 본문에 실린다.
-      final challengeId = ref.read(runningViewModelProvider).challengeId;
+      // 시작 진입점이 setSessionContext 로 state 에 박아둔 세 ID 를 그대로 사용.
+      // widget 인자(widget.courseId / widget.courseDraftId) 가 옛 패턴이라 항상 null 로
+      // 들어와 종료 API 본문이 비어 있던 버그(525)를 위해 state 패턴으로 통일.
+      // challengeId 와 동일한 흐름 — "시작 진입점이 state 에 단독 책임, 종료 시점엔 state 를 읽는다."
+      final running = ref.read(runningViewModelProvider);
+      final challengeId = running.challengeId;
+      final courseId = running.courseId;
+      final courseDraftId = running.courseDraftId;
 
       await ref.read(runningViewModelProvider.notifier).saveCurrentSession(
         title: _titleController.text.trim().isEmpty
-            ? _buildAutoTitle(ref.read(runningViewModelProvider).startedAt)
+            ? _buildAutoTitle(running.startedAt)
             : _titleController.text.trim(),
         trackImageUrl: url,
-        courseId: widget.courseId,
-        courseDraftId: widget.courseDraftId,
+        courseId: courseId,
+        courseDraftId: courseDraftId,
         challengeId: challengeId,
       );
     } on ApiException {

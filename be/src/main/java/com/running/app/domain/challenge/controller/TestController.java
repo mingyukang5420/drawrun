@@ -70,6 +70,14 @@ public class TestController {
         return ApiResponse.OK;
     }
 
+    @Operation(summary = "기록 유사도 백필", description = "recordId에 해당하는 기존 러닝 기록의 유사도 점수를 재계산해 DB에 저장하고 반환합니다.")
+    @PostMapping("/backfill-similarity/{recordId}")
+    public ApiResponse<Double> backfillSimilarity(
+            @PathVariable Long recordId
+    ) {
+        return ApiResponse.onSuccess(testService.backfillSimilarityScore(recordId));
+    }
+
     @Operation(summary = "유사도 계산 테스트", description = "challengeId에 해당하는 챌린지 폴리곤과 전달된 GPS 노드의 유사도 점수(0~100)를 반환합니다.")
     @PostMapping("/similarity")
     public ApiResponse<Double> similarityTest(

@@ -1,5 +1,6 @@
 package com.running.app.domain.challenge.dto;
 
+import com.running.app.domain.track.dto.TrackRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -80,6 +81,8 @@ public abstract class ChallengeResponse {
         private RankEntryDTO myRank;
         private RankEntryDTO prevRank;
         private List<RankEntryDTO> rankings;
+        // 챌린지 폴리곤 이미지 URL. FE 가 랭킹 페이지 상단 미리보기에 표시한다.
+        private String polygonImageUrl;
     }
 
     @Getter
@@ -91,6 +94,31 @@ public abstract class ChallengeResponse {
         private String title;
         private Long easyChallengeId;
         private Long hardChallengeId;
+    }
+
+    // 랭킹 페이지에서 본인 항목 클릭 시 노출되는 본인의 챌린지 상세 응답.
+    // findTopByMemberIdAndChallengeIdOrderBySimilarityScoreDesc 로 가져온
+    // 본인의 베스트 기록을 기준으로 모든 필드가 채워진다.
+    // 타인 정보 조회 불가 — Service 에서 loginId 기준으로 본인 기록만 조회한다.
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MyChallengeDetailDTO {
+
+        private Long recordId;
+        private String title;
+        private LocalDateTime startedAt;
+        private LocalDateTime endedAt;
+        private Integer runningTime;
+        private Double distance;
+        private Double avgPace;
+        private Integer calories;
+        private Integer cadence;
+        private Double similarityScore;
+        private Integer rank;
+        private String trackImageUrl;
+        private List<TrackRequest.NodeDTO> nodes;
     }
 
 }

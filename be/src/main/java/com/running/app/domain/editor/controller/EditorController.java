@@ -409,7 +409,13 @@ public class EditorController {
 
     @Operation(
             summary = "최근 챌린지 두개에 맞는 courseDraft 목록 조회",
-            description = "page는 기본값 0, similarityScore는 기록이 없을 경우 응답에 포함되지 않습니다."
+            description = """
+                    page는 기본값 0, similarityScore는 기록이 없을 경우 응답에 포함되지 않습니다.
+
+                    각 드래프트 응답에는 challengeId 가 함께 포함되어, FE 가 코스 카드에서 러닝 시작 시
+                    종료 API 본문까지 챌린지 컨텍스트를 그대로 전달할 수 있습니다.
+                    챌린지에 묶이지 않은 일반 드래프트는 challengeId 가 null 이며 응답에서 생략됩니다.
+                    """
     )
     @GetMapping("/challenge")
     public ApiResponse<DraftListResultResponse> getCourseDraftList(

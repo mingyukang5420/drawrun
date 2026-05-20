@@ -103,6 +103,9 @@ public abstract class EditorConverter {
 
     public static DraftListResponse toDraftListResponse(CourseDraft draft,
             Map<Long, Double> maxScoreMap, ChallengeDifficulty difficulty) {
+        Challenge challenge = draft.getChallenge();
+        Long challengeId = (challenge != null) ? challenge.getId() : null;
+
         return DraftListResponse.builder()
                 .courseDraftId(draft.getId())
                 .courseId(null)  // 등록된 코스 연결 로직은 별도 처리 필요
@@ -114,6 +117,7 @@ public abstract class EditorConverter {
                 .createdAt(draft.getCreatedAt().toLocalDate().toString())
                 .similarityScore(maxScoreMap.getOrDefault(draft.getId(), null))
                 .challengeDifficulty(difficulty)
+                .challengeId(challengeId)
                 .build();
     }
 

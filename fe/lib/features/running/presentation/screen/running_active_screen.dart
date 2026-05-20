@@ -76,6 +76,10 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
 
     final isPaused =
     ref.watch(runningViewModelProvider.select((s) => s.isPaused));
+    // 챌린지 진입(특히 "바로 시작") 의 경우 진행/일시정지 화면 우상단에 도전 코스 폴리곤을
+    // 띄워준다. 자유 러닝이면 URL 이 null → 위젯 자체를 안 그린다.
+    final polygonImageUrl = ref.watch(
+        runningViewModelProvider.select((s) => s.polygonImageUrl));
     final notifier = ref.read(runningViewModelProvider.notifier);
     final size = MediaQuery.of(context).size;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
@@ -122,8 +126,25 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
                     notifier.centerOnCurrentLocation();
                   },
                   onStop: () async {
+                    // 짧은 거리 가드 - GPS 노이즈 수준의 짧은 러닝이면 결과 화면을 건너뛰고
+                    // 토스트로 안내 후 메인 탭으로 복귀한다 (리드 요청).
+                    // 임계값(0.01 km) 은 RunningResultScreen._minSaveableDistanceKm 와 동일.
+                    final shortRun =
+                        ref.read(runningViewModelProvider).distanceKm < 0.01;
+
                     await notifier.finish();
                     if (!context.mounted) return;
+
+                    if (shortRun) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('측정된 러닝이 없어 저장하지 않습니다.'),
+                        ),
+                      );
+                      Navigator.of(context).popUntil((r) => r.isFirst);
+                      return;
+                    }
+
                     await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const RunningResultScreen(),
@@ -140,6 +161,148 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
                   onPause: notifier.pause,
                   onRecenter: notifier.centerOnCurrentLocation,
                 ),
+
+              // 챌린지 폴리곤 썸네일 — 진행 중 / 일시정지 어떤 모드에서도 동일 위치에 떠 있다.
+              // 자유 러닝(URL null) 인 경우엔 위젯 자체를 안 그린다.
+              if (polygonImageUrl != null && polygonImageUrl.isNotEmpty)
+                Positioned(
+                  top: 96,
+                  right: 16,
+                  child: _ChallengePolygonThumbnail(
+                    imageUrl: polygonImageUrl,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 진행 / 일시정지 화면 우상단에 떠 있는 챌린지 폴리곤 가이드 버튼.
+// 평소엔 64x64 작은 썸네일로만 떠 있고, 탭하면 도전 코스를 크게 펼친 다이얼로그가 열린다.
+// (가이드를 항상 큼지막히 띄우면 지도를 가려 러닝 흐름을 방해하므로 토글 형태로 분리)
+class _ChallengePolygonThumbnail extends StatelessWidget {
+  final String imageUrl;
+  const _ChallengePolygonThumbnail({required this.imageUrl});
+
+  // 큰 미리보기 다이얼로그 — 도전 코스 모양을 한 화면에서 또렷이 확인할 수 있게.
+  // 닫기 버튼 / 바깥 영역 탭 둘 다로 닫힌다.
+  void _showLargePreview(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '도전 코스 가이드',
+                      style: TextStyle(
+                        fontFamily: 'Pretendard',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1C1C1E),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.black54),
+                    onPressed: () => Navigator.of(context).pop(),
+                    splashRadius: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              AspectRatio(
+                aspectRatio: 1,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    );
+                  },
+                  errorBuilder: (_, _, _) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.black26,
+                    size: 60,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showLargePreview(context),
+        child: SizedBox(
+          width: 64,
+          height: 64,
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  // 로딩 중에는 옅은 placeholder, 실패 시 broken_image 아이콘으로 폴백.
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, _, _) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.black26,
+                    size: 24,
+                  ),
+                ),
+              ),
+              // 우하단 작은 펼침 힌트 — 이 위젯이 누를 수 있는 토글임을 시각적으로 알린다.
+              Positioned(
+                right: 2,
+                bottom: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(
+                    Icons.zoom_out_map,
+                    size: 10,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
