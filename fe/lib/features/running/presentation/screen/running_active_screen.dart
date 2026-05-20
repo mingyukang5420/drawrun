@@ -76,6 +76,10 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
 
     final isPaused =
     ref.watch(runningViewModelProvider.select((s) => s.isPaused));
+    // 챌린지 진입(특히 "바로 시작") 의 경우 진행/일시정지 화면 우상단에 도전 코스 폴리곤을
+    // 띄워준다. 자유 러닝이면 URL 이 null → 위젯 자체를 안 그린다.
+    final polygonImageUrl = ref.watch(
+        runningViewModelProvider.select((s) => s.polygonImageUrl));
     final notifier = ref.read(runningViewModelProvider.notifier);
     final size = MediaQuery.of(context).size;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
@@ -157,7 +161,63 @@ class _RunningActiveScreenState extends ConsumerState<RunningActiveScreen>
                   onPause: notifier.pause,
                   onRecenter: notifier.centerOnCurrentLocation,
                 ),
+
+              // 챌린지 폴리곤 썸네일 — 진행 중 / 일시정지 어떤 모드에서도 동일 위치에 떠 있다.
+              // 자유 러닝(URL null) 인 경우엔 위젯 자체를 안 그린다.
+              if (polygonImageUrl != null && polygonImageUrl.isNotEmpty)
+                Positioned(
+                  top: 96,
+                  right: 16,
+                  child: _ChallengePolygonThumbnail(
+                    imageUrl: polygonImageUrl,
+                  ),
+                ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 진행 / 일시정지 화면 우상단에 떠 있는 챌린지 폴리곤 썸네일.
+// 카드 형태로 흰 배경 + 옅은 그림자 — 지도/메트릭 위에서도 또렷이 보이도록.
+// 64x64 정사각형으로 콤팩트하게 — 메트릭 바 / 일시정지 버튼과 충돌하지 않는 영역에만 머문다.
+class _ChallengePolygonThumbnail extends StatelessWidget {
+  final String imageUrl;
+  const _ChallengePolygonThumbnail({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: 64,
+        height: 64,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.contain,
+            // 로딩 중에는 옅은 placeholder, 실패 시 broken_image 아이콘으로 폴백.
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return const Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            },
+            errorBuilder: (_, _, _) => const Icon(
+              Icons.broken_image_outlined,
+              color: Colors.black26,
+              size: 24,
+            ),
           ),
         ),
       ),
