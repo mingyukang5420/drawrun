@@ -131,8 +131,13 @@ class RunningState {
     // 60'00"/km (= 시속 1km) 보다 느리면 사실상 멈춰 있는 것에 가까우므로 마스킹.
     if (paceSec > 60 * 60) return "--'--\"";
 
-    final m = paceSec ~/ 60;
-    final s = (paceSec % 60).round();
+    // 종료 후 BE 전송 정책(_toMinPerKm) 과 동일한 rounding 으로 표시값 계산.
+    //   - BE 는 paceSec 을 round() 한 뒤 60 으로 나눠 분/km 로 저장한다.
+    //   - 화면도 같은 정수 초 단위에서 분/초 분해해야 표시값과 저장값이 일치한다.
+    //   (분리 floor + 초 round 였던 기존 방식은 paceSec=359.6 → 화면 "5'60", BE "6'00" 처럼 불일치 유발)
+    final roundedSec = paceSec.round();
+    final m = roundedSec ~/ 60;
+    final s = roundedSec % 60;
     return "$m'${s.toString().padLeft(2, '0')}\"";
   }
 
