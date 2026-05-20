@@ -356,13 +356,18 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                   // 탭: 크기만 바꾼다. Positioned.right 가 고정되어 있으므로
                   // AnimatedContainer 너비가 커질수록 패널이 자동으로 왼쪽으로 확장됨.
                   // 힌트 표시 중 탭하면 힌트를 즉시 닫고 패널을 축소한다.
+                  // 확장 시 화면 왼쪽으로 벗어나지 않도록 현재 right 위치를 기준으로 상한을 결정한다.
                   onTap: () {
                     setState(() {
                       if (_polygonHintVisible) {
                         _polygonHintVisible = false;
                         _polygonSize = 48.0;
+                      } else if (_polygonSize > 80) {
+                        _polygonSize = 48.0;
                       } else {
-                        _polygonSize = _polygonSize > 80 ? 48.0 : kMax;
+                        // 현재 위치에서 화면 왼쪽 끝까지의 공간 = screenWidth - right
+                        final maxFit = q.size.width - _polygonRight!;
+                        _polygonSize = maxFit.clamp(48.0, kMax);
                       }
                     });
                   },
