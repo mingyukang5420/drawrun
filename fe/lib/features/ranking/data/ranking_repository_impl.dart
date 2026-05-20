@@ -1,5 +1,6 @@
 import 'package:running/features/ranking/data/ranking_remote_datasource.dart';
 import 'package:running/features/ranking/domain/challenge_ranking.dart';
+import 'package:running/features/ranking/domain/my_challenge_detail.dart';
 import 'package:running/features/ranking/domain/participated_challenge_group.dart';
 import 'package:running/features/ranking/domain/ranking_repository.dart';
 
@@ -19,4 +20,8 @@ class RankingRepositoryImpl implements RankingRepository {
   @override
   Future<ChallengeRanking> getChallengeRanking(int challengeId) =>
       _remote.fetchChallengeRanking(challengeId);
+
+  @override
+  Future<MyChallengeDetail> getMyChallengeDetail(int challengeId) =>
+      _remote.fetchMyChallengeDetail(challengeId);
 }

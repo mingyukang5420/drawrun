@@ -1,6 +1,7 @@
 package com.running.app.domain.challenge.converter;
 
 import com.running.app.domain.challenge.dto.ChallengeResponse;
+import com.running.app.domain.challenge.dto.ChallengeResponse.MyChallengeDetailDTO;
 import com.running.app.domain.challenge.dto.ChallengeResponse.ParticipatedChallengeGroupDTO;
 import com.running.app.domain.challenge.dto.GmsImageDTO;
 import com.running.app.domain.challenge.dto.GmsImageDTO.GmsImageRequest;
@@ -10,6 +11,8 @@ import com.running.app.domain.challenge.dto.GmsTextDTO.GmsTextRequest;
 import com.running.app.domain.challenge.entity.Challenge;
 import com.running.app.domain.challenge.projection.ChallengeParticipationQueryResult;
 import com.running.app.domain.challenge.type.ChallengeDifficulty;
+import com.running.app.domain.record.entity.RunningRecord;
+import com.running.app.domain.track.converter.TrackConverter;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
@@ -214,6 +217,30 @@ public abstract class ChallengeConverter {
         return groupedMap.values().stream()
                 .map(ChallengeResponse.ParticipatedChallengeGroupDTO.ParticipatedChallengeGroupDTOBuilder::build)
                 .toList();
+    }
+
+    // 본인의 챌린지 베스트 기록 + 순위 + 챌린지 기간을 모아 MyChallengeDetailDTO 로 변환.
+    // record 의 트랙 좌표 시퀀스도 함께 풀어 nodes 로 노출 — 랭킹 본인 상세 화면이 지도에 그릴 수 있도록.
+    // rank 는 Redis 에서 받은 1-based 순위 (랭킹 미참가 시 호출 측에서 분기하므로 여기선 항상 not-null).
+    public static MyChallengeDetailDTO toMyChallengeDetailDTO(
+            RunningRecord record,
+            Integer rank
+    ) {
+        return MyChallengeDetailDTO.builder()
+                .recordId(record.getId())
+                .title(record.getTitle())
+                .startedAt(record.getStartedAt())
+                .endedAt(record.getEndedAt())
+                .runningTime(record.getRunningTime())
+                .distance(record.getTrack().getDistance())
+                .avgPace(record.getAvgPace())
+                .calories(record.getCalories())
+                .cadence(record.getCadence())
+                .similarityScore(record.getSimilarityScore())
+                .rank(rank)
+                .trackImageUrl(record.getTrack().getTrackImageUrl())
+                .nodes(TrackConverter.toNodeDTOList(record.getTrack()))
+                .build();
     }
 
     private static String formatChallengeWeek(LocalDateTime startedAt) {

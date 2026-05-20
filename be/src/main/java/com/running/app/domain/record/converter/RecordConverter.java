@@ -99,7 +99,8 @@ public class RecordConverter {
             String avgPace,
             String totalTime,
             String periodLabel,
-            List<RecordResponse.ChartDTO> chart
+            List<RecordResponse.ChartDTO> chart,
+            List<RecordResponse.WeeklyActivityDTO> weeklyActivity
     ) {
         return RecordResponse.StatsDTO.builder()
                 .totalDistance(totalDistance)
@@ -108,6 +109,7 @@ public class RecordConverter {
                 .totalTime(totalTime)
                 .periodLabel(periodLabel)
                 .chart(chart)
+                .weeklyActivity(weeklyActivity)
                 .build();
     }
 
@@ -118,6 +120,18 @@ public class RecordConverter {
         return RecordResponse.ChartDTO.builder()
                 .label(label)
                 .distance(distance)
+                .build();
+    }
+
+    public static RecordResponse.WeeklyActivityDTO toWeeklyActivityDTO(
+            String weekStart,
+            Double distance,
+            Integer count
+    ) {
+        return RecordResponse.WeeklyActivityDTO.builder()
+                .weekStart(weekStart)
+                .distance(distance)
+                .count(count)
                 .build();
     }
 
