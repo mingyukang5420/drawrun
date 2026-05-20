@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'package:running/features/ranking/domain/challenge_ranking.dart';
+import 'package:running/features/ranking/domain/my_challenge_detail.dart';
 import 'package:running/features/ranking/domain/participated_challenge_group.dart';
 import 'package:running/shared/network/api_exception.dart';
 
@@ -49,6 +50,19 @@ class RankingRemoteDataSource {
       // envelope 에서 result 객체만 꺼내 ChallengeRanking 으로 변환.
       final result = response.data['result'] as Map<String, dynamic>;
       return ChallengeRanking.fromJson(result);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  // GET /api/v1/challenge/{challengeId}/me — 본인의 챌린지 상세 조회.
+  // 미참가 시 BE 가 404 RECORD_NOT_FOUND 를 던지므로 ApiException 으로 받게 된다.
+  Future<MyChallengeDetail> fetchMyChallengeDetail(int challengeId) async {
+    try {
+      final response = await _dio.get('/api/v1/challenge/$challengeId/me');
+
+      final result = response.data['result'] as Map<String, dynamic>;
+      return MyChallengeDetail.fromJson(result);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

@@ -6,6 +6,7 @@ import 'package:running/features/ranking/domain/participated_challenge_group.dar
 import 'package:running/features/ranking/domain/rank_entry.dart';
 import 'package:running/features/ranking/presentation/participated_viewmodel.dart';
 import 'package:running/features/ranking/presentation/ranking_provider.dart';
+import 'package:running/features/ranking/presentation/screen/my_challenge_detail_screen.dart';
 
 // 랭킹 탭 메인 화면.
 // 참여 챌린지 목록을 받아 시트에 띄우고, 사용자가 고른 챌린지의 Easy/Hard 랭킹을 본문에 그린다.
@@ -427,14 +428,19 @@ class _ChallengeRankingTab extends ConsumerWidget {
       return _buildEmptyState();
     }
 
-    // 정상 — 폴리곤 미리보기 + 랭킹 리스트를 세로로 묶어 그린다.
+    // 정상 — 폴리곤 미리보기(있을 때) + 랭킹 리스트를 세로로 묶어 그린다.
+    // 본인 카드 탭으로 상세 화면 진입이 필요하므로 _RankingList 에 challengeId 도 전달.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (ranking.polygonImageUrl != null)
           _PolygonPreview(imageUrl: ranking.polygonImageUrl!),
         Expanded(
-          child: _RankingList(ranking: ranking, accentColor: accentColor),
+          child: _RankingList(
+            ranking: ranking,
+            accentColor: accentColor,
+            challengeId: id,
+          ),
         ),
       ],
     );
@@ -523,8 +529,14 @@ class _PolygonPreview extends StatelessWidget {
 class _RankingList extends StatelessWidget {
   final ChallengeRanking ranking;
   final Color accentColor;
+  // myRank 카드 클릭 시 본인 상세 화면으로 이동할 때 사용.
+  final int challengeId;
 
-  const _RankingList({required this.ranking, required this.accentColor});
+  const _RankingList({
+    required this.ranking,
+    required this.accentColor,
+    required this.challengeId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -541,19 +553,49 @@ class _RankingList extends StatelessWidget {
         myRank != null && myRank.rank >= 7 && prevRank != null;
     final showEllipsis = myRank != null && myRank.rank >= 8;
 
+    // 한 entry 가 본인 카드인지 판정 — top5 안에 본인이 들어가는 케이스(1~5위) 도
+    // 같은 헬퍼로 본인 강조 + 탭 가능 처리를 적용한다.
+    // BE 의 myRank 와 top5 의 entry 는 같은 Member 의 nickname 을 거쳐 만들어지므로
+    // rank + nickname 조합이 일치하면 같은 사람으로 봐도 안전.
+    bool isMyEntry(RankEntry e) =>
+        myRank != null && e.rank == myRank.rank && e.nickname == myRank.nickname;
+
+    // 본인 카드만 탭으로 본인 상세 화면 진입. top5 / prevRank 카드는 그냥 카드 그대로 둔다.
+    Widget wrapTappable(BuildContext context, Widget card) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MyChallengeDetailScreen(
+                challengeId: challengeId,
+              ),
+            ),
+          );
+        },
+        child: card,
+      );
+    }
+
     return Column(
       children: [
         // 1) 상위 5명 — 항상 리스트로 그린다.
+        //    본인이 1~5위면 그 자리 카드를 본인 강조 + 탭 가능으로 바꾼다.
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             itemCount: top5.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (_, i) => _RankingCard(
-              entry: top5[i],
-              accentColor: accentColor,
-              isMe: false,
-            ),
+            itemBuilder: (context, i) {
+              final entry = top5[i];
+              final mine = isMyEntry(entry);
+              final card = _RankingCard(
+                entry: entry,
+                accentColor: accentColor,
+                isMe: mine,
+              );
+              return mine ? wrapTappable(context, card) : card;
+            },
           ),
         ),
 
@@ -592,10 +634,16 @@ class _RankingList extends StatelessWidget {
         if (showMyCard)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: _RankingCard(
-              entry: myRank,
-              accentColor: accentColor,
-              isMe: true,
+            // myRank 카드 자리만 wrapTappable 로 감싸 본인 상세 화면으로 push.
+            child: Builder(
+              builder: (context) => wrapTappable(
+                context,
+                _RankingCard(
+                  entry: myRank,
+                  accentColor: accentColor,
+                  isMe: true,
+                ),
+              ),
             ),
           ),
       ],
