@@ -244,7 +244,7 @@ class _ChallengeHeader extends StatelessWidget {
               // 챌린지 제목 한 줄 — BE 가 주차 라벨까지 포함해 합쳐 보낸다.
               // 길어지면 한 줄에서 잘려 헤더 높이가 흔들리지 않도록 한다.
               child: Text(
-                group.title,
+                '${group.title} 런',
                 style: const TextStyle(
                   fontFamily: 'Pretendard',
                   fontSize: 20,
