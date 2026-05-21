@@ -57,13 +57,20 @@ public class ChallengeOutlineExtractService {
             }
 
             // 2. Moore's Neighborhood 순회 — 경계를 따라 시계 방향으로 추적
+            // Jacob's Stopping Criterion: 두 번째 픽셀 B를 최초 진입과 동일한 방향으로
+            // 재진입할 때 종료. start 복귀 기반 종료는 두꺼운 윤곽선에서 대각선 지름길로
+            // 3픽셀 만에 조기 종료되고, start 복귀 방향 기반 종료는 두꺼운 윤곽선에서
+            // 마지막 진입 방향이 달라 maxIter까지 무한 순회하는 버그가 있다.
             List<double[]> contour = new ArrayList<>();
             int cx = startX, cy = startY;
             // 첫 픽셀은 left→right 스캔으로 발견됐으므로 서쪽(W=4)에서 진입, E(0) 방향으로 이동
             int entryDir = 0;
-            boolean leftStart = false;
+            int bx = -1, by = -1; // 두 번째 픽셀 B (start에서 처음 이동한 픽셀)
+            int d0 = -1;          // B로 최초 진입한 방향
+            boolean leftB = false; // B를 벗어난 적 있는지 (첫 방문 이후 재진입 구분용)
+            int maxIter = W * H * 4; // 무한루프 방지 상한
 
-            do {
+            for (int iter = 0; iter < maxIter; iter++) {
                 contour.add(new double[]{(double) cx / W, (double) cy / H});
                 // 역진입 방향부터 시계 방향으로 다음 경계 픽셀 탐색
                 int backDir = (entryDir + 4) % 8;
@@ -81,8 +88,11 @@ public class ChallengeOutlineExtractService {
                     }
                 }
                 if (!found) break; // 고립된 단일 픽셀
-                if (!leftStart && (cx != startX || cy != startY)) leftStart = true;
-            } while (!leftStart || cx != startX || cy != startY);
+                if (bx < 0) { bx = cx; by = cy; d0 = entryDir; } // 두 번째 픽셀 기록
+                if (!leftB && (cx != bx || cy != by)) leftB = true;
+                // Jacob's criterion: B에 최초와 동일한 방향으로 재진입 → 윤곽 한 바퀴 완료
+                if (leftB && cx == bx && cy == by && entryDir == d0) break;
+            }
 
             if (contour.isEmpty()) {
                 return null;
