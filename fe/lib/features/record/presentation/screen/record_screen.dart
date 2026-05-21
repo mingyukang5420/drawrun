@@ -65,6 +65,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: _onRefresh,
           child: CustomScrollView(
@@ -221,7 +222,10 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                   ),
               ],
 
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              SliverSafeArea(
+                top: false,
+                sliver: const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              ),
             ],
           ),
         ),
