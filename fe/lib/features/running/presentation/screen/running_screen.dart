@@ -81,18 +81,13 @@ class RunningScreen extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      // builder 의 ctx 로 viewPadding 을 읽어 내비게이션 바 높이를 하단 패딩에 반영.
-      // 고정 32 px 은 내비게이션 바가 없는 기기를 기준으로 한 값이라
-      // 제스처 내비게이션(34 px) / 버튼 내비게이션(48 px) 기기에서 버튼이 잘릴 수 있다.
       builder: (ctx) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: EdgeInsets.fromLTRB(
-          20, 16, 20,
-          MediaQuery.viewPaddingOf(ctx).bottom + 16,
-        ),
+            20, 16, 20, MediaQuery.viewPaddingOf(ctx).bottom + 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
