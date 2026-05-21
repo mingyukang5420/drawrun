@@ -6,32 +6,31 @@ import 'package:running/shared/network/api_exception.dart';
 
 class CourseDetailState {
   final bool isLoading;
+  final bool isDeleting;
   final CourseDraftDetail? detail;
   final String? errorMessage;
 
   const CourseDetailState({
     this.isLoading = true,
+    this.isDeleting = false,
     this.detail,
     this.errorMessage,
   });
 
   CourseDetailState copyWith({
     bool? isLoading,
+    bool? isDeleting,
     CourseDraftDetail? detail,
     String? errorMessage,
   }) =>
       CourseDetailState(
         isLoading: isLoading ?? this.isLoading,
+        isDeleting: isDeleting ?? this.isDeleting,
         detail: detail ?? this.detail,
         errorMessage: errorMessage ?? this.errorMessage,
       );
 }
 
-// flutter_riverpod 3.x 의 수동 API 는 FamilyNotifier 를 제공하지 않는다.
-// RecordDetailNotifier 와 동일하게 평범한 Notifier<T> 를 쓰고
-// courseDraftId 는 load() 메서드 인자로 받는다.
-// autoDispose Provider 가 화면 push/pop 때마다 인스턴스를 교체해 주므로
-// "id 별 독립 인스턴스" 효과가 자동으로 보장된다.
 class CourseDetailNotifier extends Notifier<CourseDetailState> {
   final CourseRepository _repository;
   int? _currentId;
@@ -51,15 +50,30 @@ class CourseDetailNotifier extends Notifier<CourseDetailState> {
     } on ApiException catch (e) {
       state = CourseDetailState(isLoading: false, errorMessage: e.message);
     } catch (e) {
-      // JSON 파싱 오류 등 예상치 못한 예외도 에러 상태로 처리
       state = CourseDetailState(isLoading: false, errorMessage: e.toString());
     }
   }
 
-  // 다시 시도 버튼용
   Future<void> reload() async {
     final id = _currentId;
     if (id == null) return;
     await load(id);
+  }
+
+  // DELETE /api/v1/editor/{id} — 성공 시 true 반환
+  Future<bool> delete() async {
+    final id = _currentId;
+    if (id == null) return false;
+    state = state.copyWith(isDeleting: true);
+    try {
+      await _repository.deleteCourse(id);
+      return true;
+    } on ApiException catch (e) {
+      state = state.copyWith(isDeleting: false, errorMessage: e.message);
+      return false;
+    } catch (_) {
+      state = state.copyWith(isDeleting: false, errorMessage: '삭제에 실패했습니다');
+      return false;
+    }
   }
 }

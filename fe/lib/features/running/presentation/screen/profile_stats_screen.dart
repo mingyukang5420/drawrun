@@ -39,38 +39,26 @@ class ProfileStatsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // 프로필 헤더 — 아바타·이름·아이디 중앙 정렬
-          const _ProfileHeader(),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // 프로필 헤더 — 아바타·이름·아이디 중앙 정렬
+            const _ProfileHeader(),
 
-          // 검정 하이라이트 카드 — 달린 거리·챌린지 도전 횟수 강조
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
-            child: _HighlightCard(
-              distance: state.data.totalDistance,
-              // TODO: 백엔드에서 챌린지 도전 횟수 전용 API 연동 후 분리 예정
-              challengeCount: state.data.totalCount,
+            // 주간 잔디 위젯 — 최근 12주 활동을 한눈에. period 토글과 무관하게 항상 12주 데이터.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+              child: _WeeklyGrassCard(
+                activities: state.data.weeklyActivity,
+              ),
             ),
-          ),
 
-          // 주간 잔디 위젯 — 최근 12주 활동을 한눈에. period 토글과 무관하게 항상 12주 데이터.
-          // 카드 자체는 첫 사용자/로딩 중/BE 미머지 어느 케이스든 항상 노출 —
-          // 부족한 주는 위젯 안에서 회색 placeholder 로 채워준다.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-            child: _WeeklyGrassCard(
-              activities: state.data.weeklyActivity,
-            ),
-          ),
+            const Divider(height: 1, color: Color(0xFFF3F4F6)),
 
-          const Divider(height: 1, color: Color(0xFFF3F4F6)),
-
-          // 기간별 통계 — 달린 거리·러닝 횟수는 위 카드에서 이미 표시하므로 숨김
-          const Expanded(
-            child: RecordStatsScreen(showDistanceAndCount: false),
-          ),
-        ],
+            // 기간별 통계 — 달린 거리·러닝 횟수 포함 4종 카드 (내부 스크롤 비활성)
+            RecordStatsScreen(showDistanceAndCount: true, shrinkWrap: true),
+          ],
+        ),
       ),
     );
   }
@@ -122,7 +110,7 @@ class _ProfileHeader extends StatelessWidget {
           ),
           SizedBox(height: 12),
           Text(
-            '러너',
+            '러닝마니아',
             style: TextStyle(
               fontFamily: 'Pretendard',
               fontSize: 18,
@@ -145,101 +133,6 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-// ── 검정 하이라이트 카드 ─────────────────────────────────────────────
-class _HighlightCard extends StatelessWidget {
-  final double distance;
-  final int challengeCount;
-
-  const _HighlightCard({
-    required this.distance,
-    required this.challengeCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _HighlightCell(
-              label: '총 달린 거리',
-              value: distance.toStringAsFixed(1),
-              unit: 'km',
-            ),
-          ),
-          Container(width: 1, height: 48, color: Colors.white24),
-          Expanded(
-            child: _HighlightCell(
-              label: '챌린지 도전',
-              value: '$challengeCount',
-              unit: '회',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// 하이라이트 카드 내 수치 한 항목
-class _HighlightCell extends StatelessWidget {
-  final String label;
-  final String value;
-  final String unit;
-
-  const _HighlightCell({
-    required this.label,
-    required this.value,
-    required this.unit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Pretendard',
-            fontSize: 12,
-            color: Colors.white54,
-          ),
-        ),
-        const SizedBox(height: 6),
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: value,
-                style: const TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-              TextSpan(
-                text: ' $unit',
-                style: const TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white70,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ── 주간 잔디 위젯 ──────────────────────────────────────────────────
 // 최근 12주(약 3개월) 를 가로 12 칸으로 펼친 GitHub 스타일의 활동 미니 카드.
 // 각 칸은 한 주를 의미 — 그 주 안에 한 번이라도 뛰었으면(count > 0) 주황으로 칠한다.
@@ -251,7 +144,7 @@ class _WeeklyGrassCard extends StatelessWidget {
   // "한 번이라도 뛰었으면 주황" — 거리/횟수와 무관하게 단일 색.
   // 안 뛴 주는 회색, 뛴 주는 트랙 폴리라인과 같은 톤의 주황으로 통일.
   Color _levelColor(WeeklyActivity a) {
-    if (a.count <= 0) return const Color(0xFFE5E7EB);
+    if (a.count <= 0) return const Color(0xFF3A3A3C);
     return const Color(0xFFFF6B35);
   }
 
@@ -302,9 +195,8 @@ class _WeeklyGrassCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,7 +207,7 @@ class _WeeklyGrassCard extends StatelessWidget {
               fontFamily: 'Pretendard',
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF1C1C1E),
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 12),
@@ -365,7 +257,7 @@ class _GrassCell extends StatelessWidget {
             style: const TextStyle(
               fontFamily: 'Pretendard',
               fontSize: 10,
-              color: Color(0xFF6B7280),
+              color: Colors.white38,
               fontWeight: FontWeight.w500,
             ),
           ),

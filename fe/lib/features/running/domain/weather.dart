@@ -6,6 +6,16 @@ class Weather {
   final String precipitation;
   final String skyCondition;
 
+  // 위치·API 실패 시 기본 표시값
+  static const Weather fallback = Weather(
+    temperature: 18,
+    sido: '서울특별시',
+    gu: '강남구',
+    message: '빗속 러닝도 매력 있어요!',
+    precipitation: '비',
+    skyCondition: '흐림',
+  );
+
   const Weather({
     required this.temperature,
     required this.sido,

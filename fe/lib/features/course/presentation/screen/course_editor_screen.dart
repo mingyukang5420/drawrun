@@ -38,6 +38,10 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
   // null 이면 일반 코스 저장 (챌린지 ID 없이 전송)
   final int? challengeId;
 
+  // 관리 화면 편집 버튼 진입 시 전달 — initialNodes 대신 ID 로 서버에서 좌표 조회
+  // initialNodes 와 동시에 사용하지 않는다
+  final int? courseDraftId;
+
   const CourseEditorScreen({
     super.key,
     this.initialNodes,
@@ -45,6 +49,7 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
     this.polygonImageUrl,
     this.polygonTitle,
     this.challengeId,
+    this.courseDraftId,
   });
 
   @override
@@ -109,6 +114,13 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
           .toList();
       Future.microtask(
         () => ref.read(courseEditorProvider.notifier).loadNodes(nNodes),
+      );
+    } else if (widget.courseDraftId != null) {
+      // initialNodes 없이 courseDraftId 만 전달된 경우 서버에서 좌표 조회
+      Future.microtask(
+        () => ref
+            .read(courseEditorProvider.notifier)
+            .loadFromId(widget.courseDraftId!),
       );
     }
   }
@@ -328,6 +340,13 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
+      // _BottomPanel 을 bottomNavigationBar 로 올려 ScaffoldMessenger 가
+      // 스낵바를 패널 위에 자동 배치하도록 한다
+      bottomNavigationBar: _BottomPanel(
+        state: state,
+        notifier: notifier,
+        onSave: _onSavePressed,
+      ),
       body: Stack(
         children: [
           // 1단계: 전체화면 지도 (가장 아래 레이어)
@@ -381,9 +400,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             ),
 
           // 4단계: 도로 상태 안내 힌트 배너
+          // body 하단이 _BottomPanel 바로 위에서 끝나므로 bottom: 12 로 패널 상단 근처에 배치
           if (state.nodes.isEmpty)
             Positioned(
-              bottom: 90,
+              bottom: 12,
               left: 0,
               right: 0,
               child: _RoadHintBanner(hasWays: state.hasWays),
@@ -392,23 +412,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
           // 5단계: 오른쪽 플로팅 버튼 열 (검색·현재위치)
           Positioned(
             right: 12,
-            bottom: 120,
+            bottom: 12,
             child: _RightFabColumn(
               notifier: notifier,
               onSearchTap: () => _showSearchSheet(notifier),
-            ),
-          ),
-
-          // 6단계: 하단 컨트롤 패널 (실행취소·다시실행·초기화 + 저장 CTA)
-          // onSave 콜백으로 _onSavePressed 를 전달한다 (notifier.saveCourse 직접 호출 대신)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _BottomPanel(
-              state: state,
-              notifier: notifier,
-              onSave: _onSavePressed,
             ),
           ),
 
@@ -968,7 +975,7 @@ class _PolygonPreviewButton extends StatelessWidget {
             Image.network(
               imageUrl,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Icon(
+              errorBuilder: (_, _, _) => Icon(
                 Icons.broken_image_outlined,
                 color: Colors.grey.shade500,
                 size: isExpanded ? 40 : 20,
