@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:running/features/ranking/domain/my_challenge_detail.dart';
 import 'package:running/features/ranking/presentation/ranking_provider.dart';
@@ -36,6 +37,17 @@ class MyChallengeDetailScreen extends ConsumerWidget {
         ),
         iconTheme: const IconThemeData(color: Color(0xFF1C1C1E)),
       ),
+      floatingActionButton: asyncDetail.value != null
+          ? FloatingActionButton(
+              onPressed: () => _share(asyncDetail.value!),
+              backgroundColor: const Color(0xFF1C1C1E),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.share_outlined),
+            )
+          : null,
       body: asyncDetail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => _buildError(context, ref, err),
@@ -75,6 +87,25 @@ class MyChallengeDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _share(MyChallengeDetail detail) {
+    final buf = StringBuffer()
+      ..writeln('🏃 ${detail.title}')
+      ..writeln('📅 ${_formatDateTime(detail.startedAt)}')
+      ..writeln()
+      ..writeln('🏆 순위: ${detail.rank}위')
+      ..writeln('🎯 유사도: ${detail.similarityScore.toStringAsFixed(2)}%')
+      ..writeln()
+      ..writeln('📏 거리: ${detail.distance.toStringAsFixed(2)} km')
+      ..writeln('⏱ 시간: ${_formatDuration(detail.runningTime)}')
+      ..writeln('🏃 평균 페이스: ${detail.avgPace.toStringAsFixed(2)} 분/km')
+      ..writeln('🔥 칼로리: ${detail.calories} kcal')
+      ..writeln('👟 케이던스: ${detail.cadence} spm');
+
+    SharePlus.instance.share(
+      ShareParams(text: buf.toString(), subject: detail.title),
     );
   }
 
