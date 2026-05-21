@@ -10,7 +10,7 @@ import 'package:running/features/running/presentation/running_provider.dart';
 import 'package:running/features/running/presentation/screen/running_countdown_screen.dart';
 
 // 챌린지 내 코스 관리 화면
-// 랭킹 화면과 동일한 DefaultTabController + TabBar 패턴으로 Easy/Hard 탭 전환
+// 상위 탭: 도전중 / 도전완료 (status 기준)
 class CourseManagementScreen extends ConsumerStatefulWidget {
   // 러닝 세션 시작 시 setSessionContext 에 전달할 챌린지 ID
   final int? challengeId;
@@ -27,23 +27,28 @@ class _CourseManagementScreenState
   @override
   void initState() {
     super.initState();
-    // 화면이 열리면 챌린지 코스 목록을 불러온다
     Future.microtask(
       () => ref.read(courseManagementProvider.notifier).loadMyCourses(),
     );
   }
 
-  static const _easyColor = Color(0xFF27AE60);
-  static const _hardColor = Color(0xFFE74C3C);
+  // 도전중 탭 기준색 — 중립 회색
+  static const _progressColor = Color(0xFF6B7280);
+  // 도전완료 탭 기준색 — 성공 초록
+  static const _doneColor = Color(0xFF10B981);
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(courseManagementProvider);
 
-    final easyDrafts = state.byDifficulty('EASY');
-    final hardDrafts = state.byDifficulty('HARD');
+    // 상위 탭 기준: status 로 분리
+    final progressDrafts = state.drafts
+        .where((d) => d.status != 'DONE' && d.status != 'REGISTERED')
+        .toList();
+    final doneDrafts = state.drafts
+        .where((d) => d.status == 'DONE' || d.status == 'REGISTERED')
+        .toList();
 
-    // DefaultTabController 로 TabBar ↔ TabBarView 를 자동 연결
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -61,7 +66,6 @@ class _CourseManagementScreenState
               letterSpacing: -0.5,
             ),
           ),
-          // 랭킹 화면과 동일한 탭 바 스타일
           bottom: const TabBar(
             labelColor: Color(0xFF1C1C1E),
             unselectedLabelColor: Color(0xFF9CA3AF),
@@ -77,18 +81,18 @@ class _CourseManagementScreenState
             ),
             indicatorColor: Color(0xFF1C1C1E),
             indicatorWeight: 2.5,
-            tabs: [Tab(text: 'Easy'), Tab(text: 'Hard')],
+            tabs: [Tab(text: '도전중'), Tab(text: '도전완료')],
           ),
         ),
-        body: _buildBody(state, easyDrafts, hardDrafts),
+        body: _buildBody(state, progressDrafts, doneDrafts),
       ),
     );
   }
 
   Widget _buildBody(
     CourseManagementState state,
-    List<CourseDraft> easyDrafts,
-    List<CourseDraft> hardDrafts,
+    List<CourseDraft> progressDrafts,
+    List<CourseDraft> doneDrafts,
   ) {
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -114,18 +118,23 @@ class _CourseManagementScreenState
       );
     }
 
-    // 각 탭에 난이도 색상을 전달해 필터 칩 색상이 탭과 일치하도록 한다
     return TabBarView(
       children: [
+        // 도전중 탭 — status READY 코스 목록
         _CourseListContent(
-          drafts: easyDrafts,
-          difficultyColor: _easyColor,
+          drafts: progressDrafts,
+          emptyMessage: '도전 중인 코스가 없습니다',
+          showSummary: false,
+          summaryColor: _progressColor,
           ref: ref,
           challengeId: widget.challengeId,
         ),
+        // 도전완료 탭 — status DONE / REGISTERED 코스 목록 + 요약 배너
         _CourseListContent(
-          drafts: hardDrafts,
-          difficultyColor: _hardColor,
+          drafts: doneDrafts,
+          emptyMessage: '완료한 코스가 없습니다',
+          showSummary: true,
+          summaryColor: _doneColor,
           ref: ref,
           challengeId: widget.challengeId,
         ),
@@ -134,117 +143,38 @@ class _CourseManagementScreenState
   }
 }
 
-// ── 탭별 코스 목록 (전체 / 진행 중 / 완료 필터 포함) ─────────────────────
-class _CourseListContent extends StatefulWidget {
+// ── 탭별 코스 목록 ─────────────────────────────────────────────────────
+// 탭이 이미 status 로 분리되어 있으므로 내부 필터 없이 전달받은 drafts 를 그대로 표시.
+// 도전완료 탭에서만 showSummary=true 로 상단 요약 배너를 표시한다.
+class _CourseListContent extends StatelessWidget {
   final List<CourseDraft> drafts;
-  // 선택된 필터 칩 색상을 탭 난이도 색상과 맞춘다
-  final Color difficultyColor;
+  final String emptyMessage;
+  final bool showSummary;
+  final Color summaryColor;
   final WidgetRef ref;
   final int? challengeId;
 
   const _CourseListContent({
     required this.drafts,
-    required this.difficultyColor,
+    required this.emptyMessage,
+    required this.showSummary,
+    required this.summaryColor,
     required this.ref,
     this.challengeId,
   });
 
   @override
-  State<_CourseListContent> createState() => _CourseListContentState();
-}
-
-class _CourseListContentState extends State<_CourseListContent> {
-  // 현재 선택된 필터: 'all' | 'progress' | 'done'
-  String _filter = 'all';
-
-  // 선택된 필터에 따라 코스 목록을 걸러낸다
-  List<CourseDraft> get _filtered {
-    switch (_filter) {
-      case 'progress':
-        // 아직 러닝을 완료하지 않은 코스
-        return widget.drafts
-            .where((d) => d.status != 'DONE' && d.status != 'REGISTERED')
-            .toList();
-      case 'done':
-        // 러닝을 완료한 코스
-        return widget.drafts
-            .where((d) => d.status == 'DONE' || d.status == 'REGISTERED')
-            .toList();
-      default:
-        // 전체: 완료된 코스를 위로 정렬
-        return [...widget.drafts]..sort(
-            (a, b) => _statusOrder(a.status).compareTo(_statusOrder(b.status)),
-          );
-    }
-  }
-
-  // 완료(0) → 등록(1) → 미시작(2) 순서로 정렬
-  int _statusOrder(String? status) => switch (status) {
-        'DONE' => 0,
-        'REGISTERED' => 1,
-        _ => 2,
-      };
-
-  // 각 필터별 코스 수를 미리 계산해 칩에 표시
-  int get _allCount => widget.drafts.length;
-  int get _progressCount => widget.drafts
-      .where((d) => d.status != 'DONE' && d.status != 'REGISTERED')
-      .length;
-  int get _doneCount => widget.drafts
-      .where((d) => d.status == 'DONE' || d.status == 'REGISTERED')
-      .length;
-
-  @override
   Widget build(BuildContext context) {
-    final items = _filtered;
-    final color = widget.difficultyColor;
-
     return Column(
       children: [
-        // 상태 필터 버튼 행 — 각 칩에 해당 조건의 코스 수 표시
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-          child: Row(
-            children: [
-              _FilterChip(
-                label: '전체',
-                count: _allCount,
-                selected: _filter == 'all',
-                selectedColor: color,
-                onTap: () => setState(() => _filter = 'all'),
-              ),
-              const SizedBox(width: 8),
-              _FilterChip(
-                label: '진행 중',
-                count: _progressCount,
-                selected: _filter == 'progress',
-                selectedColor: color,
-                onTap: () => setState(() => _filter = 'progress'),
-              ),
-              const SizedBox(width: 8),
-              _FilterChip(
-                label: '완료',
-                count: _doneCount,
-                selected: _filter == 'done',
-                selectedColor: color,
-                onTap: () => setState(() => _filter = 'done'),
-              ),
-            ],
-          ),
-        ),
-
-        // 완료 필터 선택 시 — 완료 수와 평균 유사도 요약
-        if (_filter == 'done' && _doneCount > 0)
-          _CompletedSummary(
-            completedDrafts: items,
-            color: color,
-          ),
+        // 도전완료 탭에서만 완료 수 + 평균 유사도 요약 표시
+        if (showSummary && drafts.isNotEmpty)
+          _CompletedSummary(completedDrafts: drafts, color: summaryColor),
 
         const Divider(height: 1, thickness: 1, color: Color(0xFFF3F4F6)),
 
-        // 코스 목록
         Expanded(
-          child: items.isEmpty
+          child: drafts.isEmpty
               ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -253,9 +183,7 @@ class _CourseListContentState extends State<_CourseListContent> {
                           size: 56, color: Color(0xFFD1D5DB)),
                       const SizedBox(height: 12),
                       Text(
-                        widget.drafts.isEmpty
-                            ? '해당 난이도의 코스가 없습니다'
-                            : '해당 조건의 코스가 없습니다',
+                        emptyMessage,
                         style: const TextStyle(
                           fontFamily: 'Pretendard',
                           fontSize: 15,
@@ -266,16 +194,16 @@ class _CourseListContentState extends State<_CourseListContent> {
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: () => widget.ref
+                  onRefresh: () => ref
                       .read(courseManagementProvider.notifier)
                       .loadMyCourses(),
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    itemCount: drafts.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (_, i) => _CourseDraftCard(
-                      draft: items[i],
-                      challengeId: widget.challengeId,
+                      draft: drafts[i],
+                      challengeId: challengeId,
                     ),
                   ),
                 ),
@@ -285,8 +213,8 @@ class _CourseListContentState extends State<_CourseListContent> {
   }
 }
 
-// ── 완료 탭 요약 행 ───────────────────────────────────────────────────
-// 완료 필터 선택 시 상단에 완료 개수 + 평균 유사도를 한 줄로 표시
+// ── 도전완료 탭 요약 배너 ─────────────────────────────────────────────
+// 완료 개수 + 평균 유사도를 한 줄로 표시
 class _CompletedSummary extends StatelessWidget {
   final List<CourseDraft> completedDrafts;
   final Color color;
@@ -298,7 +226,6 @@ class _CompletedSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 유사도 점수가 있는 항목만 평균 계산
     final scores = completedDrafts
         .where((d) => d.similarityScore != null)
         .map((d) => d.similarityScore!)
@@ -340,71 +267,7 @@ class _CompletedSummary extends StatelessWidget {
   }
 }
 
-// ── 상태 필터 칩 버튼 ─────────────────────────────────────────────────
-// 선택 시 selectedColor 로 채워지고, 코스 수(count)를 라벨 옆에 표시
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final int count;
-  final bool selected;
-  final Color selectedColor;
-  final VoidCallback onTap;
-
-  const _FilterChip({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.selectedColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? selectedColor : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? selectedColor : const Color(0xFFE5E7EB),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Pretendard',
-                fontSize: 13,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                color: selected ? Colors.white : const Color(0xFF6B7280),
-              ),
-            ),
-            const SizedBox(width: 4),
-            // 해당 조건의 코스 수
-            Text(
-              '$count',
-              style: TextStyle(
-                fontFamily: 'Pretendard',
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: selected
-                    ? Colors.white.withValues(alpha: 0.85)
-                    : const Color(0xFF9CA3AF),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ── 코스 카드 ─────────────────────────────────────────────────────────
-// 왼쪽 난이도 색상 바 + 완료/미시작 상태를 시각적으로 구분
 class _CourseDraftCard extends ConsumerWidget {
   final CourseDraft draft;
   final int? challengeId;
@@ -422,12 +285,9 @@ class _CourseDraftCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 카드 색상/라벨은 챌린지 자체 난이도(challengeDifficulty) 기준
-    // difficulty 는 에디터 코스 난이도로 별개 개념
     final diffColor =
         _difficultyColor[draft.challengeDifficulty?.toUpperCase()] ??
             const Color(0xFF6B7280);
-    // 러닝을 완료한 코스 여부
     final isCompleted =
         draft.status == 'DONE' || draft.status == 'REGISTERED';
 
@@ -438,27 +298,20 @@ class _CourseDraftCard extends ConsumerWidget {
       elevation: 1,
       shadowColor: Colors.black.withValues(alpha: 0.06),
       child: InkWell(
-        // 카드 탭 → 상세 화면
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) =>
-                CourseDetailScreen(courseDraftId: draft.courseDraftId),
+            builder: (_) => CourseDetailScreen(
+              courseDraftId: draft.courseDraftId,
+              draft: draft,
+            ),
           ),
         ),
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 왼쪽 난이도 색상 바 (완료=진한색, 미시작=연한색)
-              Container(
-                width: 5,
-                color: isCompleted
-                    ? diffColor
-                    : diffColor.withValues(alpha: 0.3),
-              ),
-
-              // 썸네일
-              _Thumbnail(url: draft.trackImageUrl, isCompleted: isCompleted),
+              // 썸네일 (탭으로 status 를 이미 구분하므로 흐림 없이 그대로 표시)
+              _Thumbnail(url: draft.trackImageUrl),
 
               // 정보 영역
               Expanded(
@@ -467,31 +320,31 @@ class _CourseDraftCard extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 제목 + 상태 배지
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              draft.title,
-                              style: TextStyle(
-                                fontFamily: 'Pretendard',
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: isCompleted
-                                    ? const Color(0xFF1C1C1E)
-                                    : const Color(0xFF6B7280),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          _StatusBadge(isCompleted: isCompleted),
-                        ],
+                      // 난이도 배지 (좌측 상단)
+                      if (draft.challengeDifficulty != null)
+                        _DifficultyBadge(
+                          difficulty: draft.challengeDifficulty!,
+                          color: diffColor,
+                        ),
+                      if (draft.challengeDifficulty != null)
+                        const SizedBox(height: 4),
+                      // 제목
+                      Text(
+                        draft.title,
+                        style: TextStyle(
+                          fontFamily: 'Pretendard',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: isCompleted
+                              ? const Color(0xFF1C1C1E)
+                              : const Color(0xFF6B7280),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
 
-                      // 거리 + 난이도 라벨
+                      // 거리 + 유사도
                       Row(
                         children: [
                           const Icon(Icons.straighten,
@@ -505,9 +358,7 @@ class _CourseDraftCard extends ConsumerWidget {
                               color: Color(0xFF9CA3AF),
                             ),
                           ),
-                          // 완료 시 유사도 점수 표시
-                          if (isCompleted &&
-                              draft.similarityScore != null) ...[
+                          if (isCompleted && draft.similarityScore != null) ...[
                             const Spacer(),
                             Text(
                               '유사도 ${draft.similarityScore!.toStringAsFixed(0)}%',
@@ -532,9 +383,7 @@ class _CourseDraftCard extends ConsumerWidget {
                               child: OutlinedButton.icon(
                                 onPressed: () => Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    // challengeId 전달: 챌린지 코스 저장 시 서버 인증에 필요
                                     builder: (_) => CourseEditorScreen(
-                                      // draft 자체에 포함된 challengeId 사용 (BE DraftListResponse 필드)
                                       challengeId: draft.challengeId,
                                     ),
                                   ),
@@ -564,9 +413,6 @@ class _CourseDraftCard extends ConsumerWidget {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                // courseId 있으면 완성된 코스 러닝, 없으면 에디터 검증 러닝
-                                // draft.challengeId: BE DraftListResponse 에서 파싱한 값.
-                                // 이전에는 widget 파라미터를 통해 전달받았으나 항상 null 이었음.
                                 ref
                                     .read(runningViewModelProvider.notifier)
                                     .setSessionContext(
@@ -619,81 +465,68 @@ class _CourseDraftCard extends ConsumerWidget {
   }
 }
 
-// ── 완료/미시작 상태 배지 ─────────────────────────────────────────────
-class _StatusBadge extends StatelessWidget {
-  final bool isCompleted;
+// ── 난이도 배지 ───────────────────────────────────────────────────────
+class _DifficultyBadge extends StatelessWidget {
+  final String difficulty;
+  final Color color;
 
-  const _StatusBadge({required this.isCompleted});
+  const _DifficultyBadge({required this.difficulty, required this.color});
+
+  String get _label {
+    switch (difficulty.toUpperCase()) {
+      case 'EASY':
+        return 'EASY';
+      case 'HARD':
+        return 'HARD';
+      default:
+        return difficulty;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: isCompleted
-            ? const Color(0xFF10B981).withValues(alpha: 0.12)
-            : const Color(0xFF9CA3AF).withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
-            size: 10,
-            color: isCompleted
-                ? const Color(0xFF10B981)
-                : const Color(0xFF9CA3AF),
-          ),
-          const SizedBox(width: 3),
-          Text(
-            isCompleted ? '완료' : '시작 전',
-            style: TextStyle(
-              fontFamily: 'Pretendard',
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: isCompleted
-                  ? const Color(0xFF10B981)
-                  : const Color(0xFF9CA3AF),
-            ),
-          ),
-        ],
+      child: Text(
+        _label,
+        style: TextStyle(
+          fontFamily: 'Pretendard',
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }
 }
 
 // ── 썸네일 ────────────────────────────────────────────────────────────
+// 탭이 status 를 이미 구분하므로 흐림 처리 없이 그대로 표시
 class _Thumbnail extends StatelessWidget {
   final String? url;
-  // 미시작 코스는 썸네일을 흐리게 표시
-  final bool isCompleted;
 
-  const _Thumbnail({this.url, required this.isCompleted});
+  const _Thumbnail({this.url});
 
   @override
   Widget build(BuildContext context) {
-    final img = url != null
-        ? Image.network(
-            url!,
-            width: 80,
-            height: 80,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _placeholder(),
-          )
-        : _placeholder();
-
-    // 미시작 코스는 썸네일에 반투명 오버레이를 덮어 흐리게 처리
-    if (!isCompleted) {
-      return ColorFiltered(
-        colorFilter: ColorFilter.mode(
-          Colors.white.withValues(alpha: 0.5),
-          BlendMode.srcOver,
-        ),
-        child: SizedBox(width: 80, height: 80, child: img),
-      );
-    }
-    return SizedBox(width: 80, height: 80, child: img);
+    return SizedBox(
+      width: 80,
+      height: 80,
+      child: url != null
+          ? Image.network(
+              url!,
+              width: 80,
+              height: 80,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _placeholder(),
+            )
+          : _placeholder(),
+    );
   }
 
   Widget _placeholder() => Container(
