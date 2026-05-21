@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart' show Color;
+import 'package:flutter/material.dart' show Color, Colors;
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -186,6 +186,9 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   // 주행 가능 도로 오버레이 목록 (지우기 전용)
   final List<NPolylineOverlay> _wayOverlays = [];
 
+  // 노드 위치 마커 오버레이 목록 (지우기 전용)
+  final List<NCircleOverlay> _nodeOverlays = [];
+
   // 스냅·라우팅 계산용 도로 좌표 목록 (_wayOverlays 와 1:1 대응)
   final List<List<NLatLng>> _wayCoordinates = [];
 
@@ -256,6 +259,21 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     if (_mapController != null) _drawRoute(nodes);
   }
 
+  // courseDraftId 로 상세 API 를 조회해 기존 좌표를 에디터에 채운다
+  // 관리 화면 편집 버튼 → initialNodes 없이 진입 시 호출
+  Future<void> loadFromId(int courseDraftId) async {
+    try {
+      final detail = await _repository.getEditorDetail(courseDraftId);
+      if (detail.coordinates.isEmpty) return;
+      final nNodes = detail.coordinates
+          .map((e) => NLatLng(e.latitude, e.longitude))
+          .toList();
+      loadNodes(nNodes);
+    } catch (_) {
+      // 조회 실패 시 빈 상태로 편집 시작 (무시)
+    }
+  }
+
   // 코스 이름 변경 (상단 바 편집 다이얼로그에서 호출)
   void setCourseName(String name) {
     state = state.copyWith(courseName: name);
@@ -313,9 +331,10 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     _drawRoute(nextNodes);
   }
 
-  // 모든 노드·스택·전체 경로 초기화 + 지도 폴리라인 제거
+  // 모든 노드·스택·전체 경로 초기화 + 지도 폴리라인·마커 제거
   void reset() {
     _clearPolyline();
+    _clearNodeOverlays();
     _currentRouteCoords = [];
     state = state.copyWith(
       nodes: [],
@@ -414,11 +433,15 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
   void _drawRoute(List<NLatLng> nodes) {
     if (_mapController == null) return;
     _clearPolyline();
+    _clearNodeOverlays();
+
     if (nodes.length < 2) {
       _currentRouteCoords = [];
       if (state.routeCoords.isNotEmpty) {
         state = state.copyWith(routeCoords: const []);
       }
+      // 노드가 1개여도 마커는 표시한다
+      _drawNodeMarkers(nodes);
       return;
     }
 
@@ -440,6 +463,8 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       width: 6,
     );
     _mapController!.addOverlay(_routeLine!);
+    // 폴리라인 위에 노드 마커를 그려 노드 위치를 시각적으로 표시
+    _drawNodeMarkers(nodes);
   }
 
   // 기존 폴리라인 오버레이를 지도에서 제거
@@ -447,6 +472,35 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
     if (_mapController != null && _routeLine != null) {
       _mapController!.deleteOverlay(_routeLine!.info);
       _routeLine = null;
+    }
+  }
+
+  // 노드 마커 오버레이를 지도에서 제거
+  void _clearNodeOverlays() {
+    if (_mapController == null) return;
+    for (final o in _nodeOverlays) {
+      _mapController!.deleteOverlay(o.info);
+    }
+    _nodeOverlays.clear();
+  }
+
+  // 노드 목록을 지도에 원형 마커로 표시
+  // 첫 번째 노드는 시작점으로 크게, 나머지는 작게 표시
+  // globalZIndex 를 폴리라인(-100000)보다 높게 설정해 도보 레이어 위에 표시
+  void _drawNodeMarkers(List<NLatLng> nodes) {
+    if (_mapController == null || nodes.isEmpty) return;
+    for (int i = 0; i < nodes.length; i++) {
+      final isFirst = i == 0;
+      final overlay = NCircleOverlay(
+        id: 'node_marker_$i',
+        center: nodes[i],
+        radius: isFirst ? 8.0 : 5.0,
+        color: isFirst ? kCourseRouteColor : Colors.white,
+        outlineColor: kCourseRouteColor,
+        outlineWidth: 1.5,
+      )..setGlobalZIndex(0); // 도보·경로 폴리라인(-100000)보다 위에 렌더링
+      _nodeOverlays.add(overlay);
+      _mapController!.addOverlay(overlay);
     }
   }
 
@@ -540,6 +594,10 @@ class CourseEditorNotifier extends Notifier<CourseEditorState> {
       _mapController!.deleteOverlay(overlay.info);
     }
     _wayOverlays.clear();
+    for (final o in _nodeOverlays) {
+      _mapController!.deleteOverlay(o.info);
+    }
+    _nodeOverlays.clear();
     _wayCoordinates.clear();
     _drawnSegmentKeys.clear();
     _wayOverlaySeq = 0;

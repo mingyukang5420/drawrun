@@ -38,6 +38,10 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
   // null 이면 일반 코스 저장 (챌린지 ID 없이 전송)
   final int? challengeId;
 
+  // 관리 화면 편집 버튼 진입 시 전달 — initialNodes 대신 ID 로 서버에서 좌표 조회
+  // initialNodes 와 동시에 사용하지 않는다
+  final int? courseDraftId;
+
   const CourseEditorScreen({
     super.key,
     this.initialNodes,
@@ -45,6 +49,7 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
     this.polygonImageUrl,
     this.polygonTitle,
     this.challengeId,
+    this.courseDraftId,
   });
 
   @override
@@ -109,6 +114,13 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
           .toList();
       Future.microtask(
         () => ref.read(courseEditorProvider.notifier).loadNodes(nNodes),
+      );
+    } else if (widget.courseDraftId != null) {
+      // initialNodes 없이 courseDraftId 만 전달된 경우 서버에서 좌표 조회
+      Future.microtask(
+        () => ref
+            .read(courseEditorProvider.notifier)
+            .loadFromId(widget.courseDraftId!),
       );
     }
   }
@@ -963,7 +975,7 @@ class _PolygonPreviewButton extends StatelessWidget {
             Image.network(
               imageUrl,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Icon(
+              errorBuilder: (_, _, _) => Icon(
                 Icons.broken_image_outlined,
                 color: Colors.grey.shade500,
                 size: isExpanded ? 40 : 20,

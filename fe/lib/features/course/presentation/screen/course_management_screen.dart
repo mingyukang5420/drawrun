@@ -336,8 +336,8 @@ class _CourseDraftCard extends ConsumerWidget {
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: isCompleted
-                              ? const Color(0xFF1C1C1E)
-                              : const Color(0xFF6B7280),
+                              ? const Color(0xFF6B7280)
+                              : const Color(0xFF1C1C1E),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -385,6 +385,7 @@ class _CourseDraftCard extends ConsumerWidget {
                                   MaterialPageRoute(
                                     builder: (_) => CourseEditorScreen(
                                       challengeId: draft.challengeId,
+                                      courseDraftId: draft.courseDraftId,
                                     ),
                                   ),
                                 ),

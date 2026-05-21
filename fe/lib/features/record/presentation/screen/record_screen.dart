@@ -224,7 +224,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
               SliverSafeArea(
                 top: false,
-                sliver: const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                sliver: const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ),
             ],
           ),
