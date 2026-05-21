@@ -289,8 +289,8 @@ class _Header extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final weatherState = ref.watch(weatherProvider);
-    final messageText = weatherState.weather?.message ?? '오늘도 힘차게 달려볼까요?';
-    final locationText = weatherState.weather?.locationLine ?? '';
+    final messageText = weatherState.weather.message;
+    final locationText = weatherState.weather.locationLine;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
