@@ -1,0 +1,48 @@
+server:
+  servlet:
+    context-path: /api
+
+app:
+  upload:
+    track-image-dir: C:/Users/SSAFY/Desktop/uploads/tracks
+    track-image-path-prefix: /api/uploads/tracks
+    track-image-public-base-url: http://localhost:8080
+    challenge-image-dir: C:/Users/SSAFY/Desktop/uploads/challenge
+    challenge-image-path-prefix: /api/uploads/challenge
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/running
+    username: root
+    password: ssafy1234!
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ssafy1234!
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+jwt:
+  secret: ${JWTSECRET}
+  access-token-expiration: 2592000000   # 30일 (ms)
+  refresh-token-expiration: 2592000000 # 30일 (ms)
+
+logging:
+  level:
+    root: INFO
+    com.running.app: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor: TRACE
+
+weather:
+  api:
+    key: ${WEATHER_API_KEY}
+    base-url: https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst
