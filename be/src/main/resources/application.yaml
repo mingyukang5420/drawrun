@@ -1,0 +1,47 @@
+spring:
+  profiles:
+    active: local
+  application:
+    name: app
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  threads:
+    virtual:
+      enabled: true
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  task:
+    execution:
+      pool:
+        core-size: 2
+        max-size: 10
+
+springdoc:
+  api-docs:
+    path: /v1/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    config-url: /api/v1/api-docs/swagger-config
+    url: /api/v1/api-docs
+
+server:
+  forward-headers-strategy: framework
+
+app:
+  upload:
+    track-image-dir: /home/ubuntu/uploads/tracks #서버에 저장할 실제 저장 디렉토리
+    track-image-path-prefix: /uploads/tracks #nginx가 노출할 URL path
+    track-image-public-base-url: https://k14a103.p.ssafy.io #DB에 저장할 도메인 포함 base URL
+    challenge-image-dir: /home/ubuntu/uploads/challenge
+    challenge-image-path-prefix: /uploads/challenge
+
+weather:
+  api:
+    key: ${WEATHER_API_KEY}
+    base-url: https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst

@@ -1,0 +1,677 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:running/features/running/domain/running_session.dart';
+import 'package:running/shared/location/location_service.dart';
+import 'package:running/shared/map/lat_lng_naver_ext.dart';
+import 'package:running/shared/model/lat_lng.dart';
+import 'package:running/shared/network/api_exception.dart';
+import 'package:running/features/running/domain/run_start_response.dart';
+import 'package:running/features/running/domain/running_repository.dart';
+import 'package:running/shared/sensor/cadence_service.dart';
+import 'package:running/shared/sensor/altitude_service.dart';
+import 'package:running/shared/calculator/calories_calculator.dart';
+
+// 러닝 화면이 구독하는 불변 상태 클래스
+// state = state.copyWith(...) 로 새 객체를 만들어야 Riverpod 이 UI 를 다시 그린다
+class RunningState {
+  final bool isRunning;
+  final bool isPaused;
+  final double distanceKm;
+  final List<LatLng> points;
+
+  // Ticker 가 1초마다 갱신하는 경과 시간 (초) → UI 클록 리빌드 트리거
+  final int elapsedSeconds;
+
+  // 임시값 (데이터 소스 미연결)
+  final double altitudeM;
+  final int bpm;
+
+  // 분당 발걸음 수.
+  final int cadenceSpm;
+
+  final bool isSaving;
+  final ApiException? saveError;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+
+  // 코스/드래프트/챌린지 진입 시 외부에서 채워 두는 ID 들. 자유 러닝이면 셋 다 null.
+  // 시작 API (courseId/courseDraftId) 와 종료 API (셋 모두) 가 이 값을 그대로 사용한다.
+  //   - 시작 진입점이 명시적으로 set 해야 함 (자유 러닝이면 null 로 set)
+  //   - 종료 직후 자동 리셋되어 다음 세션으로 잔여가 흘러가지 않음
+  final int? courseId;
+  final int? courseDraftId;
+  final int? challengeId;
+
+  // 챌린지 카드를 통해 진입한 경우 그 챌린지의 폴리곤 이미지 URL.
+  // 진행 화면 / 일시정지 화면이 사용자에게 도전 코스 모양을 미리보기로 보여주는 데 사용.
+  // 자유 러닝 / 챌린지 외 진입이면 null.
+  final String? polygonImageUrl;
+
+  // 시작 API 응답으로 받은 참조 경로(코스/드래프트의 GPS 노드).
+  // 자유 러닝 / 응답 실패 시엔 빈 리스트.
+  // 추후 진행 화면 지도에 회색 점선으로 그려 사용자가 따라갈 길잡이로 활용.
+  final List<LatLng> referenceNodes;
+
+  const RunningState({
+    this.isRunning = false,
+    this.isPaused = false,
+    this.distanceKm = 0.0,
+    this.points = const [],
+    this.elapsedSeconds = 0,
+    this.altitudeM = 0.0,
+    this.bpm = 0,
+    this.cadenceSpm = 0,
+    this.isSaving = false,
+    this.saveError,
+    this.startedAt,
+    this.endedAt,
+    this.courseId,
+    this.courseDraftId,
+    this.challengeId,
+    this.polygonImageUrl,
+    this.referenceNodes = const [],
+  });
+
+  RunningState copyWith({
+    bool? isRunning,
+    bool? isPaused,
+    double? distanceKm,
+    List<LatLng>? points,
+    int? elapsedSeconds,
+    double? altitudeM,
+    int? bpm,
+    int? cadenceSpm,
+    bool? isSaving,
+    ApiException? saveError,
+    DateTime? startedAt,
+    DateTime? endedAt,
+    int? courseId,
+    int? courseDraftId,
+    int? challengeId,
+    String? polygonImageUrl,
+    List<LatLng>? referenceNodes,
+  }) {
+    return RunningState(
+      isRunning: isRunning ?? this.isRunning,
+      isPaused: isPaused ?? this.isPaused,
+      distanceKm: distanceKm ?? this.distanceKm,
+      points: points ?? this.points,
+      elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      altitudeM: altitudeM ?? this.altitudeM,
+      bpm: bpm ?? this.bpm,
+      cadenceSpm: cadenceSpm ?? this.cadenceSpm,
+      isSaving: isSaving ?? this.isSaving,
+      saveError: saveError ?? this.saveError,
+      startedAt: startedAt ?? this.startedAt,
+      endedAt: endedAt ?? this.endedAt,
+      courseId: courseId ?? this.courseId,
+      courseDraftId: courseDraftId ?? this.courseDraftId,
+      challengeId: challengeId ?? this.challengeId,
+      polygonImageUrl: polygonImageUrl ?? this.polygonImageUrl,
+      referenceNodes: referenceNodes ?? this.referenceNodes,
+    );
+  }
+
+  // UI 표시용 계산 게터
+  String get distanceLabel => '${distanceKm.toStringAsFixed(2)}';
+
+  String get elapsedLabel {
+    final h = elapsedSeconds ~/ 3600;
+    final m = (elapsedSeconds % 3600) ~/ 60;
+    final s = elapsedSeconds % 60;
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(h)}:${two(m)}:${two(s)}';
+  }
+
+  String get paceLabel {
+    // distance 가 너무 작거나 0 이면 의미 없는 큰 값이 나오므로 안 보여 준다.
+    // 50 m 미만은 GPS 노이즈로 본다 (필요시 임계 조정).
+    if (distanceKm < 0.05) return "--'--\"";
+
+    final paceSec = elapsedSeconds / distanceKm;
+
+    // 비현실적으로 느린 페이스도 가드.
+    // 60'00"/km (= 시속 1km) 보다 느리면 사실상 멈춰 있는 것에 가까우므로 마스킹.
+    if (paceSec > 60 * 60) return "--'--\"";
+
+    // 종료 후 BE 전송 정책(_toMinPerKm) 과 동일한 rounding 으로 표시값 계산.
+    //   - BE 는 paceSec 을 round() 한 뒤 60 으로 나눠 분/km 로 저장한다.
+    //   - 화면도 같은 정수 초 단위에서 분/초 분해해야 표시값과 저장값이 일치한다.
+    //   (분리 floor + 초 round 였던 기존 방식은 paceSec=359.6 → 화면 "5'60", BE "6'00" 처럼 불일치 유발)
+    final roundedSec = paceSec.round();
+    final m = roundedSec ~/ 60;
+    final s = roundedSec % 60;
+    return "$m'${s.toString().padLeft(2, '0')}\"";
+  }
+
+  String get avgPaceLabel => paceLabel;
+
+  // 누적 칼로리 — distance / elapsedSeconds 의 함수.
+  // 매 호출마다 다시 계산되지만 곱셈 몇 번이라 비용 무시 가능.
+  // TODO: 사용자 성별 도입 후 gender 매개변수 함께 전달.
+  int get caloriesKcal => CaloriesCalculator.compute(
+    distanceKm: distanceKm,
+    elapsedSeconds: elapsedSeconds,
+  );
+
+  String get caloriesLabel => '$caloriesKcal';
+  // toStringAsFixed(0) 는 -0.3 같은 음수 작은 값에서 "-0" 을 반환한다.
+  // .round() 는 int 를 반환해 -0 이 생기지 않으므로 0 / 양수 / 음수가 정확히 노출된다.
+  String get altitudeLabel => '${altitudeM.round()} m';
+  String get bpmLabel => '$bpm';
+  String get cadenceLabel => cadenceSpm < 90 ? '--' : '$cadenceSpm';
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// RunningNotifier
+//
+// [Notifier<State> 패턴 요약]
+//   state = state.copyWith(...)  → 구독 위젯 자동 리빌드
+//   ref.onDispose(...)           → autoDispose 시 자원 정리 자동 실행
+//
+// mapController, _routeLine, _stopwatch, _ticker, _locationSub 는
+// UI 리빌드가 필요 없는 내부 자원이므로 state 가 아닌 인스턴스 변수로 보관
+// ─────────────────────────────────────────────────────────────────────
+class RunningNotifier extends Notifier<RunningState> {
+  // 지도 제어 객체 (state 외부 보관)
+  NaverMapController? mapController;
+  NPolylineOverlay? _routeLine;
+  // 참조 경로(코스/드래프트 노드) 전용 오버레이. 사용자 경로와 별도 운영.
+  // _routeLine 과 같은 라이프사이클 정책 — controller 교체 시 null 리셋.
+  NPolylineOverlay? _referenceLine;
+
+  // 러닝 Repository 필드 및 생성자 추가
+  final RunningRepository _repository;
+  RunningNotifier(this._repository);
+
+  // 타이밍 도구
+  final Stopwatch _stopwatch = Stopwatch();
+  Timer? _ticker;
+
+  // GPS 스트림 구독
+  StreamSubscription<LatLng>? _locationSub;
+
+  // CadenceService 의 spmStream 구독 핸들
+  final CadenceService _cadence = CadenceService();
+  StreamSubscription<int>? _cadenceSub;
+
+  // 고도 측정 서비스. CadenceService와 같은 패턴
+  // pause/resume/finish/clear 각 라이프사이클 지점에서 같이 토글
+  final AltitudeService _altitude = AltitudeService();
+  StreamSubscription<double>? _altitudeSub;
+
+  @override
+  RunningState build() {
+    // Provider 해제(탭 전환 등) 시 자원 자동 정리
+    ref.onDispose(() {
+      _locationSub?.cancel();
+      _ticker?.cancel();
+      _cadenceSub?.cancel();
+      _cadence.dispose();
+      _altitudeSub?.cancel();
+      _altitude.dispose();
+    });
+    return const RunningState();
+  }
+
+  // 지도가 준비된 뒤 RunningMapView 에서 호출
+  void setMapController(NaverMapController controller) {
+    mapController = controller;
+    // 이전 controller 에 묶여 있던 routeLine 객체는 새 controller 에선 무효 → null 리셋.
+    // 안 지우면 _drawRoute 가 deleteOverlay 를 호출하다 옛 controller 참조로 사고 가능.
+    _routeLine = null;
+    _referenceLine = null;
+    // 시트가 처음 열릴 때 이미 누적된 points 를 즉시 다시 그려줌.
+    // 이 한 줄이 없으면 시트 첫 진입 시 폴리라인이 비어있고, 새 점이 와야만 그려짐.
+    if (state.points.length >= 2) {
+      _drawRoute(state.points);
+    }
+    // 시작 API 응답이 이미 도착한 상태였다면 참조 경로도 같은 타이밍에 한 번 그려준다.
+    if (state.referenceNodes.length >= 2) {
+      _drawReferenceRoute(state.referenceNodes);
+    }
+  }
+
+  // 지도 위젯이 dispose 될 때 호출.
+  // 죽은 controller 에 deleteOverlay/addOverlay 가 호출되어
+  // MissingPluginException 이 나는 것을 방지하기 위해 참조를 끊는다.
+  // _routeLine 도 함께 null 로 — 다음 setMapController 시 새 controller 에 깨끗이 다시 그린다.
+  void clearMapController() {
+    mapController = null;
+    _routeLine = null;
+    _referenceLine = null;
+  }
+
+  // 현재 GPS 위치로 지도 카메라를 부드럽게 이동시킨다
+  // "내 위치로" 버튼이 호출하는 진입점 — 측정 상태(거리·시간·폴리라인) 에는 영향 없음
+  //
+  // 컨트롤러가 없거나(아직 onMapReady 가 안 옴) 위치를 못 가져오면 그냥 무시한다
+  // 사용자가 버튼을 한 번 더 누르면 다음 호출에서 다시 시도된다
+  Future<void> centerOnCurrentLocation() async {
+    final controller = mapController;
+    if (controller == null) return;
+
+    // LocationService 는 권한 거부 / GPS 꺼짐 등 실패 시 null 을 돌려준다
+    final position = await LocationService.getCurrentPosition();
+    if (position == null) return;
+
+    // scrollAndZoomTo 는 카메라를 새 좌표로 이동하면서 줌도 새로 설정한다
+    // 줌 16 은 코스 에디터의 동일 동작과 맞춘 값 — 도로 한두 개가 한눈에 들어오는 수준
+    await controller.updateCamera(
+      NCameraUpdate.scrollAndZoomTo(
+        target: NLatLng(position.latitude, position.longitude),
+        zoom: 16,
+      ),
+    );
+  }
+
+  // 시작 진입점(챌린지 카드 / 자유 러닝 진입점 / 코스 진입 등) 이 한 번에 세 ID 를 세팅.
+  //
+  // copyWith 의 `value ?? this.value` 패턴으로는 "null 로 명시 리셋" 이 안 되므로
+  // 명시적 메서드로 분리. 호출자가 안 채운 ID 는 null 로 강제된다.
+  //
+  // 세션 시작 직전에 호출하는 것이 컨벤션. 종료 후 리셋은 별도 정책으로 처리.
+  void setSessionContext({
+    int? challengeId,
+    int? courseId,
+    int? courseDraftId,
+    String? polygonImageUrl,
+  }) {
+    state = RunningState(
+      // 컨텍스트 ID 만 갈아끼우고, 나머지 측정값/상태는 보존
+      isRunning: state.isRunning,
+      isPaused: state.isPaused,
+      distanceKm: state.distanceKm,
+      points: state.points,
+      elapsedSeconds: state.elapsedSeconds,
+      altitudeM: state.altitudeM,
+      bpm: state.bpm,
+      cadenceSpm: state.cadenceSpm,
+      isSaving: state.isSaving,
+      saveError: state.saveError,
+      startedAt: state.startedAt,
+      endedAt: state.endedAt,
+      referenceNodes: state.referenceNodes,
+      // ID 와 챌린지 폴리곤 URL 은 호출자가 넘긴 값을 그대로 — null 도 그대로 (명시 리셋 의도 보존)
+      challengeId: challengeId,
+      courseId: courseId,
+      courseDraftId: courseDraftId,
+      polygonImageUrl: polygonImageUrl,
+    );
+  }
+
+  // 다음 세션 시작 직전에 호출 — 옛 세션의 측정값(거리/시간/포인트/케이던스/고도 등) 을
+  // 깨끗이 비우면서 컨텍스트 ID 만 보존한다.
+  //
+  // finish() 는 의도적으로 측정값을 보존한다 (결과 화면이 그 값을 표시해야 하므로).
+  // 따라서 "측정값 0 부터 시작" 책임은 다음 세션 시작 진입점이 맡는다 —
+  // setSessionContext 와 동일한 패턴.
+  //
+  // 보존:
+  //   challengeId / courseId / courseDraftId — 시작 진입점이 setSessionContext 로 박은 값.
+  //                                            여기서 비우면 종료 API 가 그 ID 들을 잃는다.
+  // 리셋 (RunningState 의 기본값으로 돌아감):
+  //   distanceKm=0, points=[], elapsedSeconds=0,
+  //   altitudeM/bpm/cadenceSpm 기본값, isRunning/isPaused/isSaving=false,
+  //   startedAt/endedAt/saveError=null,
+  //   referenceNodes=[] (시작 API 응답이 곧 다시 채움 — 옛 챌린지 경로 잔여 방지).
+  //
+  // _stopwatch 도 함께 reset — finish() 가 stop 만 하고 reset 은 안 해서,
+  // 다음 startRunning 시 옛 elapsed 위에서 시계가 재개되는 버그가 있다.
+  void resetMeasurementsForNewSession() {
+    _stopwatch.reset();
+    state = RunningState(
+      challengeId: state.challengeId,
+      courseId: state.courseId,
+      courseDraftId: state.courseDraftId,
+      // 챌린지 진입 직후 setSessionContext 가 박아 둔 폴리곤 URL 을 함께 보존.
+      // 이걸 빠뜨리면 카운트다운 진입 직후 RunningState 가 다시 만들어지며 polygonImageUrl 이
+      // null 로 reset 되어, 카운트다운 / 진행 화면의 폴리곤 가이드가 안 보이는 통합 버그가 생긴다.
+      polygonImageUrl: state.polygonImageUrl,
+    );
+  }
+
+  void startRunning() {
+    if (_locationSub != null) return; // 중복 구독 방지
+    _stopwatch.start();
+    _startTicker();
+    _cadence.startListening();
+    _cadenceSub = _cadence.spmStream.listen(_onCadence);
+    // 고도 측정 시작. 첫 5초간 baseline 워밍업 후 상대 고도가 흐른다.
+    _altitude.startListening();
+    _altitudeSub = _altitude.altitudeStream.listen(_onAltitude);
+    _locationSub = LocationService.getLatLngStream().listen(_onLocation);
+
+    // 첫 좌표 즉시 시도 — last known position 이라도 있으면 점 한 개 즉시 찍힘
+    LocationService.getCurrentLatLng().then((p) {
+      if (!ref.mounted) return;
+      if (p != null && state.isRunning) _onLocation(p);
+    });
+
+    state = state.copyWith(
+      isRunning: true,
+      isPaused: false,
+      startedAt: state.startedAt ?? DateTime.now(),
+    );
+  }
+
+  void syncFromBackground() {
+    // 일시정지 / 종료 상태에서는 동기화할 게 없다 (Stopwatch 도 멈춰 있음).
+    if (!state.isRunning || state.isPaused) return;
+    // _stopwatch 의 진짜 경과 시간으로 상태를 즉시 갱신.
+    state = state.copyWith(elapsedSeconds: _stopwatch.elapsed.inSeconds);
+    // 멈춰 있던 1초 ticker 도 다시 시동 — 다음 tick 부터 정상.
+    _startTicker();
+  }
+
+  Future<void> pause() async {
+    await _locationSub?.cancel();
+    await _cadenceSub?.cancel();
+    _locationSub = null;
+    _stopwatch.stop();
+    _ticker?.cancel();
+    _ticker = null;
+    _cadenceSub = null;
+
+    await _cadence.stopListening();
+
+    // 일시정지 시엔 고도 측정도 같이 멈춘다 — 멈춰 있는 동안 기압이 천천히 변동하는
+    // 것까지 지표에 반영할 이유가 없다. baseline 은 AltitudeService 가 유지하므로
+    // resume 시 같은 baseline 으로 자연스럽게 이어진다.
+    await _altitudeSub?.cancel();
+    _altitudeSub = null;
+    await _altitude.stopListening();
+    if (!ref.mounted) return;
+    state = state.copyWith(isPaused: true);
+  }
+
+  void resume() {
+    if (_locationSub != null) return;
+    _stopwatch.start();
+    _cadence.startListening();
+    _startTicker();
+    _locationSub = LocationService.getLatLngStream().listen(_onLocation);
+
+    _cadenceSub = _cadence.spmStream.listen(_onCadence);
+
+    // 재개 시 고도도 다시 켠다. baseline 은 유지된 상태 → 출발지 기준 그대로 이어짐.
+    _altitude.startListening();
+    _altitudeSub = _altitude.altitudeStream.listen(_onAltitude);
+
+    state = state.copyWith(isPaused: false);
+  }
+
+  Future<void> finish() async {
+    await _locationSub?.cancel();
+    await _cadenceSub?.cancel();
+    _cadenceSub = null;
+    _locationSub = null;
+    _stopwatch.stop();
+    _ticker?.cancel();
+    _ticker = null;
+
+    await _cadence.stopListening();
+
+    // 종료 시 고도도 정리. 마지막으로 흘러온 altitudeM 값이 결과 화면에 그대로 표시.
+    await _altitudeSub?.cancel();
+    _altitudeSub = null;
+    await _altitude.stopListening();
+    if (!ref.mounted) return;
+    state = state.copyWith(
+      isRunning: false,
+      isPaused: false,
+      endedAt: DateTime.now(),
+      elapsedSeconds: _stopwatch.elapsed.inSeconds,
+    );
+  }
+
+  Future<void> clear() async {
+    await _locationSub?.cancel();
+    await _cadenceSub?.cancel();
+    _locationSub = null;
+    _cadenceSub = null;
+    if (mapController != null && _routeLine != null) {
+      mapController!.deleteOverlay(_routeLine!.info);
+      _routeLine = null;
+    }
+    if (mapController != null && _referenceLine != null) {
+      mapController!.deleteOverlay(_referenceLine!.info);
+      _referenceLine = null;
+    }
+    _stopwatch.reset();
+    _ticker?.cancel();
+    _ticker = null;
+
+    await _cadence.stopListening();
+
+    // clear 는 "다시 처음으로" — 고도 측정도 같이 정리.
+    // baseline 까지 폐기해야 다음 시작에서 새 출발지 기준으로 재워밍업이 동작한다.
+    // stopListening 만으론 baseline 이 남아 다음 세션이 옛 baseline 으로 시작된다.
+    await _altitudeSub?.cancel();
+    _altitudeSub = null;
+    await _altitude.stopListening();
+    _altitude.reset();
+    if (!ref.mounted) return;
+    state = const RunningState(); // 전체 초기화
+  }
+
+  // GPS 좌표 수신 콜백 (스트림 리스너 전용)
+  void _onLocation(LatLng point) {
+    if (!state.isRunning) return;
+    double addedKm = 0;
+    if (state.points.isNotEmpty) {
+      addedKm = _haversineKm(state.points.last, point);
+    }
+    final newPoints = [...state.points, point];
+    state = state.copyWith(
+      points: newPoints,
+      distanceKm: state.distanceKm + addedKm,
+    );
+    _drawRoute(newPoints);
+  }
+
+  // CadenceService 가 spm 한 값을 흘려줄 때마다 호출.
+  // state 의 cadenceSpm 만 갈아끼우면 ref.watch 한 화면이 자동 리빌드된다.
+  void _onCadence(int spm) {
+    // 일시정지/종료 직후 늦게 도착한 이벤트는 무시 — 표시값이 튀지 않게.
+    if (!state.isRunning || state.isPaused) return;
+    state = state.copyWith(cadenceSpm: spm);
+  }
+
+  // AltitudeService 가 새 고도값을 흘려줄 때마다 호출.
+  // state 의 altitudeM 만 갈아끼우면 ref.watch 한 화면이 자동 리빌드된다.
+  void _onAltitude(double altitudeM) {
+    // 일시정지/종료 직후 늦게 도착한 이벤트는 무시 — 표시값 튐 방지.
+    if (!state.isRunning || state.isPaused) return;
+    state = state.copyWith(altitudeM: altitudeM);
+  }
+
+  void _drawRoute(List<LatLng> points) {
+    if (mapController == null || points.length < 2) return;
+    try {
+      if (_routeLine != null) {
+        mapController!.deleteOverlay(_routeLine!.info);
+      }
+      _routeLine = NPolylineOverlay(
+        id: 'running_route',
+        coords: points.map((p) => p.toNLatLng()).toList(),
+        width: 6,
+        color: Colors.blueAccent,
+      );
+      mapController!.addOverlay(_routeLine!);
+    } catch (_) {
+      // PlatformView 가 dispose 된 직후라면 호출이 실패할 수 있다.
+      // 다음 setMapController 호출 시 깨끗이 다시 그릴 수 있도록 참조만 끊고 swallow.
+      mapController = null;
+      _routeLine = null;
+    }
+  }
+
+  // 참조 경로(코스/드래프트의 GPS 노드) 를 그레이 폴리라인으로 한 번 그린다.
+  // 사용자 경로(_drawRoute) 와 달리 노드가 시간에 따라 늘어나지 않으므로 단발성 호출.
+  //
+  // 호출 시점:
+  //   (a) setMapController — 시트 진입 시 이미 응답이 와 있다면 즉시
+  //   (b) beginSessionFromServer — 응답이 늦게 도착했고 컨트롤러가 살아있을 때(R2 에서 추가)
+  void _drawReferenceRoute(List<LatLng> nodes) {
+    if (mapController == null || nodes.length < 2) return;
+    try {
+      // 이전 오버레이가 남아 있으면 먼저 제거 — 같은 id 로 두 번 add 하면 충돌.
+      if (_referenceLine != null) {
+        mapController!.deleteOverlay(_referenceLine!.info);
+      }
+      _referenceLine = NPolylineOverlay(
+        id: 'running_reference',
+        coords: nodes.map((p) => p.toNLatLng()).toList(),
+        // 사용자 경로(blueAccent, width 6) 보다 한 단계 얇고 무채색 — 본인 경로가 도드라지게.
+        width: 4,
+        color: const Color(0xFF9CA3AF),
+      );
+      mapController!.addOverlay(_referenceLine!);
+    } catch (_) {
+      // _drawRoute 와 동일 정책: PlatformView dispose 직후라면 호출이 실패할 수 있다.
+      // 참조만 끊고 swallow — 다음 setMapController 호출 시 깨끗이 다시 그린다.
+      _referenceLine = null;
+    }
+  }
+
+  // 1초마다 elapsedSeconds 갱신 → UI 클록 리빌드
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      state = state.copyWith(elapsedSeconds: _stopwatch.elapsed.inSeconds);
+    });
+  }
+
+  // 두 GPS 좌표 사이의 구면 거리 (Haversine 공식, km)
+  double _haversineKm(LatLng a, LatLng b) {
+    const r = 6371.0;
+    final dLat = _toRad(b.latitude - a.latitude);
+    final dLon = _toRad(b.longitude - a.longitude);
+    final h = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRad(a.latitude)) *
+            cos(_toRad(b.latitude)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    return r * 2 * asin(sqrt(h));
+  }
+
+  double _toRad(double deg) => deg * pi / 180;
+
+  // finish() 이후 결과 화면/저장에서 사용
+  RunningSession buildSession() {
+    final s = state;
+    return RunningSession(
+      startedAt: s.startedAt ?? DateTime.now(),
+      endedAt: s.endedAt ?? DateTime.now(),
+      elapsed: Duration(seconds: s.elapsedSeconds),
+      distanceKm: s.distanceKm,
+      avgPaceSecPerKm:
+          s.distanceKm == 0 ? 0.0 : s.elapsedSeconds / s.distanceKm,
+      points: List.unmodifiable(s.points),
+      caloriesKcal: s.caloriesKcal,
+      altitudeM: s.altitudeM,
+      bpm: s.bpm,
+      cadenceSpm: s.cadenceSpm,
+    );
+  }
+
+  // 결과 화면 진입 시 한 번 호출. 실패해도 화면은 그대로 보이고
+  // saveError 가 채워져 UI 에서 재시도 버튼을 띄울 수 있다.
+  //
+  // challengeId 는 호출자(결과 화면) 가 state.challengeId 를 직접 읽어 넘겨준다.
+  // state 의 challengeId 값은 시작 진입점에서 세팅됐고, 종료 시점까지 보존된다.
+  Future<void> saveCurrentSession({
+    required String title,
+    required String trackImageUrl,
+    int? courseId,
+    int? courseDraftId,
+    int? challengeId,
+  }) async {
+    // 옛 세션을 식별하는 키. await 동안 사용자가 결과 화면을 닫고
+    // 새 세션을 시작해 setSessionContext 가 호출되면 startedAt 이 바뀐다.
+    // finally 가 늦게 실행될 때 이 키로 "내 세션이 아직 그대로인지" 를 확인해
+    // 새 세션의 컨텍스트를 옛 finally 가 null 로 덮어쓰는 race 를 막는다.
+    final mySessionKey = state.startedAt;
+
+    state = state.copyWith(isSaving: true, saveError: null);
+    try {
+      await _repository.save(
+        session: buildSession(),
+        title: title,
+        trackImageUrl: trackImageUrl,
+        courseId: courseId,
+        courseDraftId: courseDraftId,
+        challengeId: challengeId,
+      );
+      state = state.copyWith(isSaving: false);
+    } on ApiException catch (e) {
+      state = state.copyWith(isSaving: false, saveError: e);
+      rethrow;
+    } finally {
+      // 성공/실패 무관: 종료 API 호출이 한 번 시도된 직후 컨텍스트 ID 3개를 리셋.
+      //
+      // 직전 챌린지 러닝의 잔여가 다음 세션으로 흘러가지 않도록 보수적 가드.
+      // 측정 데이터(거리/시간/points 등) 는 결과 화면이 계속 표시해야 하므로 이 메서드에서 건드리지 않는다.
+      //
+      // 단, await 동안 새 세션이 시작되어 startedAt 이 달라졌다면 그 새 세션의
+      // 컨텍스트(challengeId/courseId/courseDraftId) 를 옛 finally 가 덮어쓰지 않도록 스킵.
+      if (state.startedAt == mySessionKey) {
+        _resetSessionContext();
+      }
+    }
+  }
+
+  // 세션 컨텍스트 3개 ID 만 null 로 리셋.
+  // setSessionContext(null, null, null) 와 동등하지만 의도가 호출처에 더 명시적으로 드러나도록 이름 분리.
+  void _resetSessionContext() {
+    setSessionContext(
+      challengeId: null,
+      courseId: null,
+      courseDraftId: null,
+    );
+  }
+
+  // 카운트다운 화면에서 한 번 호출 — 시작 API 발사 후 응답 nodes 를 state 에 보관.
+  //
+  // fail-open 정책:
+  //   네트워크 실패가 나도, 응답을 모델로 변환하다 예기치 못한 예외가 터져도
+  //   예외를 위로 던지지 않는다. referenceNodes 만 빈 채로 둘 뿐
+  //   GPS 측정 / 종료 저장은 정상 진행된다. 사용자 입장에선 "참조 경로가 안 보일 뿐".
+  //
+  // 호출자(카운트다운 화면)는 이 Future 를 await 하지 않고 흘려보내므로,
+  // 여기서 예외가 빠져나가면 Unhandled Future Error 가 되어 콘솔에서도 묻혀버린다.
+  // 그래서 ApiException 외의 모든 예외도 같은 fail-open 으로 흡수하되 메시지를 갈라 둔다.
+  //
+  // courseId / courseDraftId 는 현재 state 값을 그대로 사용 —
+  // 추후 코스/드래프트 진입 화면이 router 단계에서 state.copyWith(courseId: X) 로 박아두면
+  // 여기서 자동으로 따라간다.
+  Future<void> beginSessionFromServer() async {
+    try {
+      final response = await _repository.startSession(
+        courseId: state.courseId,
+        courseDraftId: state.courseDraftId,
+      );
+      state = state.copyWith(referenceNodes: response.nodes);
+      // 시트가 이미 열려 있어 컨트롤러가 살아있는 경우엔 즉시 그려준다.
+      // 컨트롤러가 없으면 다음 setMapController(R1) 진입 시점에 자동으로 그려진다.
+      if (mapController != null && response.nodes.length >= 2) {
+        _drawReferenceRoute(response.nodes);
+      }
+    } on ApiException catch (e) {
+      // 예상 가능한 네트워크/HTTP 실패. 측정은 그대로 진행.
+      debugPrint('run/start 실패 (fail-open): ${e.message}');
+    } catch (e, st) {
+      // 예기치 못한 예외 — 응답 형태가 스펙과 다를 때 발생하는 TypeError 등.
+      // BE 가 스펙대로 내려오면 이 경로는 안 탄다. 만약 탔다면 응답이 깨진 사건이므로
+      // 스택트레이스까지 같이 남겨 운영에서 원인을 추적할 수 있게 한다.
+      // 측정 흐름은 같은 fail-open 정책으로 보호.
+      debugPrint('run/start 처리 중 예기치 못한 오류 (fail-open): $e\n$st');
+    }
+  }
+}

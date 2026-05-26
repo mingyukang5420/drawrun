@@ -1,0 +1,76 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- 백그라운드 위치 권한 (Android 10 = API 29 이상에서 별도 권한으로 분리됨).
+         사용자가 "항상 허용" 을 선택해야 부여된다. 앱 정책상 "사용 중에만" 만 받아도
+         포그라운드 서비스가 떠 있다면 측정 자체는 가능하다 (서비스 = 포그라운드 취급). -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+
+    <!-- 포그라운드 서비스 자체를 띄울 권한 (Android 9 이상 필수). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
+    <!-- Android 14 (API 34) 부터 포그라운드 서비스가 어떤 타입인지 권한으로 선언해야 함.
+         위치 측정을 하는 서비스라면 location 타입을 반드시 명시. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+
+    <!-- 화면이 꺼진 상태에서도 CPU 가 잠들지 않도록 살짝 깨워 두는 권한.
+         GPS 콜백이 정상적으로 들어오게 하는 보조 장치. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- Android 10 (API 29) 부터 step counter 사용 시 사용자 동의가 필요한 런타임 권한.
+     이 권한이 없으면 pedometer 가 stream 을 열어도 곧장 PERMISSION_DENIED 로 닫힌다. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+
+    <application
+        android:label="running"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- geolocator 패키지가 백그라운드 측정용으로 띄우는 서비스.
+             foregroundServiceType="location" 이 없으면 Android 14+ 에서
+             서비스 시작 자체가 SecurityException 으로 거부된다. -->
+        <service
+            android:name="com.baseflow.geolocator.GeolocatorLocationService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>
