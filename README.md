@@ -38,14 +38,18 @@ AI가 생성한 그림 모양의 경로를 실제로 달리며 완성하고, 내
 
 ## 🖼️ 서비스 화면
 
-#### 1. 메인 진입 화면
-<img width="874" height="1864" alt="image" src="https://github.com/user-attachments/assets/fd643ebd-49c7-46d9-ab79-1350cf215d4e" />
-
-#### 2. 랭킹 조회 화면
-<img width="824" height="1824" alt="image" src="https://github.com/user-attachments/assets/8a5992a6-d4b9-44c6-a596-81b6c652302e" />
-
-#### 3. 코스 에디터
-<img width="874" height="1864" alt="image" src="https://github.com/user-attachments/assets/84f91ba7-b1e5-4bff-949b-fd78373053ba" />
+<table>
+  <tr>
+    <th>메인 진입</th>
+    <th>랭킹 조회</th>
+    <th>코스 에디터</th>
+  </tr>
+  <tr>
+    <td align="center"><img width="250" alt="DrawRun 메인 진입 화면" src="https://github.com/user-attachments/assets/fd643ebd-49c7-46d9-ab79-1350cf215d4e" /></td>
+    <td align="center"><img width="250" alt="DrawRun 랭킹 조회 화면" src="https://github.com/user-attachments/assets/8a5992a6-d4b9-44c6-a596-81b6c652302e" /></td>
+    <td align="center"><img width="250" alt="DrawRun 코스 에디터 화면" src="https://github.com/user-attachments/assets/84f91ba7-b1e5-4bff-949b-fd78373053ba" /></td>
+  </tr>
+</table>
 
 
 ---
